@@ -16,7 +16,7 @@ import {
 import { useModelStore } from '../../../store/useModelStore';
 import { DropdownButton } from '../../shared/Dropdown';
 import type { DropdownItem } from '../../shared/Dropdown';
-import type { ConceptualData, LayoutData, PhysicalData } from '../../../model/schemas';
+import type { ConceptualData, PhysicalData } from '../../../model/schemas';
 import { ExampleDialog } from '../../ui/ExampleDialog';
 import { FullDDLDialog } from '../../ui/FullDDLDialog';
 import { AIDialog } from '../../ui/AIDialog';

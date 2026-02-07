@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode, Check } from 'lucide-react';
+import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
 import { FormField, TextInput, ColorPicker } from './FormComponents';
@@ -22,7 +22,6 @@ const DATA_TYPES = [
 
 export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showDDLDialog, setShowDDLDialog] = useState(false);
   const updateTable = useModelStore(state => state.updateTable);
   const deleteTable = useModelStore(state => state.deleteTable);
@@ -34,11 +33,6 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
 
   const isDark = colorMode === 'dark';
   const parentEntity = entities.find(e => e.id === table.entityId);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
 
   const handleGenerateDDL = () => {
     setShowMenu(false);
@@ -427,33 +421,6 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         </div>
       </div>
 
-      {/* Toast notification */}
-      {toastMessage && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: isDark ? '#22c55e' : '#16a34a',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            zIndex: 9999,
-            animation: 'fadeInUp 0.2s ease-out',
-          }}
-        >
-          <Check size={16} />
-          {toastMessage}
-        </div>
-      )}
-      
       <DDLDialog
         isOpen={showDDLDialog}
         table={table}

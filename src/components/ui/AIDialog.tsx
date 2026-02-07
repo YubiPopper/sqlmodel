@@ -228,42 +228,45 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
             }}>
               <Sparkles size={22} color="white" />
             </div>
-            <div>
-              <h2 style={{ 
-                margin: 0, 
-                fontSize: '18px', 
-                fontWeight: 600,
-                color: isDark ? '#e6edf3' : '#1f2937',
-              }}>
-                AI Data Modeler
-              </h2>
-              <p style={{ 
-                margin: 0, 
-                fontSize: '13px', 
-                color: isDark ? '#8b949e' : '#6b7280',
-              }}>
-                Generate and enhance data models with AI
-              </p>
-            </div>
+            <h2 style={{ 
+              margin: 0, 
+              fontSize: '18px', 
+              fontWeight: 600,
+              color: isDark ? '#e6edf3' : '#1f2937',
+            }}>
+              AI Data Modeler
+            </h2>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               onClick={onOpenSettings}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '36px',
-                height: '36px',
+                gap: '6px',
+                padding: '8px 12px',
                 background: isDark ? '#21262d' : '#f3f4f6',
                 border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
                 borderRadius: '8px',
                 cursor: 'pointer',
                 color: isDark ? '#8b949e' : '#6b7280',
+                fontSize: '13px',
+                fontWeight: 500,
+                transition: 'all 0.15s ease',
               }}
               title="AI Settings"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+                e.currentTarget.style.color = isDark ? '#e6edf3' : '#1f2937';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+                e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+              }}
             >
-              <Settings size={18} />
+              <Settings size={16} />
+              Settings
             </button>
             <button
               onClick={onClose}
@@ -278,6 +281,16 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                 borderRadius: '8px',
                 cursor: 'pointer',
                 color: isDark ? '#8b949e' : '#6b7280',
+                transition: 'all 0.15s ease',
+              }}
+              title="Close"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+                e.currentTarget.style.color = isDark ? '#e6edf3' : '#1f2937';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
               }}
             >
               <X size={20} />
