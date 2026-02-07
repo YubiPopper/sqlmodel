@@ -10,7 +10,11 @@ import {
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 
-export const ModelTree: React.FC = () => {
+interface ModelTreeProps {
+  searchQuery?: string;
+}
+
+export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const {
     entities,
     tables,
@@ -33,6 +37,50 @@ export const ModelTree: React.FC = () => {
     const groupedIds = new Set(entityGroups.flatMap(g => g.entityIds));
     return entities.filter(e => !groupedIds.has(e.id));
   }, [entities, entityGroups]);
+
+  // Physical View - Filter tables and entities based on search
+  const filteredTablesAndEntities = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    
+    if (!query) {
+      return { tables, entities };
+    }
+    
+    // Filter tables by name
+    const matchingTables = tables.filter(t => 
+      t.name.toLowerCase().includes(query)
+    );
+    
+    // Get entities that either match by name or have matching tables
+    const matchingEntityIds = new Set<string>();
+    matchingTables.forEach(t => {
+      if (t.entityId) matchingEntityIds.add(t.entityId);
+    });
+    entities.forEach(e => {
+      if (e.name.toLowerCase().includes(query)) {
+        matchingEntityIds.add(e.id);
+      }
+    });
+    
+    const matchingEntities = entities.filter(e => matchingEntityIds.has(e.id));
+    
+    return { 
+      tables: matchingTables, 
+      entities: matchingEntities 
+    };
+  }, [tables, entities, searchQuery]);
+
+  // Group tables by entity
+  const entitiesWithTables = useMemo(() => {
+    return filteredTablesAndEntities.entities.map(entity => ({
+      entity,
+      tables: filteredTablesAndEntities.tables.filter(t => t.entityId === entity.id),
+    }));
+  }, [filteredTablesAndEntities]);
+
+  const orphanTables = useMemo(() => {
+    return filteredTablesAndEntities.tables.filter(t => !t.entityId);
+  }, [filteredTablesAndEntities]);
 
   const toggleGroupExpand = (id: string) => {
     setExpandedGroups(prev => {
@@ -348,7 +396,7 @@ export const ModelTree: React.FC = () => {
     );
   }
 
-  // Physical View - Show Tables
+  // Physical View - Show Tables Grouped by Entity
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
       {tables.length === 0 && (
@@ -365,20 +413,76 @@ export const ModelTree: React.FC = () => {
         </div>
       )}
 
-      {tables.map(table => {
-        const entity = entities.find(e => e.id === table.entityId);
+      {searchQuery && entitiesWithTables.length === 0 && orphanTables.length === 0 && tables.length > 0 && (
+        <div style={{ 
+          padding: '32px 16px', 
+          textAlign: 'center', 
+          color: isDark ? '#8b949e' : '#9ca3af' 
+        }}>
+          <div style={{ fontSize: '13px' }}>No matches found</div>
+        </div>
+      )}
+
+      {/* Entities with their tables */}
+      {entitiesWithTables.map(({ entity, tables: entityTables }) => {
+        const isEntityExpanded = expandedEntities.has(entity.id);
+        
         return (
-          <TreeItem
-            key={table.id}
-            icon={<Table size={14} />}
-            label={table.name}
-            secondaryLabel={entity?.name}
-            selected={selectedId === table.id}
-            onClick={() => setSelected(table.id)}
-            badge={table.attributes.length}
-          />
+          <div key={entity.id}>
+            <TreeItem
+              icon={<Box size={14} />}
+              label={entity.name}
+              secondaryLabel={entity.description}
+              selected={selectedId === entity.id}
+              onClick={() => setSelected(entity.id)}
+              onExpand={() => toggleEntityExpand(entity.id)}
+              expanded={isEntityExpanded}
+              hasChildren={entityTables.length > 0}
+              badge={entityTables.length}
+            />
+            
+            {isEntityExpanded && entityTables.map(table => (
+              <TreeItem
+                key={table.id}
+                icon={<Table size={14} />}
+                label={table.name}
+                selected={selectedId === table.id}
+                onClick={() => setSelected(table.id)}
+                level={1}
+                badge={table.attributes.length}
+              />
+            ))}
+          </div>
         );
       })}
+
+      {/* Orphan tables (no entity) */}
+      {orphanTables.length > 0 && (
+        <>
+          {entitiesWithTables.length > 0 && (
+            <div style={{
+              padding: '8px 20px 4px',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: isDark ? '#8b949e' : '#9ca3af',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              Unlinked Tables
+            </div>
+          )}
+          {orphanTables.map(table => (
+            <TreeItem
+              key={table.id}
+              icon={<Table size={14} />}
+              label={table.name}
+              selected={selectedId === table.id}
+              onClick={() => setSelected(table.id)}
+              badge={table.attributes.length}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 };

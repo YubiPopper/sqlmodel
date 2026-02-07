@@ -149,35 +149,136 @@ export const enhanceModel = async (
   config: AIServiceConfig,
   onProgress?: ProgressCallback
 ): Promise<AIGeneratedModel> => {
-  onProgress?.('Analyzing current model...', `Found ${currentModel.entities.length} entities`);
+  onProgress?.('Analyzing current model...', `Found ${currentModel.entities.length} entities, ${currentModel.tables.length} tables`);
   
-  const prompt = `Given the current data model, enhance it based on the user's request.
+  // Build detailed table info including PKs for FK references
+  const tableDetails = currentModel.tables.map(t => {
+    const pk = t.attributes.find(a => a.isPrimaryKey);
+    return {
+      name: t.name,
+      entityName: currentModel.entities.find(e => e.id === t.entityId)?.name || null,
+      primaryKey: pk ? { name: pk.name, type: pk.dataType } : null,
+      columns: t.attributes.map(a => ({
+        name: a.name,
+        type: a.dataType,
+        isPK: a.isPrimaryKey,
+        isFK: a.isForeignKey
+      }))
+    };
+  });
 
-CURRENT MODEL:
-Entities: ${JSON.stringify(currentModel.entities.map(e => ({ name: e.name, description: e.description })), null, 2)}
-Relationships: ${JSON.stringify(currentModel.relationships.map(r => ({
+  const prompt = `You are enhancing an existing data model. Generate NEW entities, relationships, tables with FULL column definitions, and foreign keys.
+
+=== CURRENT MODEL ===
+
+ENTITIES:
+${JSON.stringify(currentModel.entities.map(e => ({ id: e.id, name: e.name, description: e.description })), null, 2)}
+
+RELATIONSHIPS:
+${JSON.stringify(currentModel.relationships.map(r => ({
   from: currentModel.entities.find(e => e.id === r.fromEntityId)?.name,
   to: currentModel.entities.find(e => e.id === r.toEntityId)?.name,
-  label: r.label
-})), null, 2)}
-Tables: ${JSON.stringify(currentModel.tables.map(t => ({
-  name: t.name,
-  columns: t.attributes.map(a => `${a.name} (${a.dataType})`)
+  label: r.label,
+  cardinality: `${r.fromCardinality} to ${r.toCardinality}`
 })), null, 2)}
 
-USER REQUEST: ${enhancementRequest}
+TABLES (with columns):
+${JSON.stringify(tableDetails, null, 2)}
 
-Analyze if this enhancement requires OLTP patterns or Analytics/Star Schema patterns.
+=== USER REQUEST ===
+${enhancementRequest}
 
-Generate ONLY the NEW or MODIFIED elements that should be added/changed. Do not include existing entities/tables unless they are being modified.
+=== INSTRUCTIONS ===
 
-Respond with a JSON object containing:
-- entities: Array of NEW conceptual entities to add
-- relationships: Array of NEW relationships to add (use placeholder entity names that match existing or new entity names)
-- tables: Array of NEW physical tables to add
-- foreignKeys: Array of NEW foreign keys to add
+1. CREATE NEW ENTITIES for each new concept (e.g., "Dim Borrower", "Fact Loan")
+2. CREATE RELATIONSHIPS linking new entities to existing entities
+3. CREATE TABLES with FULL column definitions - EVERY table must have:
+   - A primary key column (usually "id" with type "uuid" or "bigint")
+   - All relevant data columns with appropriate types
+   - FK columns for relationships to other tables
 
-IMPORTANT: Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
+4. For STAR SCHEMA / ANALYTICS:
+   - Dimension tables (dim_*): Include surrogate key, natural key, descriptive attributes, SCD fields
+   - Fact tables (fact_*): Include surrogate key, dimension keys (FKs), measures, timestamps
+   - Link fact tables to dimension tables AND to existing OLTP tables if referenced
+
+5. CREATE FOREIGN KEYS for every table relationship
+
+=== REQUIRED OUTPUT FORMAT ===
+
+{
+  "entities": [
+    {
+      "name": "Dim Borrower",
+      "description": "Dimension table for borrower analytics with historical tracking"
+    }
+  ],
+  "relationships": [
+    {
+      "fromEntityId": "Fact Loan",
+      "toEntityId": "Dim Borrower",
+      "label": "references",
+      "fromCardinality": "0..*",
+      "toCardinality": "1"
+    },
+    {
+      "fromEntityId": "Dim Borrower",
+      "toEntityId": "Borrower",
+      "label": "derived from",
+      "fromCardinality": "1",
+      "toCardinality": "1"
+    }
+  ],
+  "tables": [
+    {
+      "name": "dim_borrowers",
+      "entityId": "Dim Borrower",
+      "attributes": [
+        { "name": "borrower_key", "dataType": "bigint", "isPrimaryKey": true, "isNullable": false, "isForeignKey": false },
+        { "name": "borrower_id", "dataType": "uuid", "isPrimaryKey": false, "isNullable": false, "isForeignKey": true },
+        { "name": "name", "dataType": "varchar", "isPrimaryKey": false, "isNullable": false, "isForeignKey": false },
+        { "name": "email", "dataType": "varchar", "isPrimaryKey": false, "isNullable": true, "isForeignKey": false },
+        { "name": "valid_from", "dataType": "timestamp", "isPrimaryKey": false, "isNullable": false, "isForeignKey": false },
+        { "name": "valid_to", "dataType": "timestamp", "isPrimaryKey": false, "isNullable": true, "isForeignKey": false },
+        { "name": "is_current", "dataType": "boolean", "isPrimaryKey": false, "isNullable": false, "isForeignKey": false }
+      ]
+    },
+    {
+      "name": "fact_loans",
+      "entityId": "Fact Loan",
+      "attributes": [
+        { "name": "loan_key", "dataType": "bigint", "isPrimaryKey": true, "isNullable": false, "isForeignKey": false },
+        { "name": "borrower_key", "dataType": "bigint", "isPrimaryKey": false, "isNullable": false, "isForeignKey": true },
+        { "name": "book_key", "dataType": "bigint", "isPrimaryKey": false, "isNullable": false, "isForeignKey": true },
+        { "name": "date_key", "dataType": "int", "isPrimaryKey": false, "isNullable": false, "isForeignKey": true },
+        { "name": "loan_count", "dataType": "int", "isPrimaryKey": false, "isNullable": false, "isForeignKey": false },
+        { "name": "days_borrowed", "dataType": "int", "isPrimaryKey": false, "isNullable": true, "isForeignKey": false }
+      ]
+    }
+  ],
+  "foreignKeys": [
+    {
+      "fromTableId": "fact_loans",
+      "toTableId": "dim_borrowers",
+      "fromAttributeId": "borrower_key",
+      "toAttributeId": "borrower_key",
+      "fromCardinality": "0..*",
+      "toCardinality": "1"
+    }
+  ]
+}
+
+CRITICAL REQUIREMENTS:
+- Every table MUST have an "attributes" array with at least 4 columns including a primary key
+- Tables with empty attributes arrays are INVALID - every table needs column definitions
+- Every table MUST have entityId matching an entity name (new or existing)
+- Use entity NAMES (not IDs) for entityId and relationship references
+- Dimension tables should have 5-8 columns (surrogate key, natural key, attributes, SCD fields)
+- Fact tables should have 5-10 columns (surrogate key, dimension FKs, measures)
+- Foreign keys must reference actual column names in the tables
+- DO NOT return tables without attributes - this will cause the model to fail
+
+Respond ONLY with valid JSON, no markdown or explanations.`;
 
   onProgress?.('Calling AI...', 'Generating enhancements');
   const response = await callAI(prompt, config);
@@ -185,7 +286,7 @@ IMPORTANT: Respond ONLY with the JSON object, no markdown code blocks or explana
   onProgress?.('Parsing response...', 'Merging with existing model');
   const result = parseEnhancementResponse(response, currentModel);
   
-  onProgress?.('Finalizing...', `Adding ${result.entities.length} entities and ${result.tables.length} tables`);
+  onProgress?.('Finalizing...', `Adding ${result.entities.length} entities, ${result.tables.length} tables, ${result.foreignKeys.length} foreign keys`);
   return result;
 };
 
@@ -307,6 +408,10 @@ function parseModelResponse(response: string): AIGeneratedModel {
   try {
     // Clean up response - remove markdown code blocks if present
     let cleaned = response.trim();
+    
+    console.log('[AI] Raw response length:', response.length);
+    console.log('[AI] Raw response (first 500 chars):', response.slice(0, 500));
+    
     if (cleaned.startsWith('```json')) {
       cleaned = cleaned.slice(7);
     } else if (cleaned.startsWith('```')) {
@@ -319,6 +424,13 @@ function parseModelResponse(response: string): AIGeneratedModel {
 
     const parsed = JSON.parse(cleaned);
     
+    console.log('[AI] Raw parsed tables:', JSON.stringify(parsed.tables?.map((t: any) => ({ 
+      name: t.name, 
+      entityId: t.entityId,
+      attrCount: t.attributes?.length || 0,
+      firstAttr: t.attributes?.[0]?.name
+    })), null, 2));
+    
     // Ensure all IDs are valid UUIDs
     const entities: Entity[] = (parsed.entities || []).map((e: any) => ({
       id: e.id || uuidv4(),
@@ -329,6 +441,7 @@ function parseModelResponse(response: string): AIGeneratedModel {
     const entityIdMap = new Map<string, string>();
     parsed.entities?.forEach((e: any, i: number) => {
       entityIdMap.set(e.id || e.name, entities[i].id);
+      entityIdMap.set(e.name, entities[i].id); // Also map by name
     });
 
     const relationships: Relationship[] = (parsed.relationships || []).map((r: any) => ({
@@ -439,32 +552,157 @@ function parseEnhancementResponse(
 ): AIGeneratedModel {
   const parsed = parseModelResponse(response);
   
+  console.log('[AI] Parsed response:', { 
+    entities: parsed.entities.length, 
+    tables: parsed.tables.length,
+    tableDetails: parsed.tables.map(t => ({ name: t.name, attrCount: t.attributes.length, entityId: t.entityId }))
+  });
+  
   // Build name-to-id maps for existing entities/tables
   const entityNameToId = new Map<string, string>();
   currentModel.entities.forEach(e => entityNameToId.set(e.name.toLowerCase(), e.id));
   
   const tableNameToId = new Map<string, string>();
-  currentModel.tables.forEach(t => tableNameToId.set(t.name.toLowerCase(), t.id));
-
-  // Update relationship references to use existing entity IDs where applicable
-  parsed.relationships.forEach(r => {
-    const fromEntity = parsed.entities.find(e => e.id === r.fromEntityId);
-    const toEntity = parsed.entities.find(e => e.id === r.toEntityId);
-    
-    if (fromEntity) {
-      const existingId = entityNameToId.get(fromEntity.name.toLowerCase());
-      if (existingId) r.fromEntityId = existingId;
+  const tableIdToInfo = new Map<string, { tableId: string; pkAttrId: string }>();
+  currentModel.tables.forEach(t => {
+    tableNameToId.set(t.name.toLowerCase(), t.id);
+    const pkAttr = t.attributes.find(a => a.isPrimaryKey);
+    if (pkAttr) {
+      tableIdToInfo.set(t.id, { tableId: t.id, pkAttrId: pkAttr.id });
     }
+  });
+
+  // Build a map of new entity names to their IDs
+  const newEntityNameToId = new Map<string, string>();
+  parsed.entities.forEach(e => newEntityNameToId.set(e.name.toLowerCase(), e.id));
+
+  // Combine both maps for relationship resolution
+  const allEntityNameToId = new Map([...entityNameToId, ...newEntityNameToId]);
+
+  // Update relationship references to use proper entity IDs
+  // AI may return entity names instead of IDs, so we need to resolve them
+  const resolvedRelationships = parsed.relationships.map(r => {
+    let fromId = r.fromEntityId || '';
+    let toId = r.toEntityId || '';
+    
+    // Check if fromEntityId is actually a name
+    if (fromId) {
+      const fromByName = allEntityNameToId.get(fromId.toLowerCase());
+      if (fromByName) fromId = fromByName;
+    }
+    
+    // Check if there's an entity in parsed results with this ID
+    const fromEntity = parsed.entities.find(e => e.id === r.fromEntityId);
+    if (fromEntity) {
+      // Use existing entity ID if name matches
+      const existingId = entityNameToId.get(fromEntity.name.toLowerCase());
+      if (existingId) fromId = existingId;
+      else fromId = fromEntity.id; // New entity, use its ID
+    }
+    
+    // Check if toEntityId is actually a name
+    if (toId) {
+      const toByName = allEntityNameToId.get(toId.toLowerCase());
+      if (toByName) toId = toByName;
+    }
+    
+    // Check if there's an entity in parsed results with this ID
+    const toEntity = parsed.entities.find(e => e.id === r.toEntityId);
     if (toEntity) {
       const existingId = entityNameToId.get(toEntity.name.toLowerCase());
-      if (existingId) r.toEntityId = existingId;
+      if (existingId) toId = existingId;
+      else toId = toEntity.id;
     }
+    
+    return {
+      ...r,
+      id: uuidv4(), // Always generate new ID for relationships
+      fromEntityId: fromId,
+      toEntityId: toId,
+    };
   });
 
   // Filter out entities that already exist (by name)
   const newEntities = parsed.entities.filter(e => 
     !entityNameToId.has(e.name.toLowerCase())
   );
+
+  // Build new table name to id map
+  const newTableNameToId = new Map<string, string>();
+  parsed.tables.forEach(t => newTableNameToId.set(t.name.toLowerCase(), t.id));
+  
+  // Resolve entityId for tables - map entity names to actual entity IDs
+  parsed.tables.forEach(t => {
+    if (t.entityId) {
+      // First try to find in new entities
+      const newEntityId = newEntityNameToId.get(t.entityId.toLowerCase());
+      // Then try existing entities
+      const existingEntityId = entityNameToId.get(t.entityId.toLowerCase());
+      
+      if (newEntityId) {
+        t.entityId = newEntityId;
+      } else if (existingEntityId) {
+        t.entityId = existingEntityId;
+      }
+      // If neither found, keep as is (might be a UUID already)
+    }
+  });
+  
+  console.log('[AI] After entity resolution:', parsed.tables.map(t => ({ name: t.name, entityId: t.entityId })));
+
+  // Update FK references to use proper table/attribute IDs
+  const resolvedForeignKeys = parsed.foreignKeys.map(fk => {
+    let fromTableId = fk.fromTableId || '';
+    let toTableId = fk.toTableId || '';
+    let fromAttrId = fk.fromAttributeId || '';
+    let toAttrId = fk.toAttributeId || '';
+    
+    // Resolve table IDs (could be names)
+    const fromTableStr = (fk.fromTableId || '').toLowerCase();
+    const toTableStr = (fk.toTableId || '').toLowerCase();
+    const existingFromTable = fromTableStr ? tableNameToId.get(fromTableStr) : undefined;
+    const existingToTable = toTableStr ? tableNameToId.get(toTableStr) : undefined;
+    const newFromTable = fromTableStr ? newTableNameToId.get(fromTableStr) : undefined;
+    const newToTable = toTableStr ? newTableNameToId.get(toTableStr) : undefined;
+    
+    if (existingFromTable) fromTableId = existingFromTable;
+    else if (newFromTable) fromTableId = newFromTable;
+    
+    if (existingToTable) toTableId = existingToTable;
+    else if (newToTable) toTableId = newToTable;
+    
+    // Try to find attribute IDs
+    const allTables = [...currentModel.tables, ...parsed.tables];
+    const fromTable = allTables.find(t => t.id === fromTableId || (fromTableStr && t.name.toLowerCase() === fromTableStr));
+    const toTable = allTables.find(t => t.id === toTableId || (toTableStr && t.name.toLowerCase() === toTableStr));
+    
+    const fromAttrStr = (fk.fromAttributeId || '').toLowerCase();
+    const toAttrStr = (fk.toAttributeId || '').toLowerCase();
+    
+    if (fromTable) {
+      fromTableId = fromTable.id;
+      const attr = fromTable.attributes.find(a => 
+        a.id === fk.fromAttributeId || a.name === fk.fromAttributeId || (fromAttrStr && a.name.toLowerCase() === fromAttrStr)
+      );
+      if (attr) fromAttrId = attr.id;
+    }
+    if (toTable) {
+      toTableId = toTable.id;
+      const attr = toTable.attributes.find(a => 
+        a.id === fk.toAttributeId || a.name === fk.toAttributeId || (toAttrStr && a.name.toLowerCase() === toAttrStr) || a.isPrimaryKey
+      );
+      if (attr) toAttrId = attr.id;
+    }
+    
+    return {
+      ...fk,
+      id: uuidv4(),
+      fromTableId,
+      toTableId,
+      fromAttributeId: fromAttrId,
+      toAttributeId: toAttrId,
+    };
+  });
 
   // Filter out tables that already exist (by name)
   const newTables = parsed.tables.filter(t => 
@@ -473,9 +711,9 @@ function parseEnhancementResponse(
 
   return {
     entities: newEntities,
-    relationships: parsed.relationships,
+    relationships: resolvedRelationships,
     tables: newTables,
-    foreignKeys: parsed.foreignKeys,
+    foreignKeys: resolvedForeignKeys,
   };
 }
 

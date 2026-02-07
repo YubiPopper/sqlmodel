@@ -66,7 +66,7 @@ export const LeftSidebar: React.FC = () => {
       />
 
       {/* Tree View */}
-      <ModelTree />
+      <ModelTree searchQuery={searchQuery} />
 
       {/* Quick Actions (bottom) */}
       <QuickActions />

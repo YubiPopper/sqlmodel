@@ -201,16 +201,26 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '36px',
-              height: '36px',
+              width: '40px',
+              height: '40px',
               background: 'transparent',
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
               color: isDark ? '#8b949e' : '#6b7280',
+              transition: 'all 0.15s ease',
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+              e.currentTarget.style.color = isDark ? '#e6edf3' : '#1f2937';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+            }}
+            title="Close"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
         </div>
 

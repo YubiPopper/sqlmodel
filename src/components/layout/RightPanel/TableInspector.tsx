@@ -1,10 +1,211 @@
-import React, { useState } from 'react';
-import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import ReactFlow, { 
+  ReactFlowProvider,
+  useReactFlow,
+  Handle,
+  Position,
+} from 'reactflow';
+import type { Node, Edge } from 'reactflow';
+import 'reactflow/dist/style.css';
+import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode, ChevronDown, ChevronRight } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
 import { FormField, TextInput, ColorPicker } from './FormComponents';
 import type { PhysicalTable, Attribute } from '../../../model/schemas';
 import { DDLDialog } from '../../ui/DDLDialog';
+
+// Mini table node for lineage view
+const LineageTableNode = ({ data }: { data: { table: PhysicalTable; isCenter: boolean; colorMode: string } }) => {
+  const isDark = data.colorMode === 'dark';
+  const isCenter = data.isCenter;
+  
+  return (
+    <div style={{
+      background: isDark ? '#161b22' : '#ffffff',
+      border: `1.5px solid ${isCenter ? '#22c55e' : (isDark ? '#30363d' : '#e5e7eb')}`,
+      borderRadius: '4px',
+      padding: '3px 6px',
+      boxShadow: isCenter 
+        ? (isDark ? '0 0 6px rgba(34, 197, 94, 0.3)' : '0 0 6px rgba(34, 197, 94, 0.2)')
+        : 'none',
+    }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0, width: 1, height: 1 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0, width: 1, height: 1 }} />
+      <div style={{
+        fontSize: '8px',
+        fontWeight: 600,
+        color: isCenter ? '#22c55e' : (isDark ? '#e6edf3' : '#374151'),
+        fontFamily: 'ui-monospace, monospace',
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+      }}>
+        {data.table.name}
+      </div>
+    </div>
+  );
+};
+
+const lineageNodeTypes = {
+  lineageTable: LineageTableNode,
+};
+
+// Lineage Graph Component
+interface LineageGraphProps {
+  table: PhysicalTable;
+  tables: PhysicalTable[];
+  outgoingFKs: any[];
+  incomingFKs: any[];
+  colorMode: string;
+  onSelectTable: (tableId: string) => void;
+}
+
+const LineageGraphInner: React.FC<LineageGraphProps> = ({ 
+  table, 
+  tables, 
+  outgoingFKs, 
+  incomingFKs, 
+  colorMode,
+  onSelectTable 
+}) => {
+  const { fitView } = useReactFlow();
+  const isDark = colorMode === 'dark';
+  
+  // Build nodes and edges for the mini graph
+  const { nodes, edges } = useMemo(() => {
+    const nodeList: Node[] = [];
+    const edgeList: Edge[] = [];
+    
+    // Collect unique incoming/outgoing tables first to determine layout
+    const incomingTableMap = new Map<string, { table: PhysicalTable; fk: any }>();
+    incomingFKs.forEach((fk) => {
+      const sourceTable = tables.find(t => t.id === fk.fromTableId);
+      if (sourceTable && sourceTable.id !== table.id && !incomingTableMap.has(sourceTable.id)) {
+        incomingTableMap.set(sourceTable.id, { table: sourceTable, fk });
+      }
+    });
+    
+    const outgoingTableMap = new Map<string, { table: PhysicalTable; fk: any }>();
+    outgoingFKs.forEach((fk) => {
+      const targetTable = tables.find(t => t.id === fk.toTableId);
+      if (targetTable && targetTable.id !== table.id && !outgoingTableMap.has(targetTable.id)) {
+        outgoingTableMap.set(targetTable.id, { table: targetTable, fk });
+      }
+    });
+    
+    const hasIncoming = incomingTableMap.size > 0;
+    const hasOutgoing = outgoingTableMap.size > 0;
+    
+    // Calculate layout positions - wider spacing for long names
+    const maxSideNodes = Math.max(incomingTableMap.size, outgoingTableMap.size, 1);
+    const nodeHeight = 20;
+    const nodeSpacing = 8;
+    const totalHeight = maxSideNodes * nodeHeight + (maxSideNodes - 1) * nodeSpacing;
+    const centerY = totalHeight / 2 - nodeHeight / 2;
+    
+    // Determine center X based on whether we have incoming/outgoing - more spacing
+    const centerX = hasIncoming && hasOutgoing ? 150 : (hasIncoming ? 180 : (hasOutgoing ? 80 : 120));
+    
+    // Center node (current table)
+    nodeList.push({
+      id: table.id,
+      type: 'lineageTable',
+      position: { x: centerX, y: centerY },
+      data: { table, isCenter: true, colorMode },
+      draggable: false,
+    });
+    
+    // Position incoming nodes on left
+    const incomingTables = Array.from(incomingTableMap.values());
+    const incomingStartY = (totalHeight - (incomingTables.length * nodeHeight + (incomingTables.length - 1) * nodeSpacing)) / 2;
+    incomingTables.forEach(({ table: sourceTable, fk }, index) => {
+      nodeList.push({
+        id: sourceTable.id,
+        type: 'lineageTable',
+        position: { x: 0, y: incomingStartY + index * (nodeHeight + nodeSpacing) },
+        data: { table: sourceTable, isCenter: false, colorMode },
+        draggable: false,
+      });
+      
+      edgeList.push({
+        id: fk.id,
+        source: sourceTable.id,
+        target: table.id,
+        type: 'smoothstep',
+        style: { stroke: '#22c55e', strokeWidth: 1.5 },
+      });
+    });
+    
+    // Position outgoing nodes on right
+    const outgoingTables = Array.from(outgoingTableMap.values());
+    const outgoingStartY = (totalHeight - (outgoingTables.length * nodeHeight + (outgoingTables.length - 1) * nodeSpacing)) / 2;
+    outgoingTables.forEach(({ table: targetTable, fk }, index) => {
+      nodeList.push({
+        id: targetTable.id,
+        type: 'lineageTable',
+        position: { x: centerX + 120, y: outgoingStartY + index * (nodeHeight + nodeSpacing) },
+        data: { table: targetTable, isCenter: false, colorMode },
+        draggable: false,
+      });
+      
+      edgeList.push({
+        id: fk.id,
+        source: table.id,
+        target: targetTable.id,
+        type: 'smoothstep',
+        style: { stroke: '#6366f1', strokeWidth: 1.5 },
+      });
+    });
+    
+    return { nodes: nodeList, edges: edgeList };
+  }, [table, tables, outgoingFKs, incomingFKs, colorMode]);
+  
+  // Fit view after nodes change
+  React.useEffect(() => {
+    setTimeout(() => fitView({ padding: 0.15, maxZoom: 1 }), 50);
+  }, [nodes.length, fitView]);
+  
+  const onNodeClick = useCallback((_: any, node: Node) => {
+    if (node.id !== table.id) {
+      onSelectTable(node.id);
+    }
+  }, [table.id, onSelectTable]);
+  
+  return (
+    <div style={{
+      height: '100px',
+      background: isDark ? '#0d1117' : '#f9fafb',
+      borderRadius: '6px',
+      border: `1px solid ${isDark ? '#21262d' : '#e5e7eb'}`,
+      overflow: 'hidden',
+    }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={lineageNodeTypes}
+        onNodeClick={onNodeClick}
+        fitView
+        fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
+        panOnDrag={true}
+        zoomOnScroll={true}
+        zoomOnPinch={true}
+        zoomOnDoubleClick={false}
+        preventScrolling={true}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        minZoom={0.2}
+        maxZoom={1.5}
+        proOptions={{ hideAttribution: true }}
+      />
+    </div>
+  );
+};
+
+const LineageGraph: React.FC<LineageGraphProps> = (props) => (
+  <ReactFlowProvider>
+    <LineageGraphInner {...props} />
+  </ReactFlowProvider>
+);
 
 interface TableInspectorProps {
   table: PhysicalTable;
@@ -23,16 +224,24 @@ const DATA_TYPES = [
 export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showDDLDialog, setShowDDLDialog] = useState(false);
+  const [colorExpanded, setColorExpanded] = useState(false);
+  const [columnsExpanded, setColumnsExpanded] = useState(false);
+  const [lineageExpanded, setLineageExpanded] = useState(true);
   const updateTable = useModelStore(state => state.updateTable);
   const deleteTable = useModelStore(state => state.deleteTable);
   const addTableAttribute = useModelStore(state => state.addTableAttribute);
   const updateTableAttribute = useModelStore(state => state.updateTableAttribute);
   const deleteTableAttribute = useModelStore(state => state.deleteTableAttribute);
-  const entities = useModelStore(state => state.entities);
+  const tables = useModelStore(state => state.tables);
+  const foreignKeys = useModelStore(state => state.foreignKeys);
+  const setSelected = useModelStore(state => state.setSelected);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
-  const parentEntity = entities.find(e => e.id === table.entityId);
+  
+  // Find FK relationships for this table
+  const outgoingFKs = foreignKeys.filter(fk => fk.fromTableId === table.id);
+  const incomingFKs = foreignKeys.filter(fk => fk.toTableId === table.id);
 
   const handleGenerateDDL = () => {
     setShowMenu(false);
@@ -334,88 +543,178 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
           />
         </FormField>
 
-        <FormField label="Color">
-          <ColorPicker
-            value={table.color || 'default'}
-            onChange={(color) => updateTable(table.id, { color: color as any })}
-          />
-        </FormField>
-
-        {parentEntity && (
-          <FormField label="Entity">
-            <div style={{
-              padding: '10px 12px',
-              background: isDark ? '#0d1117' : '#f3f4f6',
-              borderRadius: '8px',
-              fontSize: '13px',
-              color: isDark ? '#8b949e' : '#6b7280',
-            }}>
-              {parentEntity.name}
+        {/* Color Section - Collapsible */}
+        <div style={{ marginTop: '16px' }}>
+          <button
+            onClick={() => setColorExpanded(!colorExpanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '8px 0',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: isDark ? '#e6edf3' : '#374151',
+              textAlign: 'left',
+            }}
+          >
+            {colorExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Color
+            {table.color && table.color !== 'default' && (
+              <div style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '3px',
+                background: table.color,
+                marginLeft: 'auto',
+              }} />
+            )}
+          </button>
+          {colorExpanded && (
+            <div style={{ paddingLeft: '22px', paddingTop: '8px' }}>
+              <ColorPicker
+                value={table.color || 'default'}
+                onChange={(color) => updateTable(table.id, { color: color as any })}
+              />
             </div>
-          </FormField>
-        )}
+          )}
+        </div>
 
-        {/* Columns Section */}
+        {/* Columns Section - Collapsible */}
         <div style={{ marginTop: '24px' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '16px',
+            marginBottom: columnsExpanded ? '16px' : '0',
           }}>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: isDark ? '#e6edf3' : '#374151',
-            }}>
+            <button
+              onClick={() => setColumnsExpanded(!columnsExpanded)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 0',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: isDark ? '#e6edf3' : '#374151',
+                textAlign: 'left',
+              }}
+            >
+              {columnsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               Columns <span style={{ 
                 color: isDark ? '#8b949e' : '#9ca3af',
                 fontWeight: 500,
               }}>({table.attributes.length})</span>
-            </span>
-            <button
-              onClick={() => addTableAttribute(table.id)}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                background: '#6366f1',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontWeight: 500,
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#4f46e5'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#6366f1'}
-            >
-              <Plus size={14} /> Add Column
             </button>
+            {columnsExpanded && (
+              <button
+                onClick={() => addTableAttribute(table.id)}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  background: '#6366f1',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 500,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#4f46e5'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#6366f1'}
+              >
+                <Plus size={14} /> Add Column
+              </button>
+            )}
           </div>
 
-          {table.attributes.length === 0 ? (
-            <div style={{
-              padding: '32px 16px',
-              textAlign: 'center',
-              color: isDark ? '#8b949e' : '#9ca3af',
-              fontSize: '13px',
-              background: isDark ? '#0d1117' : '#f9fafb',
-              borderRadius: '12px',
-              border: `2px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
-            }}>
-              <div style={{ marginBottom: '8px' }}>No columns defined yet</div>
-              <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                Click "Add Column" to get started
+          {columnsExpanded && (
+            table.attributes.length === 0 ? (
+              <div style={{
+                padding: '32px 16px',
+                textAlign: 'center',
+                color: isDark ? '#8b949e' : '#9ca3af',
+                fontSize: '13px',
+                background: isDark ? '#0d1117' : '#f9fafb',
+                borderRadius: '12px',
+                border: `2px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
+              }}>
+                <div style={{ marginBottom: '8px' }}>No columns defined yet</div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                  Click "Add Column" to get started
+                </div>
               </div>
-            </div>
-          ) : (
-            <div>
-              {table.attributes.map((attr, index) => (
-                <AttributeRow key={attr.id} attr={attr} index={index} />
-              ))}
+            ) : (
+              <div>
+                {table.attributes.map((attr, index) => (
+                  <AttributeRow key={attr.id} attr={attr} index={index} />
+                ))}
+              </div>
+            )
+          )}
+        </div>
+
+        {/* Lineage Section */}
+        <div style={{ marginTop: '24px' }}>
+          <button
+            onClick={() => setLineageExpanded(!lineageExpanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '8px 0',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: isDark ? '#e6edf3' : '#374151',
+              textAlign: 'left',
+            }}
+          >
+            {lineageExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Lineage <span style={{ 
+              color: isDark ? '#8b949e' : '#9ca3af',
+              fontWeight: 500,
+            }}>({outgoingFKs.length + incomingFKs.length})</span>
+          </button>
+
+          {lineageExpanded && (
+            <div style={{ paddingTop: '12px' }}>
+              {(outgoingFKs.length === 0 && incomingFKs.length === 0) ? (
+                <div style={{
+                  padding: '24px 16px',
+                  textAlign: 'center',
+                  color: isDark ? '#8b949e' : '#9ca3af',
+                  fontSize: '13px',
+                  background: isDark ? '#0d1117' : '#f9fafb',
+                  borderRadius: '12px',
+                  border: `2px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
+                }}>
+                  No relationships defined
+                </div>
+              ) : (
+                <LineageGraph
+                  table={table}
+                  tables={tables}
+                  outgoingFKs={outgoingFKs}
+                  incomingFKs={incomingFKs}
+                  colorMode={colorMode}
+                  onSelectTable={setSelected}
+                />
+              )}
             </div>
           )}
         </div>

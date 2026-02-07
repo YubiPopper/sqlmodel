@@ -7,6 +7,7 @@ interface EntityGroupData {
   entityId: string;
   entityName: string;
   entityDescription?: string;
+  entityColor?: string;
   width: number;
   height: number;
   isDropTarget?: boolean; // Flag for when table is dragged over this entity group
@@ -71,6 +72,34 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
   const entityTables = tables.filter(t => t.entityId === data.entityId);
   const hasNoTables = entityTables.length === 0;
 
+  // Get entity color or default
+  const getEntityColor = () => {
+    if (!data.entityColor || data.entityColor === 'default') return null;
+    
+    const colorMap: Record<string, string> = {
+      bronze: '#8b5a3c',
+      silver: '#a0aec0',
+      gold: '#d4af37',
+      red: '#dc2626',
+      orange: '#ea580c',
+      green: '#16a34a',
+      teal: '#0d9488',
+      blue: '#2563eb',
+      indigo: '#4f46e5',
+      purple: '#9333ea',
+      pink: '#db2777',
+    };
+    
+    // Return hex color or mapped color
+    if (data.entityColor.startsWith('#')) {
+      return data.entityColor;
+    }
+    
+    return colorMap[data.entityColor] || null;
+  };
+  
+  const entityColor = getEntityColor();
+
   return (
     <div
       ref={nodeRef}
@@ -80,14 +109,18 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
         height: localSize.height,
         background: data.isDropTarget 
           ? (colorMode === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(199, 210, 254, 0.3)')
-          : (colorMode === 'dark' 
-              ? 'rgba(30, 41, 59, 0.3)' 
-              : 'rgba(241, 245, 249, 0.5)'),
+          : entityColor
+            ? `${entityColor}15`
+            : (colorMode === 'dark' 
+                ? 'rgba(30, 41, 59, 0.3)' 
+                : 'rgba(241, 245, 249, 0.5)'),
         border: data.isDropTarget
           ? `2px dashed #6366f1`
-          : (colorMode === 'dark'
-              ? (selected ? '2px dashed #3b82f6' : '1.5px dashed #475569')
-              : (selected ? '2px dashed #3b82f6' : '1.5px dashed #94a3b8')),
+          : entityColor
+            ? (selected ? `2px dashed ${entityColor}` : `1.5px dashed ${entityColor}80`)
+            : (colorMode === 'dark'
+                ? (selected ? '2px dashed #3b82f6' : '1.5px dashed #475569')
+                : (selected ? '2px dashed #3b82f6' : '1.5px dashed #94a3b8')),
         borderRadius: '12px',
         position: 'relative',
         cursor: 'grab',
@@ -110,9 +143,11 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
           left: 0,
           right: 0,
           height: '28px',
-          background: colorMode === 'dark' 
-            ? 'rgba(30, 41, 59, 0.5)' 
-            : 'rgba(226, 232, 240, 0.5)',
+          background: entityColor
+            ? `${entityColor}30`
+            : (colorMode === 'dark' 
+                ? 'rgba(30, 41, 59, 0.5)' 
+                : 'rgba(226, 232, 240, 0.5)'),
           borderRadius: '12px 12px 0 0',
           display: 'flex',
           alignItems: 'center',

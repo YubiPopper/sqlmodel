@@ -98,6 +98,13 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           onProgress
         );
         
+        console.log('[AIDialog] Enhancement result:', {
+          newEntities: result.entities.map(e => e.name),
+          newRelationships: result.relationships.length,
+          newTables: result.tables.map(t => ({ name: t.name, entityId: t.entityId, attrCount: t.attributes.length })),
+          newForeignKeys: result.foreignKeys.length
+        });
+        
         // Merge with existing model
         const state = useModelStore.getState();
         loadModelFromJSON({
@@ -116,9 +123,21 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           viewport: state.viewport,
         });
         
-        // Run auto layout to position new elements
+        // Run auto layout for both views to position new elements
         setTimeout(() => {
-          useModelStore.getState().autoLayout();
+          const store = useModelStore.getState();
+          const currentView = store.viewMode;
+          
+          // Layout conceptual view
+          store.setViewMode('conceptual');
+          store.autoLayout();
+          
+          // Layout physical view
+          store.setViewMode('physical');
+          store.autoLayout();
+          
+          // Return to original view
+          store.setViewMode(currentView);
         }, 100);
         
         onClose();
@@ -274,8 +293,8 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: '36px',
-                height: '36px',
+                width: '40px',
+                height: '40px',
                 background: 'transparent',
                 border: 'none',
                 borderRadius: '8px',
@@ -293,7 +312,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                 e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
               }}
             >
-              <X size={20} />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -303,35 +322,35 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           flex: 1, 
           overflowY: 'auto', 
           overflowX: 'hidden',
-          padding: '24px',
+          padding: '16px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '20px',
+          gap: '12px',
         }}>
           {/* Mode Selection */}
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
             <button
               onClick={() => setMode('generate')}
               style={{
                 flex: 1,
-                padding: '12px 16px',
+                padding: '10px 12px',
                 background: mode === 'generate' 
                   ? 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)'
                   : isDark ? '#21262d' : '#f3f4f6',
                 border: `1px solid ${mode === 'generate' ? 'transparent' : isDark ? '#30363d' : '#e5e7eb'}`,
-                borderRadius: '10px',
+                borderRadius: '8px',
                 color: mode === 'generate' ? 'white' : isDark ? '#e6edf3' : '#374151',
-                fontSize: '14px',
+                fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
+                gap: '6px',
                 transition: 'all 0.2s ease',
               }}
             >
-              <Wand2 size={16} />
+              <Wand2 size={14} />
               Generate New
             </button>
             <button
@@ -339,25 +358,25 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
               disabled={!hasExistingModel}
               style={{
                 flex: 1,
-                padding: '12px 16px',
+                padding: '10px 12px',
                 background: mode === 'enhance' 
                   ? 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)'
                   : isDark ? '#21262d' : '#f3f4f6',
                 border: `1px solid ${mode === 'enhance' ? 'transparent' : isDark ? '#30363d' : '#e5e7eb'}`,
-                borderRadius: '10px',
+                borderRadius: '8px',
                 color: mode === 'enhance' ? 'white' : isDark ? '#e6edf3' : '#374151',
-                fontSize: '14px',
+                fontSize: '13px',
                 fontWeight: 500,
                 cursor: hasExistingModel ? 'pointer' : 'not-allowed',
                 opacity: hasExistingModel ? 1 : 0.5,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
+                gap: '6px',
                 transition: 'all 0.2s ease',
               }}
             >
-              <Sparkles size={16} />
+              <Sparkles size={14} />
               Enhance Model
             </button>
             {hasConceptualOnly && (
@@ -365,24 +384,24 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                 onClick={() => setMode('physical')}
                 style={{
                   flex: 1,
-                  padding: '12px 16px',
+                  padding: '10px 12px',
                   background: mode === 'physical' 
                     ? 'linear-gradient(135deg, #9333ea 0%, #3b82f6 100%)'
                     : isDark ? '#21262d' : '#f3f4f6',
                   border: `1px solid ${mode === 'physical' ? 'transparent' : isDark ? '#30363d' : '#e5e7eb'}`,
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   color: mode === 'physical' ? 'white' : isDark ? '#e6edf3' : '#374151',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: 500,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   transition: 'all 0.2s ease',
                 }}
               >
-                <Lightbulb size={16} />
+                <Lightbulb size={14} />
                 Add Tables
               </button>
             )}
@@ -390,23 +409,23 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
 
           {/* Description */}
           <div style={{
-            padding: '16px',
+            padding: '10px 12px',
             background: isDark ? '#161b22' : '#f9fafb',
-            borderRadius: '10px',
+            borderRadius: '8px',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
           }}>
             {mode === 'generate' && (
-              <p style={{ margin: 0, fontSize: '14px', color: isDark ? '#8b949e' : '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: isDark ? '#8b949e' : '#6b7280' }}>
                 Describe the system you want to model. AI will generate entities, relationships, tables, and foreign keys.
               </p>
             )}
             {mode === 'enhance' && (
-              <p style={{ margin: 0, fontSize: '14px', color: isDark ? '#8b949e' : '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: isDark ? '#8b949e' : '#6b7280' }}>
                 Describe what you want to add or change. AI will analyze your current model and suggest enhancements.
               </p>
             )}
             {mode === 'physical' && (
-              <p style={{ margin: 0, fontSize: '14px', color: isDark ? '#8b949e' : '#6b7280' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: isDark ? '#8b949e' : '#6b7280' }}>
                 AI will generate physical tables with columns and foreign keys based on your conceptual entities.
               </p>
             )}
@@ -495,18 +514,20 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                 }
                 style={{
                   width: '100%',
-                  minHeight: '120px',
-                  padding: '14px 16px',
+                  minHeight: '80px',
+                  maxHeight: '120px',
+                  padding: '10px 12px',
                   background: isDark ? '#0d1117' : 'white',
                   border: `2px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   color: isDark ? '#e6edf3' : '#1f2937',
                   fontSize: '14px',
-                  lineHeight: '1.6',
-                  resize: 'vertical',
+                  lineHeight: '1.5',
+                  resize: 'none',
                   outline: 'none',
                   fontFamily: 'inherit',
                   transition: 'border-color 0.2s ease',
+                  boxSizing: 'border-box',
                 }}
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = '#9333ea';
@@ -544,14 +565,14 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           {/* Current Model Info */}
           {hasExistingModel && mode !== 'generate' && (
             <div style={{
-              padding: '14px 16px',
+              padding: '8px 12px',
               background: isDark ? '#161b22' : '#f0fdf4',
-              borderRadius: '10px',
+              borderRadius: '8px',
               border: `1px solid ${isDark ? '#30363d' : '#bbf7d0'}`,
             }}>
               <p style={{ 
                 margin: 0, 
-                fontSize: '13px', 
+                fontSize: '12px', 
                 color: isDark ? '#8b949e' : '#15803d',
               }}>
                 Current model: <strong>{entities.length}</strong> entities, <strong>{relationships.length}</strong> relationships, <strong>{tables.length}</strong> tables
@@ -562,11 +583,11 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           {/* Progress Display */}
           {isLoading && progress && (
             <div style={{
-              padding: '16px',
+              padding: '12px',
               background: isDark 
                 ? 'linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)'
                 : 'linear-gradient(135deg, rgba(147, 51, 234, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)',
-              borderRadius: '10px',
+              borderRadius: '8px',
               border: `1px solid ${isDark ? '#9333ea33' : '#9333ea22'}`,
             }}>
               {/* Completed stages */}
@@ -576,14 +597,14 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
-                    marginBottom: '8px',
+                    gap: '8px',
+                    marginBottom: '6px',
                     opacity: 0.6,
                   }}
                 >
-                  <CheckCircle2 size={16} color="#22c55e" />
+                  <CheckCircle2 size={14} color="#22c55e" />
                   <span style={{ 
-                    fontSize: '13px', 
+                    fontSize: '12px', 
                     color: isDark ? '#8b949e' : '#6b7280',
                     textDecoration: 'line-through',
                   }}>
@@ -596,16 +617,16 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
+                gap: '8px',
               }}>
                 <Loader2 
-                  size={16} 
+                  size={14} 
                   color="#9333ea" 
                   style={{ animation: 'spin 1s linear infinite' }} 
                 />
                 <div>
                   <span style={{ 
-                    fontSize: '14px', 
+                    fontSize: '13px', 
                     fontWeight: 500,
                     color: isDark ? '#e6edf3' : '#374151',
                   }}>
@@ -613,9 +634,9 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
                   </span>
                   {progress.detail && (
                     <span style={{ 
-                      fontSize: '13px', 
+                      fontSize: '12px', 
                       color: isDark ? '#8b949e' : '#6b7280',
-                      marginLeft: '8px',
+                      marginLeft: '6px',
                     }}>
                       {progress.detail}
                     </span>
@@ -631,7 +652,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           display: 'flex',
           justifyContent: 'flex-end',
           gap: '12px',
-          padding: '20px 24px',
+          padding: '14px 20px',
           borderTop: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
           background: isDark ? '#161b22' : '#f9fafb',
         }}>

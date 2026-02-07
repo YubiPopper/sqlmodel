@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Layers } from 'lucide-react';
+import { Sun, Moon, Layers, Github } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { IconButton } from '../../shared/IconButton';
 
@@ -21,6 +21,28 @@ export const GlobalSettings: React.FC = () => {
       borderLeft: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
       marginLeft: '8px',
     }}>
+      {/* GitHub Link */}
+      <a
+        href="https://github.com/sqlmodel/sqlmodel"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="View on GitHub"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textDecoration: 'none',
+          color: isDark ? '#e6edf3' : '#1f2937',
+        }}
+      >
+        <IconButton
+          icon={<Github size={16} />}
+          onClick={() => {}}
+          title="View on GitHub"
+          variant="ghost"
+        />
+      </a>
+
       {/* Entity Overlay Toggle - Only in Physical view */}
       {viewMode === 'physical' && (
         <IconButton

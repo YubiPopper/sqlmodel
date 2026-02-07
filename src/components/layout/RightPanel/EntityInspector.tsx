@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Trash2, Table, MoreVertical, Copy } from 'lucide-react';
+import { Box, Trash2, Table, MoreVertical, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
 import { FormField, TextInput, ColorPicker } from './FormComponents';
@@ -11,6 +11,8 @@ interface EntityInspectorProps {
 
 export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const [colorExpanded, setColorExpanded] = useState(false);
+  const [tablesExpanded, setTablesExpanded] = useState(false);
   const updateEntity = useModelStore(state => state.updateEntity);
   const deleteEntity = useModelStore(state => state.deleteEntity);
   const addTable = useModelStore(state => state.addTable);
@@ -163,12 +165,61 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
           />
         </FormField>
 
-        <FormField label="Color">
-          <ColorPicker
-            value={entity.color || 'default'}
-            onChange={(color) => updateEntity(entity.id, { color: color as any })}
-          />
-        </FormField>
+        {/* Color Section - Collapsible */}
+        <div style={{ marginTop: '16px' }}>
+          <div
+            onClick={() => setColorExpanded(!colorExpanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              padding: '8px 0',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                color: isDark ? '#8b949e' : '#6b7280',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                Color
+              </span>
+              {!colorExpanded && entity.color && entity.color !== 'default' && (
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '4px',
+                  background: entity.color.startsWith('#') ? entity.color : {
+                    bronze: '#8b5a3c',
+                    silver: '#a0aec0',
+                    gold: '#d4af37',
+                    red: '#dc2626',
+                    orange: '#ea580c',
+                    green: '#16a34a',
+                    teal: '#0d9488',
+                    blue: '#2563eb',
+                    indigo: '#4f46e5',
+                    purple: '#9333ea',
+                    pink: '#db2777',
+                  }[entity.color] || '#6366f1',
+                  border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                }} />
+              )}
+            </div>
+            {colorExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </div>
+          {colorExpanded && (
+            <div style={{ paddingTop: '12px', paddingBottom: '12px' }}>
+              <ColorPicker
+                value={entity.color || 'default'}
+                onChange={(color) => updateEntity(entity.id, { color: color as any })}
+              />
+            </div>
+          )}
+        </div>
 
         {entityGroup && (
           <FormField label="Group">
@@ -187,92 +238,117 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
           </FormField>
         )}
 
-        {/* Tables Section */}
+        {/* Tables Section - Collapsible */}
         <div style={{ 
           marginTop: '24px',
           paddingTop: '16px',
           borderTop: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px',
-          }}>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: isDark ? '#8b949e' : '#6b7280',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}>
-              Physical Tables ({entityTables.length})
-            </span>
-            <button
-              onClick={() => addTable(entity.id)}
-              style={{
-                padding: '4px 10px',
+          <div
+            onClick={() => setTablesExpanded(!tablesExpanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: tablesExpanded ? '12px' : '0',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
                 fontSize: '11px',
-                background: '#6366f1',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <Table size={12} /> Add Table
-            </button>
-          </div>
-
-          {entityTables.length === 0 ? (
-            <div style={{
-              padding: '16px',
-              textAlign: 'center',
-              color: isDark ? '#8b949e' : '#9ca3af',
-              fontSize: '12px',
-              background: isDark ? '#0d1117' : '#f9fafb',
-              borderRadius: '8px',
-              border: `1px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
-            }}>
-              No physical tables defined yet
+                fontWeight: 600,
+                color: isDark ? '#8b949e' : '#6b7280',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                Physical Tables
+              </span>
+              {entityTables.length > 0 && (
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: isDark ? '#8b949e' : '#6b7280',
+                  background: isDark ? '#30363d' : '#e5e7eb',
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                }}>
+                  {entityTables.length}
+                </span>
+              )}
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {entityTables.map(table => (
-                <div
-                  key={table.id}
-                  onClick={() => setSelected(table.id)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {tablesExpanded && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); addTable(entity.id); }}
                   style={{
-                    padding: '10px 12px',
-                    background: isDark ? '#0d1117' : '#f3f4f6',
-                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    transition: 'background 0.15s',
+                    gap: '4px',
                   }}
                 >
-                  <Table size={14} style={{ color: isDark ? '#8b949e' : '#6b7280' }} />
-                  <span style={{
-                    flex: 1,
-                    fontSize: '13px',
-                    color: isDark ? '#e6edf3' : '#374151',
-                  }}>
-                    {table.name}
-                  </span>
-                  <span style={{
-                    fontSize: '10px',
-                    color: isDark ? '#8b949e' : '#9ca3af',
-                  }}>
-                    {table.attributes.length} cols
-                  </span>
-                </div>
-              ))}
+                  <Table size={12} /> Add
+                </button>
+              )}
+              {tablesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
+          </div>
+
+          {tablesExpanded && (
+            entityTables.length === 0 ? (
+              <div style={{
+                padding: '16px',
+                textAlign: 'center',
+                color: isDark ? '#8b949e' : '#9ca3af',
+                fontSize: '12px',
+                background: isDark ? '#0d1117' : '#f9fafb',
+                borderRadius: '8px',
+                border: `1px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
+              }}>
+                No physical tables defined yet
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {entityTables.map(table => (
+                  <div
+                    key={table.id}
+                    onClick={() => setSelected(table.id)}
+                    style={{
+                      padding: '10px 12px',
+                      background: isDark ? '#0d1117' : '#f3f4f6',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <Table size={14} style={{ color: isDark ? '#8b949e' : '#6b7280' }} />
+                    <span style={{
+                      flex: 1,
+                      fontSize: '13px',
+                      color: isDark ? '#e6edf3' : '#374151',
+                    }}>
+                      {table.name}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      color: isDark ? '#8b949e' : '#9ca3af',
+                    }}>
+                      {table.attributes.length} cols
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>

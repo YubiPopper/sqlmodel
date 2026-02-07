@@ -48,7 +48,7 @@ const CanvasInner = () => {
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
     position: { x: number; y: number };
-    type: 'canvas' | 'entity' | 'table' | 'relationship' | 'foreignKey' | 'group';
+    type: 'canvas' | 'entity' | 'table' | 'relationship' | 'foreignKey' | 'group' | 'entityGroup';
     targetId?: string;
   }>({ isOpen: false, position: { x: 0, y: 0 }, type: 'canvas' });
 
@@ -241,11 +241,6 @@ const CanvasInner = () => {
             groupWidth = requiredWidth;
             groupHeight = requiredHeight;
           }
-          
-          // Update stored position only if it expanded left or up
-          if (groupX < baseX || groupY < baseY) {
-            setNodePosition(group.id, groupX, groupY);
-          }
         } else if (storedGroupLayout) {
           // Empty group with stored position/size
           groupX = storedGroupLayout.x;
@@ -326,6 +321,7 @@ const CanvasInner = () => {
               entityId: entity.id,
               entityName: entity.name,
               entityDescription: entity.description,
+              entityColor: entity.color,
               width: 280,
               height: 120,
               isDropTarget: dragHoverEntityGroupId === entity.id,
@@ -342,7 +338,9 @@ const CanvasInner = () => {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         
         entityTables.forEach(table => {
-          const layout = tableLayouts[table.id] || { x: 0, y: 0 };
+          const layout = tableLayouts[table.id];
+          if (!layout) return; // Skip tables without layout
+          
           const tableWidth = 240;
           const tableHeight = 40 + (table.attributes.length * 30) + 40;
           
@@ -352,8 +350,32 @@ const CanvasInner = () => {
           maxY = Math.max(maxY, layout.y + tableHeight);
         });
 
-        const padding = 40;
-        const headerPadding = 60; // Extra space at top for entity label
+        // If no tables have layouts yet, treat like empty entity group
+        if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
+          const conceptualPos = nodeLayouts[entity.id] || { x: 0, y: 0 };
+          return {
+            id: `${entity.id}-group`,
+            type: 'entityGroup',
+            position: conceptualPos,
+            data: {
+              entityId: entity.id,
+              entityName: entity.name,
+              entityDescription: entity.description,
+              entityColor: entity.color,
+              width: 280,
+              height: 120,
+              isDropTarget: dragHoverEntityGroupId === entity.id,
+            },
+            zIndex: -1,
+            selectable: true,
+            draggable: true,
+            dragHandle: '.entity-group-drag-handle',
+            selected: selectedId === entity.id,
+          };
+        }
+
+        const padding = 60; // Increased padding around tables
+        const headerPadding = 70; // Extra space at top for entity label
 
         return {
           id: `${entity.id}-group`,
@@ -363,6 +385,7 @@ const CanvasInner = () => {
             entityId: entity.id,
             entityName: entity.name,
             entityDescription: entity.description,
+            entityColor: entity.color,
             width: maxX - minX + padding * 2,
             height: maxY - minY + padding + headerPadding + 16,
             isDropTarget: dragHoverEntityGroupId === entity.id,
@@ -378,7 +401,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, multiSelectedEntityIds]);
+  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId]);
 
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
@@ -518,9 +541,6 @@ const CanvasInner = () => {
         // Default line color: grey in dark mode, darker grey in light mode
         const defaultColor = colorMode === 'dark' ? '#4b5563' : '#9ca3af';
         
-        // Edge type label for visual feedback
-        const edgeTypeLabel = fk.edgeType === 'straight' ? '⎯' : fk.edgeType === 'step' ? '⌐' : '∿';
-        
         return {
           id: fk.id,
           source: fk.fromTableId,
@@ -531,7 +551,6 @@ const CanvasInner = () => {
           markerEnd: `url(#marker-${fk.toCardinality})`,
           markerStart: `url(#marker-${fk.fromCardinality})`,
           selected: isEdgeSelected,
-          label: isEdgeSelected ? edgeTypeLabel : undefined,
           className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
           data: fk,
           interactionWidth: 20,
@@ -873,7 +892,7 @@ const CanvasInner = () => {
   }, [setSelected, clearMultiSelection]);
 
   // Context menu handlers
-  const handleContextMenu = useCallback((event: React.MouseEvent, nodeId?: string, nodeType?: 'entity' | 'table' | 'group') => {
+  const handleContextMenu = useCallback((event: React.MouseEvent, nodeId?: string, nodeType?: 'entity' | 'table' | 'group' | 'entityGroup') => {
     event.preventDefault();
     event.stopPropagation();
     
@@ -1060,6 +1079,35 @@ const CanvasInner = () => {
       ];
     }
 
+    // Physical view entity group (entity container in physical view)
+    if (type === 'entityGroup' && targetId) {
+      const entity = entities.find(e => e.id === targetId);
+      const entityTables = tables.filter(t => t.entityId === targetId);
+      const tableCount = entityTables.length;
+      
+      return [
+        { label: 'Add Table', icon: <Plus size={14} />, onClick: () => {
+          addTable(targetId);
+        }},
+        { label: '', divider: true, onClick: () => {} },
+        { label: tableCount > 0 
+            ? `Delete Entity (${tableCount} table${tableCount > 1 ? 's' : ''})` 
+            : 'Delete Entity', 
+          icon: <Trash2 size={14} />, 
+          onClick: () => {
+            setDeleteDialog({
+              isOpen: true,
+              type: 'entity',
+              id: targetId,
+              name: entity?.name,
+            });
+          }, 
+          danger: true, 
+          shortcut: '⌫' 
+        },
+      ];
+    }
+
     return [];
   }, [contextMenu, viewMode, entities, tables, entityGroups, addEntity, addEntityGroup, addTable, autoLayout, setSelected, setNodePosition, setTablePosition, nodeLayouts, tableLayouts]);
 
@@ -1128,6 +1176,16 @@ const CanvasInner = () => {
   // Handle keyboard delete
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or contenteditable element
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId) {
         // Prevent backspace navigation
         event.preventDefault();
@@ -1175,14 +1233,25 @@ const CanvasInner = () => {
               name: table.name,
             });
           } else {
-            // It's a foreign key
-            const foreignKey = foreignKeys.find(fk => fk.id === selectedId);
-            if (foreignKey) {
+            // Check if it's an entity (selected via entity group in physical view)
+            const entity = entities.find(e => e.id === selectedId);
+            if (entity) {
               setDeleteDialog({
                 isOpen: true,
-                type: 'foreignKey',
+                type: 'entity',
                 id: selectedId,
+                name: entity.name,
               });
+            } else {
+              // It's a foreign key
+              const foreignKey = foreignKeys.find(fk => fk.id === selectedId);
+              if (foreignKey) {
+                setDeleteDialog({
+                  isOpen: true,
+                  type: 'foreignKey',
+                  id: selectedId,
+                });
+              }
             }
           }
         }
@@ -1220,9 +1289,12 @@ const CanvasInner = () => {
           const nodeType = node.type === 'entity' ? 'entity' 
             : node.type === 'table' ? 'table' 
             : node.type === 'conceptualGroup' ? 'group'
+            : node.type === 'entityGroup' ? 'entityGroup'
             : undefined;
           if (nodeType) {
-            handleContextMenu(event, node.id, nodeType);
+            // For entityGroup, extract the actual entity ID from the node id
+            const targetId = nodeType === 'entityGroup' ? node.id.replace('-group', '') : node.id;
+            handleContextMenu(event, targetId, nodeType);
           }
         }}
         onPaneContextMenu={handlePaneContextMenu}
@@ -1254,7 +1326,14 @@ const CanvasInner = () => {
         }
         message={
           deleteDialog.type === 'entity'
-            ? `Are you sure you want to delete "${deleteDialog.name}"? This will also delete all connected relationships.`
+            ? (() => {
+                const entityTables = tables.filter(t => t.entityId === deleteDialog.id);
+                const tableCount = entityTables.length;
+                if (tableCount > 0) {
+                  return `Are you sure you want to delete "${deleteDialog.name}"? This will also delete ${tableCount} table${tableCount > 1 ? 's' : ''} and all connected relationships/foreign keys.`;
+                }
+                return `Are you sure you want to delete "${deleteDialog.name}"? This will also delete all connected relationships.`;
+              })()
             : deleteDialog.type === 'table'
             ? `Are you sure you want to delete table "${deleteDialog.name}"? This will also delete all foreign keys connected to this table.`
             : deleteDialog.type === 'relationship'
