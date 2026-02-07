@@ -5,6 +5,7 @@ import { useModelStore } from '../../../store/useModelStore';
 import { EntityInspector } from './EntityInspector';
 import { TableInspector } from './TableInspector';
 import { RelationshipInspector } from './RelationshipInspector';
+import { ForeignKeyInspector } from './ForeignKeyInspector';
 import { GroupInspector } from './GroupInspector';
 
 export const RightPanel: React.FC = () => {
@@ -145,6 +146,7 @@ export const RightPanel: React.FC = () => {
       {!selectedEntity && !selectedTable && firstMultiSelectedEntity && <EntityInspector entity={firstMultiSelectedEntity} />}
       {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
       {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
+      {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
       {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
     </aside>
   );
@@ -153,6 +155,7 @@ export const RightPanel: React.FC = () => {
 export { EntityInspector } from './EntityInspector';
 export { TableInspector } from './TableInspector';
 export { RelationshipInspector } from './RelationshipInspector';
+export { ForeignKeyInspector } from './ForeignKeyInspector';
 export { GroupInspector } from './GroupInspector';
 export { InspectorHeader } from './InspectorHeader';
 export { FormField, TextInput, SelectInput } from './FormComponents';

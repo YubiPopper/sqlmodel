@@ -49,6 +49,8 @@ export const NavbarActions: React.FC = () => {
   const clearMultiSelection = useModelStore(state => state.clearMultiSelection);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
   const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
+  const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
+  const setShowEntityOverlay = useModelStore(state => state.setShowEntityOverlay);
 
   const isDark = colorMode === 'dark';
 
@@ -166,6 +168,10 @@ export const NavbarActions: React.FC = () => {
         const table = tables.find(t => t.id === selectedId);
         if (table && table.entityId) {
           updateTable(selectedId, { entityId: undefined });
+          // Auto-enable entity overlay so user can see the ungrouped table
+          if (!showEntityOverlay) {
+            setShowEntityOverlay(true);
+          }
         }
       }
     }
