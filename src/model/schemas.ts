@@ -3,6 +3,10 @@ import { z } from 'zod';
 export const CardinalitySchema = z.enum(['1', '0..1', '1..*', '0..*']);
 export type Cardinality = z.infer<typeof CardinalitySchema>;
 
+// Color options for entities and tables (can also be hex color)
+export const ColorSchema = z.string().optional();
+export type Color = z.infer<typeof ColorSchema>;
+
 // Column/attribute definition for physical tables
 export const AttributeSchema = z.object({
   id: z.string().uuid(),
@@ -21,6 +25,7 @@ export const EntitySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   description: z.string().optional(),
+  color: ColorSchema,
 });
 export type Entity = z.infer<typeof EntitySchema>;
 
@@ -37,12 +42,26 @@ export const EntityGroupSchema = z.object({
 });
 export type EntityGroup = z.infer<typeof EntityGroupSchema>;
 
-// Physical Table - linked to a conceptual entity
+// Table Group - grouping of tables in physical view
+export const TableGroupSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  tableIds: z.array(z.string().uuid()).default([]),
+  // Style options
+  borderStyle: z.enum(['dashed', 'solid', 'dotted']).default('dashed'),
+  borderColor: z.string().optional(), // hex color
+  backgroundColor: z.string().optional(), // hex color
+  borderWidth: z.number().default(2),
+});
+export type TableGroup = z.infer<typeof TableGroupSchema>;
+
+// Physical Table - optionally linked to a conceptual entity
 export const PhysicalTableSchema = z.object({
   id: z.string().uuid(),
-  entityId: z.string().uuid(), // Parent conceptual entity
+  entityId: z.string().uuid().optional(), // Optional parent conceptual entity
   name: z.string(), // Table name (can differ from entity name)
   attributes: z.array(AttributeSchema).default([]),
+  color: ColorSchema,
 });
 export type PhysicalTable = z.infer<typeof PhysicalTableSchema>;
 
@@ -71,6 +90,8 @@ export const ForeignKeySchema = z.object({
   toCardinality: CardinalitySchema,
   // Optional: link to parent conceptual relationship
   relationshipId: z.string().uuid().optional(),
+  // Edge routing options
+  edgeType: z.enum(['smoothstep', 'straight', 'step']).optional(),
 });
 export type ForeignKey = z.infer<typeof ForeignKeySchema>;
 
@@ -84,6 +105,7 @@ export type ConceptualData = z.infer<typeof ConceptualSchema>;
 export const PhysicalSchema = z.object({
   tables: z.array(PhysicalTableSchema),
   foreignKeys: z.array(ForeignKeySchema),
+  tableGroups: z.array(TableGroupSchema).optional().default([]),
 });
 export type PhysicalData = z.infer<typeof PhysicalSchema>;
 

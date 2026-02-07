@@ -1,0 +1,285 @@
+{
+  "name": "Blog Platform",
+  "description": "Content management with authors, posts, comments, and categories",
+  "conceptual": {
+    "entities": [
+      {
+        "id": "author-1",
+        "name": "Author",
+        "description": "Content creators and writers"
+      },
+      {
+        "id": "post-1",
+        "name": "Post",
+        "description": "Blog articles and content"
+      },
+      {
+        "id": "comment-1",
+        "name": "Comment",
+        "description": "User comments on posts"
+      },
+      {
+        "id": "category-1",
+        "name": "Category",
+        "description": "Content categorization"
+      }
+    ],
+    "relationships": [
+      {
+        "id": "rel-1",
+        "fromEntityId": "post-1",
+        "toEntityId": "author-1",
+        "label": "written by",
+        "fromCardinality": "0..*",
+        "toCardinality": "1"
+      },
+      {
+        "id": "rel-2",
+        "fromEntityId": "post-1",
+        "toEntityId": "category-1",
+        "label": "categorized as",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1"
+      },
+      {
+        "id": "rel-3",
+        "fromEntityId": "comment-1",
+        "toEntityId": "post-1",
+        "label": "on",
+        "fromCardinality": "0..*",
+        "toCardinality": "1"
+      }
+    ],
+    "groups": []
+  },
+  "physical": {
+    "tables": [
+      {
+        "id": "author-table-1",
+        "entityId": "author-1",
+        "name": "authors",
+        "attributes": [
+          {
+            "id": "author-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "author-attr-1",
+            "name": "username",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "author-attr-2",
+            "name": "email",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "author-attr-3",
+            "name": "bio",
+            "dataType": "text",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "author-attr-4",
+            "name": "joined_at",
+            "dataType": "timestamp",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          }
+        ]
+      },
+      {
+        "id": "category-table-1",
+        "entityId": "category-1",
+        "name": "categories",
+        "attributes": [
+          {
+            "id": "category-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "category-attr-1",
+            "name": "name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "category-attr-2",
+            "name": "slug",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "category-attr-3",
+            "name": "description",
+            "dataType": "text",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ]
+      },
+      {
+        "id": "post-table-1",
+        "entityId": "post-1",
+        "name": "posts",
+        "attributes": [
+          {
+            "id": "post-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "post-fk-1",
+            "name": "author_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": true,
+            "referencesTableId": "author-table-1",
+            "referencesAttributeId": "author-pk-1"
+          },
+          {
+            "id": "post-fk-2",
+            "name": "category_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": true,
+            "referencesTableId": "category-table-1",
+            "referencesAttributeId": "category-pk-1"
+          },
+          {
+            "id": "post-attr-1",
+            "name": "title",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "post-attr-2",
+            "name": "content",
+            "dataType": "text",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "post-attr-3",
+            "name": "published_at",
+            "dataType": "timestamp",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ]
+      },
+      {
+        "id": "comment-table-1",
+        "entityId": "comment-1",
+        "name": "comments",
+        "attributes": [
+          {
+            "id": "comment-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "comment-fk-1",
+            "name": "post_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": true,
+            "referencesTableId": "post-table-1",
+            "referencesAttributeId": "post-pk-1"
+          },
+          {
+            "id": "comment-attr-1",
+            "name": "author_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "comment-attr-2",
+            "name": "content",
+            "dataType": "text",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "comment-attr-3",
+            "name": "created_at",
+            "dataType": "timestamp",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          }
+        ]
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": "fk-1",
+        "fromTableId": "post-table-1",
+        "toTableId": "author-table-1",
+        "fromAttributeId": "post-fk-1",
+        "toAttributeId": "author-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "1",
+        "edgeType": "smoothstep"
+      },
+      {
+        "id": "fk-2",
+        "fromTableId": "post-table-1",
+        "toTableId": "category-table-1",
+        "fromAttributeId": "post-fk-2",
+        "toAttributeId": "category-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1",
+        "edgeType": "smoothstep"
+      },
+      {
+        "id": "fk-3",
+        "fromTableId": "comment-table-1",
+        "toTableId": "post-table-1",
+        "fromAttributeId": "comment-fk-1",
+        "toAttributeId": "post-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "1",
+        "edgeType": "smoothstep"
+      }
+    ]
+  }
+}

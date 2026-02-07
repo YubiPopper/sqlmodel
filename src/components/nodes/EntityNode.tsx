@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { Handle, Position, type NodeProps } from 'reactflow';
 import type { Entity } from '../../model/schemas';
 import { useModelStore } from '../../store/useModelStore';
@@ -6,24 +6,120 @@ import clsx from 'clsx';
 
 type HoverSide = 'top' | 'right' | 'bottom' | 'left' | null;
 
+const DEFAULT_ENTITY_WIDTH = 220;
+const DEFAULT_ENTITY_HEIGHT = 120;
+
+// Helper function to get color gradients based on color scheme
+const getEntityColorStyles = (color: string | undefined, isDark: boolean, selected: boolean) => {
+  const colorValue = color || 'default';
+  
+  const colorMap: Record<string, { background: string; border: string }> = {
+    default: {
+      background: isDark
+        ? (selected
+            ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
+            : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)')
+        : (selected
+            ? 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)'),
+      border: isDark ? '#334155' : '#e5e7eb',
+    },
+    bronze: {
+      background: 'linear-gradient(135deg, #8b5a3c 0%, #6d4c41 100%)',
+      border: '#8b5a3c',
+    },
+    silver: {
+      background: 'linear-gradient(135deg, #a0aec0 0%, #718096 100%)',
+      border: '#a0aec0',
+    },
+    gold: {
+      background: 'linear-gradient(135deg, #d4af37 0%, #b8960c 100%)',
+      border: '#d4af37',
+    },
+    red: {
+      background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+      border: '#dc2626',
+    },
+    orange: {
+      background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+      border: '#ea580c',
+    },
+    green: {
+      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+      border: '#16a34a',
+    },
+    teal: {
+      background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+      border: '#0d9488',
+    },
+    blue: {
+      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      border: '#2563eb',
+    },
+    indigo: {
+      background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+      border: '#4f46e5',
+    },
+    purple: {
+      background: 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)',
+      border: '#9333ea',
+    },
+    pink: {
+      background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)',
+      border: '#db2777',
+    },
+  };
+
+  // If it's a predefined color, use it
+  if (colorMap[colorValue]) {
+    return colorMap[colorValue];
+  }
+  
+  // If it's a hex color, create gradient from it
+  if (colorValue.startsWith('#')) {
+    return {
+      background: `linear-gradient(135deg, ${colorValue} 0%, ${colorValue}dd 100%)`,
+      border: colorValue,
+    };
+  }
+  
+  return colorMap.default;
+};
+
 const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
+  const storedNodeLayouts = useModelStore(state => state.nodeLayouts);
+  const storedLayout = storedNodeLayouts[data.id];
+  
   const [hoverSide, setHoverSide] = useState<HoverSide>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(data.name);
   const [editDescription, setEditDescription] = useState(data.description || '');
-  const [nodeSize, setNodeSize] = useState({ width: 220, height: 120 });
+  const [nodeSize, setNodeSizeLocal] = useState({ 
+    width: storedLayout?.width || DEFAULT_ENTITY_WIDTH, 
+    height: storedLayout?.height || DEFAULT_ENTITY_HEIGHT 
+  });
   const [isDraggingConnection, setIsDraggingConnection] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   
+  // Sync local size with stored layout when it changes (e.g., from undo/redo)
+  useEffect(() => {
+    if (storedLayout?.width && storedLayout?.height && !isResizing) {
+      setNodeSizeLocal({ width: storedLayout.width, height: storedLayout.height });
+    }
+  }, [storedLayout?.width, storedLayout?.height, isResizing]);
+  
   const addEntity = useModelStore(state => state.addEntity);
   const addRelationship = useModelStore(state => state.addRelationship);
+  const updateRelationship = useModelStore(state => state.updateRelationship);
   const updateEntity = useModelStore(state => state.updateEntity);
-  const nodeLayouts = useModelStore(state => state.nodeLayouts);
   const setNodePosition = useModelStore(state => state.setNodePosition);
+  const setNodeSize = useModelStore(state => state.setNodeSize);
   const colorMode = useModelStore(state => state.colorMode);
   const relationships = useModelStore(state => state.relationships);
+  const entities = useModelStore(state => state.entities);
+  const nodeLayouts = useModelStore(state => state.nodeLayouts);
   const multiSelectedEntityIds = useModelStore(state => state.multiSelectedEntityIds);
   const toggleEntityMultiSelect = useModelStore(state => state.toggleEntityMultiSelect);
   const setSelected = useModelStore(state => state.setSelected);
@@ -42,13 +138,15 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     // Calculate position for new entity based on clicked side
     let newX = currentLayout.x;
     let newY = currentLayout.y;
-    const offset = 300;
+    const entityWidth = 220;
+    const entityHeight = 120;
+    const gap = 80; // Gap between entities
     
     switch (side) {
-      case 'top': newY -= offset; break;
-      case 'bottom': newY += offset; break;
-      case 'left': newX -= offset; break;
-      case 'right': newX += offset; break;
+      case 'top': newY -= (entityHeight + gap); break;
+      case 'bottom': newY += (entityHeight + gap); break;
+      case 'left': newX -= (entityWidth + gap); break;
+      case 'right': newX += (entityWidth + gap); break;
     }
     
     // Create new entity and relationship
@@ -106,19 +204,21 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
         }
       }
       
-      setNodeSize({ width: newWidth, height: newHeight });
+      setNodeSizeLocal({ width: newWidth, height: newHeight });
       setNodePosition(data.id, newPosX, newPosY);
     };
     
     const handleMouseUp = () => {
       setIsResizing(false);
+      // Persist final size to store so groups can use it
+      setNodeSize(data.id, nodeSize.width, nodeSize.height);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
     
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, [nodeSize, nodeLayouts, data.id, setNodePosition]);
+  }, [nodeSize, nodeLayouts, data.id, setNodePosition, setNodeSize]);
 
   const handleSideHover = useCallback((side: HoverSide, isEntering: boolean) => {
     if (!isResizing && !isEditing && !isDraggingConnection) {
@@ -130,19 +230,31 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     const canvasElement = event.currentTarget.closest('.react-flow');
     if (!canvasElement) return;
     
-    const entityElement = event.currentTarget as HTMLElement;
+    const dragZone = event.currentTarget as HTMLElement;
+    const entityElement = dragZone.closest('[data-entity-id]') as HTMLElement;
+    if (!entityElement) return;
+    
     const entityRect = entityElement.getBoundingClientRect();
     const canvasRect = canvasElement.getBoundingClientRect();
     
-    // Calculate center points for the entity
+    // Determine which side we're dragging from based on drag zone position
+    const dragZoneRect = dragZone.getBoundingClientRect();
     const centerX = entityRect.left + entityRect.width / 2 - canvasRect.left;
     const centerY = entityRect.top + entityRect.height / 2 - canvasRect.top;
     
-    // Determine starting edge based on initial drag direction
-    const relativeX = event.clientX - entityRect.left;
-    const relativeY = event.clientY - entityRect.top;
-    const width = entityRect.width;
-    const height = entityRect.height;
+    let dynamicStartSide: 'top' | 'right' | 'bottom' | 'left';
+    let endX = 0, endY = 0;
+    
+    // Determine which side based on drag zone position relative to entity
+    if (dragZoneRect.top < entityRect.top + 5) {
+      dynamicStartSide = 'top';
+    } else if (dragZoneRect.right > entityRect.right - 5) {
+      dynamicStartSide = 'right';
+    } else if (dragZoneRect.bottom > entityRect.bottom - 5) {
+      dynamicStartSide = 'bottom';
+    } else {
+      dynamicStartSide = 'left';
+    }
     
     canvasElement.setAttribute('data-connection-source-entity', data.id);
     setIsDraggingConnection(true);
@@ -162,7 +274,6 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     svg.style.zIndex = '1000';
     
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M ${centerX} ${centerY} L ${centerX} ${centerY}`);
     path.setAttribute('stroke', '#3b82f6');
     path.setAttribute('stroke-width', '3');
     path.setAttribute('stroke-dasharray', '8,4');
@@ -176,51 +287,56 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
       const currentX = e.clientX - canvasRect.left;
       const currentY = e.clientY - canvasRect.top;
       
-      // Calculate dynamic starting point based on direction to cursor
+      // Dynamically determine which side to exit from based on cursor direction
       const dx = currentX - centerX;
       const dy = currentY - centerY;
-      let startX = centerX;
-      let startY = centerY;
       
-      // Calculate intersection with entity box
-      const angle = Math.atan2(dy, dx);
-      const halfWidth = width / 2;
-      const halfHeight = height / 2;
+      let dynamicStartX: number, dynamicStartY: number, dynamicStartSide: 'top' | 'right' | 'bottom' | 'left';
       
-      if (Math.abs(Math.tan(angle)) < halfHeight / halfWidth) {
-        // Intersects left or right side
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal dominates
         if (dx > 0) {
-          startX = entityRect.right - canvasRect.left;
-          startY = centerY + Math.tan(angle) * halfWidth;
+          // Exit right
+          dynamicStartSide = 'right';
+          dynamicStartX = entityRect.right - canvasRect.left;
+          dynamicStartY = centerY;
         } else {
-          startX = entityRect.left - canvasRect.left;
-          startY = centerY - Math.tan(angle) * halfWidth;
+          // Exit left
+          dynamicStartSide = 'left';
+          dynamicStartX = entityRect.left - canvasRect.left;
+          dynamicStartY = centerY;
         }
       } else {
-        // Intersects top or bottom side
+        // Vertical dominates
         if (dy > 0) {
-          startY = entityRect.bottom - canvasRect.top;
-          startX = centerX + halfHeight / Math.tan(angle);
+          // Exit bottom
+          dynamicStartSide = 'bottom';
+          dynamicStartX = centerX;
+          dynamicStartY = entityRect.bottom - canvasRect.top;
         } else {
-          startY = entityRect.top - canvasRect.top;
-          startX = centerX - halfHeight / Math.tan(angle);
+          // Exit top
+          dynamicStartSide = 'top';
+          dynamicStartX = centerX;
+          dynamicStartY = entityRect.top - canvasRect.top;
         }
       }
       
       // Find the closest entity to snap to
       const allEntityElements = canvasElement.querySelectorAll('[data-entity-id]');
       let closestEntity: HTMLElement | null = null;
-      let closestDistance = 100; // Snap threshold in pixels
+      let closestDistance = 100;
       let closestEntityRect: DOMRect | null = null;
       
       allEntityElements.forEach((el) => {
         const entityEl = el as HTMLElement;
         const entityId = entityEl.getAttribute('data-entity-id');
-        
-        // Skip self
         if (entityId === data.id) return;
         
-        const rect = entityEl.getBoundingClientRect();
+        // Get the actual entity card (not the wrapper or group)
+        const innerDiv = entityEl.querySelector('.entity-node') as HTMLElement;
+        if (!innerDiv) return; // Skip if no entity card found (might be a group)
+        
+        const rect = innerDiv.getBoundingClientRect();
         const entityCenterX = rect.left + rect.width / 2;
         const entityCenterY = rect.top + rect.height / 2;
         
@@ -236,7 +352,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
         }
       });
       
-      // Update snapped target styling
+      // Clear previous target styling
       if (snappedTargetEntity && snappedTargetEntity !== closestEntity) {
         const innerDiv = snappedTargetEntity.querySelector('.entity-node') as HTMLElement;
         if (innerDiv) innerDiv.style.outline = '';
@@ -247,37 +363,110 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
       
       if (closestEntity !== null && closestEntityRect !== null) {
         const targetEntity = closestEntity as HTMLElement;
-        const targetRect = closestEntityRect as DOMRect;
-        
         const innerDiv = targetEntity.querySelector('.entity-node') as HTMLElement;
+        
         if (innerDiv) {
           innerDiv.style.outline = '3px solid #3b82f6';
           innerDiv.style.outlineOffset = '4px';
         }
+        
         snappedTargetEntity = targetEntity;
         snappedTargetEntityId = targetEntity.getAttribute('data-entity-id');
         
-        // Snap to center of target entity
-        endX = targetRect.left + targetRect.width / 2 - canvasRect.left;
-        endY = targetRect.top + targetRect.height / 2 - canvasRect.top;
+        // Get the actual entity card bounds
+        const targetNodeRect = innerDiv ? innerDiv.getBoundingClientRect() : closestEntityRect;
+        const targetCenterX = targetNodeRect.left + targetNodeRect.width / 2 - canvasRect.left;
+        const targetCenterY = targetNodeRect.top + targetNodeRect.height / 2 - canvasRect.top;
         
-        // Make path solid when snapped
+        // Determine which side of target to connect to based on cursor proximity
+        const distToLeft = Math.abs(currentX - (targetNodeRect.left - canvasRect.left));
+        const distToRight = Math.abs(currentX - (targetNodeRect.right - canvasRect.left));
+        const distToTop = Math.abs(currentY - (targetNodeRect.top - canvasRect.top));
+        const distToBottom = Math.abs(currentY - (targetNodeRect.bottom - canvasRect.top));
+        const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+        
+        if (minDist === distToLeft) {
+          endX = targetNodeRect.left - canvasRect.left;
+          endY = targetCenterY;
+        } else if (minDist === distToRight) {
+          endX = targetNodeRect.right - canvasRect.left;
+          endY = targetCenterY;
+        } else if (minDist === distToTop) {
+          endX = targetCenterX;
+          endY = targetNodeRect.top - canvasRect.top;
+        } else {
+          endX = targetCenterX;
+          endY = targetNodeRect.bottom - canvasRect.top;
+        }
+        
         path.setAttribute('stroke-dasharray', '');
         path.setAttribute('stroke', '#22c55e');
-        path.setAttribute('stroke-width', '3');
       } else {
         snappedTargetEntity = null;
         snappedTargetEntityId = null;
         path.setAttribute('stroke-dasharray', '8,4');
         path.setAttribute('stroke', '#3b82f6');
-        path.setAttribute('stroke-width', '3');
       }
       
-      // Create smooth curve
-      const midX = startX + (endX - startX) / 2;
-      const midY = startY + (endY - startY) / 2;
+      // Build path - place the turn in the gap between source and target
+      let pathD: string;
       
-      const pathD = `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+      // Get source entity bounds
+      const sourceNodeRect = entityElement.getBoundingClientRect();
+      const sourceLeft = sourceNodeRect.left - canvasRect.left;
+      const sourceRight = sourceNodeRect.right - canvasRect.left;
+      const sourceTop = sourceNodeRect.top - canvasRect.top;
+      const sourceBottom = sourceNodeRect.bottom - canvasRect.top;
+      
+      // Get target entity bounds if snapped
+      const targetNodeRect = snappedTargetEntity 
+        ? (snappedTargetEntity.querySelector('.entity-node') as HTMLElement)?.getBoundingClientRect() 
+        : null;
+      
+      if (dynamicStartSide === 'left' || dynamicStartSide === 'right') {
+        // Horizontal exit - place vertical turn line between entities
+        let turnX: number;
+        
+        if (targetNodeRect) {
+          const targetLeft = targetNodeRect.left - canvasRect.left;
+          const targetRight = targetNodeRect.right - canvasRect.left;
+          
+          if (dynamicStartSide === 'right') {
+            // Going right - turn line should be between source right edge and target left edge
+            turnX = (sourceRight + targetLeft) / 2;
+          } else {
+            // Going left - turn line should be between target right edge and source left edge
+            turnX = (targetRight + sourceLeft) / 2;
+          }
+        } else {
+          // No target - just offset from source
+          turnX = dynamicStartSide === 'right' ? dynamicStartX + 60 : dynamicStartX - 60;
+        }
+        
+        pathD = `M ${dynamicStartX},${dynamicStartY} L ${turnX},${dynamicStartY} L ${turnX},${endY} L ${endX},${endY}`;
+      } else {
+        // Vertical exit - place horizontal turn line between entities
+        let turnY: number;
+        
+        if (targetNodeRect) {
+          const targetTop = targetNodeRect.top - canvasRect.top;
+          const targetBottom = targetNodeRect.bottom - canvasRect.top;
+          
+          if (dynamicStartSide === 'bottom') {
+            // Going down - turn line should be between source bottom edge and target top edge
+            turnY = (sourceBottom + targetTop) / 2;
+          } else {
+            // Going up - turn line should be between target bottom edge and source top edge
+            turnY = (targetBottom + sourceTop) / 2;
+          }
+        } else {
+          // No target - just offset from source
+          turnY = dynamicStartSide === 'bottom' ? dynamicStartY + 60 : dynamicStartY - 60;
+        }
+        
+        pathD = `M ${dynamicStartX},${dynamicStartY} L ${dynamicStartX},${turnY} L ${endX},${turnY} L ${endX},${endY}`;
+      }
+      
       path.setAttribute('d', pathD);
     };
     
@@ -287,29 +476,46 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
       if (!targetEntityId) {
         const target = e.target as HTMLElement;
         const targetEntity = target.closest('[data-entity-id]') as HTMLElement;
-        
         if (targetEntity) {
           targetEntityId = targetEntity.getAttribute('data-entity-id');
         }
       }
       
       if (targetEntityId && targetEntityId !== data.id) {
-        // Check if relationship already exists
         const existingRel = relationships.find(
           r => (r.fromEntityId === data.id && r.toEntityId === targetEntityId) ||
                (r.fromEntityId === targetEntityId && r.toEntityId === data.id)
         );
         
         if (!existingRel) {
-          addRelationship(data.id, targetEntityId);
+          const relId = addRelationship(data.id, targetEntityId);
+          // Store the handle positions based on the final connection
+          const rel = relationships.find(r => r.id === relId);
+          if (rel) {
+            // Determine source handle based on dynamic start side
+            let sourceHandle = `${dynamicStartSide}-s`;
+            
+            // Determine target handle based on which side the line connected to
+            const targetEntity = entities.find(e => e.id === targetEntityId);
+            if (targetEntity) {
+              const targetLayout = nodeLayouts[targetEntityId];
+              if (targetLayout) {
+                // Determine which side based on end position
+                if (Math.abs(endX - (targetLayout.x + 220)) < 5) {
+                  updateRelationship(relId, { sourceHandle, targetHandle: 'right' });
+                } else if (Math.abs(endX - targetLayout.x) < 5) {
+                  updateRelationship(relId, { sourceHandle, targetHandle: 'left' });
+                } else if (Math.abs(endY - targetLayout.y) < 5) {
+                  updateRelationship(relId, { sourceHandle, targetHandle: 'top' });
+                } else {
+                  updateRelationship(relId, { sourceHandle, targetHandle: 'bottom' });
+                }
+              }
+            }
+          }
         }
       }
       
-      // Clean up styling
-      if (snappedTargetEntity) {
-        const innerDiv = snappedTargetEntity.querySelector('.entity-node') as HTMLElement;
-        if (innerDiv) innerDiv.style.outline = '';
-      }
       setIsDraggingConnection(false);
       canvasElement.removeAttribute('data-connection-source-entity');
       svg.remove();
@@ -577,7 +783,8 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
 
       {/* Conceptual View - Entity Card */}
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }} data-entity-id={data.id}>
-        {/* Drag handle zone at top for creating connections */}
+        {/* Drag handle zones on all sides for creating connections */}
+        {/* Top */}
         <div
           className="nodrag"
           onMouseDown={handleEntityDragStart}
@@ -609,6 +816,102 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
           }}
           title="Drag to connect to another entity"
         />
+        {/* Right */}
+        <div
+          className="nodrag"
+          onMouseDown={handleEntityDragStart}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '25%',
+            bottom: '25%',
+            width: '24px',
+            cursor: 'crosshair',
+            zIndex: 15,
+            opacity: 0,
+            background: colorMode === 'dark' 
+              ? 'linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.15) 50%, rgba(59, 130, 246, 0.3) 100%)' 
+              : 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.12) 50%, rgba(96, 165, 250, 0.25) 100%)',
+            borderRadius: '0 16px 16px 0',
+            transition: 'opacity 0.3s ease',
+            pointerEvents: 'auto',
+          }}
+          onMouseEnter={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '1';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '0';
+            }
+          }}
+          title="Drag to connect to another entity"
+        />
+        {/* Bottom */}
+        <div
+          className="nodrag"
+          onMouseDown={handleEntityDragStart}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: '25%',
+            right: '25%',
+            height: '24px',
+            cursor: 'crosshair',
+            zIndex: 15,
+            opacity: 0,
+            background: colorMode === 'dark' 
+              ? 'linear-gradient(0deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.15) 50%, transparent 100%)' 
+              : 'linear-gradient(0deg, rgba(96, 165, 250, 0.25) 0%, rgba(96, 165, 250, 0.12) 50%, transparent 100%)',
+            borderRadius: '0 0 16px 16px',
+            transition: 'opacity 0.3s ease',
+            pointerEvents: 'auto',
+          }}
+          onMouseEnter={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '1';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '0';
+            }
+          }}
+          title="Drag to connect to another entity"
+        />
+        {/* Left */}
+        <div
+          className="nodrag"
+          onMouseDown={handleEntityDragStart}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: '25%',
+            bottom: '25%',
+            width: '24px',
+            cursor: 'crosshair',
+            zIndex: 15,
+            opacity: 0,
+            background: colorMode === 'dark' 
+              ? 'linear-gradient(270deg, transparent 0%, rgba(59, 130, 246, 0.15) 50%, rgba(59, 130, 246, 0.3) 100%)' 
+              : 'linear-gradient(270deg, transparent 0%, rgba(96, 165, 250, 0.12) 50%, rgba(96, 165, 250, 0.25) 100%)',
+            borderRadius: '16px 0 0 16px',
+            transition: 'opacity 0.3s ease',
+            pointerEvents: 'auto',
+          }}
+          onMouseEnter={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '1';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isResizing && !isEditing) {
+              e.currentTarget.style.opacity = '0';
+            }
+          }}
+          title="Drag to connect to another entity"
+        />
         <div
           className={clsx('entity-node', selected && 'selected')}
           onDoubleClick={handleDoubleClick}
@@ -620,16 +923,10 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
             }
           }}
           style={{
-            background: colorMode === 'dark'
-              ? (selected
-                  ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
-                  : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)')
-              : (selected
-                  ? 'linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)'
-                  : 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)'),
+            background: getEntityColorStyles(data.color, colorMode === 'dark', selected).background,
             border: colorMode === 'dark'
-              ? (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : '2px solid #334155')
-              : (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : '2px solid #e5e7eb'),
+              ? (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, true, selected).border}`)
+              : (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, false, selected).border}`),
             borderRadius: '12px',
             width: `${nodeSize.width}px`,
             minHeight: `${nodeSize.height}px`,
@@ -745,13 +1042,16 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
               <div style={{ 
                 fontSize: '18px', 
                 fontWeight: 700,
-                color: colorMode === 'dark'
-                  ? (selected ? '#60a5fa' : '#e2e8f0')
-                  : (selected ? '#1e40af' : '#1f2937'),
+                color: data.color && data.color !== 'default'
+                  ? '#ffffff'
+                  : colorMode === 'dark'
+                    ? (selected ? '#60a5fa' : '#e2e8f0')
+                    : (selected ? '#1e40af' : '#1f2937'),
                 textAlign: 'center',
                 letterSpacing: '0.3px',
                 userSelect: 'none',
                 marginBottom: data.description ? '6px' : '0',
+                textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
               }}>
                 {data.name}
               </div>
@@ -760,13 +1060,15 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
                 <div style={{
                   width: '70%',
                   height: '1px',
-                  background: colorMode === 'dark'
-                    ? (selected
-                        ? 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.5) 50%, transparent 100%)'
-                        : 'linear-gradient(90deg, transparent 0%, rgba(51, 65, 85, 0.5) 50%, transparent 100%)')
-                    : (selected
-                        ? 'linear-gradient(90deg, transparent 0%, #93c5fd 50%, transparent 100%)'
-                        : 'linear-gradient(90deg, transparent 0%, #d1d5db 50%, transparent 100%)'),
+                  background: data.color && data.color !== 'default'
+                    ? 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%)'
+                    : colorMode === 'dark'
+                      ? (selected
+                          ? 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.5) 50%, transparent 100%)'
+                          : 'linear-gradient(90deg, transparent 0%, rgba(51, 65, 85, 0.5) 50%, transparent 100%)')
+                      : (selected
+                          ? 'linear-gradient(90deg, transparent 0%, #93c5fd 50%, transparent 100%)'
+                          : 'linear-gradient(90deg, transparent 0%, #d1d5db 50%, transparent 100%)'),
                   opacity: 0.6,
                 }} />
               )}
@@ -774,13 +1076,16 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
               {data.description && (
                 <div style={{ 
                   fontSize: '14px', 
-                  color: colorMode === 'dark'
-                    ? (selected ? '#cbd5e1' : '#94a3b8')
-                    : (selected ? '#4b5563' : '#6b7280'),
+                  color: data.color && data.color !== 'default'
+                    ? 'rgba(255, 255, 255, 0.95)'
+                    : colorMode === 'dark'
+                      ? (selected ? '#cbd5e1' : '#94a3b8')
+                      : (selected ? '#4b5563' : '#6b7280'),
                   textAlign: 'center', 
                   lineHeight: '1.6', 
                   userSelect: 'none',
                   opacity: 0.95,
+                  textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.2)' : 'none',
                 }}>
                   {data.description}
                 </div>

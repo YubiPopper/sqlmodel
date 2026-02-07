@@ -1,67 +1,58 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
-import type { PhysicalTable, Attribute } from '../../model/schemas';
-import { X, Copy, Check, Save } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+import { X, Copy, Check } from 'lucide-react';
 
-interface DDLDialogProps {
+interface FullDDLDialogProps {
   isOpen: boolean;
-  table: PhysicalTable | null;
   onClose: () => void;
 }
 
-const generateDDL = (table: PhysicalTable): string => {
-  if (!table) return '';
-  
+const generateFullDDL = (): string => {
   const lines: string[] = [];
-  lines.push(`CREATE TABLE ${table.name} (`);
+  const state = useModelStore.getState();
   
-  const columnLines: string[] = [];
-  const constraints: string[] = [];
-  
-  // Generate column definitions
-  table.attributes.forEach((attr) => {
-    const parts = [`  ${attr.name}`];
-    parts.push(attr.dataType.toUpperCase());
+  // Generate CREATE TABLE statements
+  state.tables.forEach((table, index) => {
+    if (index > 0) lines.push('');
+    lines.push(`CREATE TABLE ${table.name} (`);
     
-    if (!attr.isNullable) {
-      parts.push('NOT NULL');
+    const columnLines: string[] = [];
+    const constraints: string[] = [];
+    
+    table.attributes.forEach((attr) => {
+      const parts = [`  ${attr.name}`];
+      parts.push(attr.dataType.toUpperCase());
+      if (!attr.isNullable) parts.push('NOT NULL');
+      columnLines.push(parts.join(' '));
+    });
+    
+    const pkColumns = table.attributes.filter(a => a.isPrimaryKey).map(a => a.name);
+    if (pkColumns.length > 0) {
+      constraints.push(`  PRIMARY KEY (${pkColumns.join(', ')})`);
     }
     
-    columnLines.push(parts.join(' '));
+    const allLines = [...columnLines, ...constraints];
+    lines.push(allLines.join(',\n'));
+    lines.push(');');
   });
   
-  // Add primary key constraint
-  const pkColumns = table.attributes.filter(a => a.isPrimaryKey).map(a => a.name);
-  if (pkColumns.length > 0) {
-    constraints.push(`  PRIMARY KEY (${pkColumns.join(', ')})`);
-  }
-  
-  // Combine columns and constraints
-  const allLines = [...columnLines, ...constraints];
-  lines.push(allLines.join(',\n'));
-  lines.push(');');
-  
-  // Add foreign key constraints as ALTER TABLE statements
-  // Check both attribute flags AND the foreignKeys array for completeness
-  const state = useModelStore.getState();
-  const tableForeignKeys = state.foreignKeys.filter(fk => fk.fromTableId === table.id);
-  
-  if (tableForeignKeys.length > 0) {
+  // Generate ALTER TABLE statements for foreign keys
+  if (state.foreignKeys.length > 0) {
     lines.push('');
-    tableForeignKeys.forEach((fk) => {
-      // Get source and target attributes
-      const sourceAttr = table.attributes.find(a => a.id === fk.fromAttributeId);
-      const referencedTable = state.tables.find(t => t.id === fk.toTableId);
-      const referencedAttr = referencedTable?.attributes.find(a => a.id === fk.toAttributeId);
+    lines.push('-- Foreign Keys');
+    state.foreignKeys.forEach((fk) => {
+      const sourceTable = state.tables.find(t => t.id === fk.fromTableId);
+      const targetTable = state.tables.find(t => t.id === fk.toTableId);
+      const sourceAttr = sourceTable?.attributes.find(a => a.id === fk.fromAttributeId);
+      const targetAttr = targetTable?.attributes.find(a => a.id === fk.toAttributeId);
       
-      if (sourceAttr && referencedTable && referencedAttr) {
-        lines.push(`ALTER TABLE ${table.name}`);
-        lines.push(`  ADD CONSTRAINT fk_${table.name}_${sourceAttr.name}`);
-        lines.push(`  FOREIGN KEY (${sourceAttr.name})`);
-        lines.push(`  REFERENCES ${referencedTable.name}(${referencedAttr.name});`);
+      if (sourceTable && targetTable && sourceAttr && targetAttr) {
         lines.push('');
+        lines.push(`ALTER TABLE ${sourceTable.name}`);
+        lines.push(`  ADD CONSTRAINT fk_${sourceTable.name}_${sourceAttr.name}`);
+        lines.push(`  FOREIGN KEY (${sourceAttr.name})`);
+        lines.push(`  REFERENCES ${targetTable.name}(${targetAttr.name});`);
       }
     });
   }
@@ -69,26 +60,22 @@ const generateDDL = (table: PhysicalTable): string => {
   return lines.join('\n');
 };
 
-export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) => {
+export const FullDDLDialog: React.FC<FullDDLDialogProps> = ({ isOpen, onClose }) => {
   const colorMode = useModelStore(state => state.colorMode);
-  const updateTable = useModelStore(state => state.updateTable);
-  const addForeignKey = useModelStore(state => state.addForeignKey);
-  const tables = useModelStore(state => state.tables);
   const [ddlText, setDdlText] = useState('');
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const dialogRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    if (isOpen && table) {
-      setDdlText(generateDDL(table));
+    if (isOpen) {
+      setDdlText(generateFullDDL());
       // Reset position when dialog opens
       setPosition({ x: 0, y: 0 });
     }
-  }, [isOpen, table]);
+  }, [isOpen]);
   
   // Prevent canvas wheel events when dialog is open
   useEffect(() => {
@@ -122,25 +109,6 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
-  
-  useEffect(() => {
-    // Global cleanup for dragging - ensures drag stops even if mouseup is missed
-    const handleGlobalMouseUp = () => {
-      if (isDragging) {
-        setIsDragging(false);
-      }
-    };
-    
-    if (isDragging) {
-      document.addEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-      document.addEventListener('mouseleave', handleGlobalMouseUp, { capture: true });
-      
-      return () => {
-        document.removeEventListener('mouseup', handleGlobalMouseUp, { capture: true });
-        document.removeEventListener('mouseleave', handleGlobalMouseUp, { capture: true });
-      };
-    }
-  }, [isDragging]);
   
   const handleDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -181,122 +149,20 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
       console.error('Failed to copy DDL:', err);
     }
   };
-  
-  const parseDDL = (ddl: string): Partial<PhysicalTable> | null => {
-    try {
-      // Extract table name
-      const tableNameMatch = ddl.match(/CREATE\s+TABLE\s+(\w+)/i);
-      if (!tableNameMatch) return null;
-      
-      const tableName = tableNameMatch[1];
-      
-      // Extract column definitions (between parentheses of CREATE TABLE)
-      const createTableMatch = ddl.match(/CREATE\s+TABLE\s+\w+\s*\(([\s\S]*?)\);/i);
-      if (!createTableMatch) return null;
-      
-      const columnSection = createTableMatch[1];
-      const lines = columnSection.split('\n').map(l => l.trim()).filter(l => l);
-      
-      const attributes: Attribute[] = [];
-      let primaryKeys: string[] = [];
-      
-      for (const line of lines) {
-        // Check for PRIMARY KEY constraint
-        if (line.match(/PRIMARY\s+KEY/i)) {
-          const pkMatch = line.match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-          if (pkMatch) {
-            primaryKeys = pkMatch[1].split(',').map(k => k.trim());
-          }
-          continue;
-        }
-        
-        // Parse column definition
-        const columnMatch = line.match(/^(\w+)\s+(\w+)(?:\s+NOT\s+NULL)?/i);
-        if (columnMatch) {
-          const [, name, dataType] = columnMatch;
-          const isNullable = !line.match(/NOT\s+NULL/i);
-          
-          // Check if column is in existing attributes to preserve IDs and FK info
-          const existingAttr = table?.attributes.find(a => a.name === name);
-          
-          attributes.push({
-            id: existingAttr?.id || uuidv4(),
-            name,
-            dataType: dataType.toLowerCase(),
-            isPrimaryKey: false, // Will be set below
-            isNullable,
-            isForeignKey: existingAttr?.isForeignKey || false,
-            referencesTableId: existingAttr?.referencesTableId,
-            referencesAttributeId: existingAttr?.referencesAttributeId,
-          });
-        }
-      }
-      
-      // Mark primary key columns
-      attributes.forEach(attr => {
-        if (primaryKeys.includes(attr.name)) {
-          attr.isPrimaryKey = true;
-        }
-      });
-      
-      return {
-        name: tableName,
-        attributes,
-      };
-    } catch (err) {
-      console.error('Failed to parse DDL:', err);
-      return null;
-    }
+
+  const handleDownload = () => {
+    const blob = new Blob([ddlText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'schema.sql';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
-  
-  const handleSave = () => {
-    if (!table) return;
-    
-    const parsed = parseDDL(ddlText);
-    if (parsed) {
-      updateTable(table.id, parsed);
-      
-      // Parse and create foreign keys from ALTER TABLE statements
-      const alterTableMatches = ddlText.matchAll(/ALTER\s+TABLE\s+(\w+)\s+ADD\s+CONSTRAINT\s+\w+\s+FOREIGN\s+KEY\s*\(([^)]+)\)\s+REFERENCES\s+(\w+)\s*\(([^)]+)\)/gi);
-      
-      for (const match of alterTableMatches) {
-        const [, alterTableName, sourceColumn, refTableName, refColumn] = match;
-        
-        // Only process if this is the current table
-        if (alterTableName.toLowerCase() !== parsed.name?.toLowerCase()) continue;
-        
-        // Find the referenced table
-        const refTable = tables.find(t => t.name.toLowerCase() === refTableName.toLowerCase());
-        if (!refTable) {
-          console.warn(`Referenced table "${refTableName}" not found`);
-          continue;
-        }
-        
-        // Find the source and target attributes
-        const sourceAttr = parsed.attributes?.find(a => a.name === sourceColumn.trim());
-        const targetAttr = refTable.attributes.find(a => a.name === refColumn.trim());
-        
-        if (sourceAttr && targetAttr) {
-          // Create the foreign key relationship
-          try {
-            addForeignKey(table.id, refTable.id, sourceAttr.id, targetAttr.id);
-          } catch (err) {
-            console.error('Failed to create foreign key:', err);
-          }
-        }
-      }
-      
-      setSaved(true);
-      setTimeout(() => {
-        setSaved(false);
-        onClose();
-      }, 1000);
-    } else {
-      alert('Failed to parse DDL. Please check the syntax.');
-    }
-  };
-  
-  if (!isOpen || !table) return null;
+
+  if (!isOpen) return null;
 
   return createPortal(
     <div 
@@ -307,9 +173,9 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
         top: '50%',
         left: '50%',
         transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
-        width: '550px',
-        maxWidth: '85vw',
-        maxHeight: '70vh',
+        width: '650px',
+        maxWidth: '90vw',
+        maxHeight: '80vh',
         zIndex: 10000,
         pointerEvents: 'auto',
       }}
@@ -329,8 +195,8 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
           flexDirection: 'column',
           overflow: 'hidden',
           position: 'relative',
-          height: '450px',
-          maxHeight: '70vh',
+          height: '550px',
+          maxHeight: '80vh',
         }}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
@@ -357,26 +223,23 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
               color: colorMode === 'dark' ? '#e6edf3' : '#111827',
               marginBottom: '2px',
             }}>
-              Table DDL
+              Database Schema (SQL DDL)
             </h3>
             <p style={{
               margin: 0,
               fontSize: '12px',
               color: colorMode === 'dark' ? '#8b949e' : '#6b7280',
-              fontFamily: 'ui-monospace, monospace',
             }}>
-              {table.name}
+              All tables and foreign key constraints
             </p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               className="nodrag nopan"
-              onClick={handleSave}
+              onClick={handleDownload}
               onMouseDown={(e) => e.stopPropagation()}
               style={{
-                background: saved 
-                  ? '#16a34a' 
-                  : (colorMode === 'dark' ? '#2563eb' : '#3b82f6'),
+                background: colorMode === 'dark' ? '#2563eb' : '#3b82f6',
                 border: 'none',
                 color: 'white',
                 padding: '5px 10px',
@@ -390,18 +253,13 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
                 fontWeight: 500,
               }}
               onMouseEnter={(e) => {
-                if (!saved) {
-                  e.currentTarget.style.background = colorMode === 'dark' ? '#1d4ed8' : '#2563eb';
-                }
+                e.currentTarget.style.background = colorMode === 'dark' ? '#1d4ed8' : '#2563eb';
               }}
               onMouseLeave={(e) => {
-                if (!saved) {
-                  e.currentTarget.style.background = colorMode === 'dark' ? '#2563eb' : '#3b82f6';
-                }
+                e.currentTarget.style.background = colorMode === 'dark' ? '#2563eb' : '#3b82f6';
               }}
             >
-              {saved ? <Check size={16} /> : <Save size={16} />}
-              {saved ? 'Saved!' : 'Save Changes'}
+              Download .sql
             </button>
             <button
               className="nodrag nopan"
@@ -473,7 +331,7 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
           <textarea
             className="nodrag nopan"
             value={ddlText}
-            onChange={(e) => setDdlText(e.target.value)}
+            readOnly
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
@@ -511,7 +369,7 @@ export const DDLDialog: React.FC<DDLDialogProps> = ({ isOpen, table, onClose }) 
             color: colorMode === 'dark' ? '#8b949e' : '#6b7280',
             fontStyle: 'italic',
           }}>
-            Edit the DDL above and click "Save Changes" to update the table structure.
+            Read-only view of the complete database schema
           </p>
         </div>
       </div>

@@ -8,6 +8,129 @@ import { DDLDialog } from '../ui/DDLDialog';
 
 type HoverSide = 'top' | 'right' | 'bottom' | 'left' | null;
 
+// Helper function to get color styles for tables
+const getTableColorStyles = (color: string | undefined, isDark: boolean) => {
+  const colorValue = color || 'default';
+  
+  const colorMap: Record<string, { background: string; border: string; borderSelected: string; headerBg: string; headerText: string; headerBorder: string }> = {
+    default: {
+      background: isDark ? '#0d1117' : '#ffffff',
+      border: isDark ? '#22c55e' : '#86efac',
+      borderSelected: isDark ? '#22c55e' : '#16a34a',
+      headerBg: isDark ? '#161b22' : '#f0fdf4',
+      headerText: isDark ? '#e6edf3' : '#166534',
+      headerBorder: isDark ? '#30363d' : '#bbf7d0',
+    },
+    bronze: {
+      background: 'linear-gradient(135deg, #8b5a3c 0%, #6d4c41 100%)',
+      border: '#8b5a3c',
+      borderSelected: '#8b5a3c',
+      headerBg: 'rgba(139, 90, 60, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    silver: {
+      background: 'linear-gradient(135deg, #a0aec0 0%, #718096 100%)',
+      border: '#a0aec0',
+      borderSelected: '#a0aec0',
+      headerBg: 'rgba(160, 174, 192, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    gold: {
+      background: 'linear-gradient(135deg, #d4af37 0%, #b8960c 100%)',
+      border: '#d4af37',
+      borderSelected: '#d4af37',
+      headerBg: 'rgba(212, 175, 55, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    red: {
+      background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+      border: '#dc2626',
+      borderSelected: '#dc2626',
+      headerBg: 'rgba(220, 38, 38, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    orange: {
+      background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+      border: '#ea580c',
+      borderSelected: '#ea580c',
+      headerBg: 'rgba(234, 88, 12, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    green: {
+      background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+      border: '#16a34a',
+      borderSelected: '#16a34a',
+      headerBg: 'rgba(22, 163, 74, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    teal: {
+      background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+      border: '#0d9488',
+      borderSelected: '#0d9488',
+      headerBg: 'rgba(13, 148, 136, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    blue: {
+      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      border: '#2563eb',
+      borderSelected: '#2563eb',
+      headerBg: 'rgba(37, 99, 235, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    indigo: {
+      background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+      border: '#4f46e5',
+      borderSelected: '#4f46e5',
+      headerBg: 'rgba(79, 70, 229, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    purple: {
+      background: 'linear-gradient(135deg, #9333ea 0%, #7e22ce 100%)',
+      border: '#9333ea',
+      borderSelected: '#9333ea',
+      headerBg: 'rgba(147, 51, 234, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+    pink: {
+      background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)',
+      border: '#db2777',
+      borderSelected: '#db2777',
+      headerBg: 'rgba(219, 39, 119, 0.2)',
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    },
+  };
+
+  // If it's a predefined color, use it
+  if (colorMap[colorValue]) {
+    return colorMap[colorValue];
+  }
+  
+  // If it's a hex color, create gradient and styles from it
+  if (colorValue.startsWith('#')) {
+    return {
+      background: `linear-gradient(135deg, ${colorValue} 0%, ${colorValue}dd 100%)`,
+      border: colorValue,
+      borderSelected: colorValue,
+      headerBg: `${colorValue}33`,
+      headerText: '#ffffff',
+      headerBorder: 'rgba(255, 255, 255, 0.2)',
+    };
+  }
+  
+  return colorMap.default;
+};
+
 const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const [hoverSide, setHoverSide] = useState<HoverSide>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -22,6 +145,12 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const tableLayouts = useModelStore(state => state.tableLayouts);
   const setTablePosition = useModelStore(state => state.setTablePosition);
   const colorMode = useModelStore(state => state.colorMode);
+  const multiSelectedTableIds = useModelStore(state => state.multiSelectedTableIds);
+  const toggleTableMultiSelect = useModelStore(state => state.toggleTableMultiSelect);
+  const setSelected = useModelStore(state => state.setSelected);
+
+  // Check if this table is multi-selected
+  const isMultiSelected = multiSelectedTableIds.includes(data.id);
 
   const handleCreateLinkedTable = useCallback((side: HoverSide) => {
     if (!side) return;
@@ -32,13 +161,14 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
     // Calculate position for new table based on clicked side
     let newX = currentLayout.x;
     let newY = currentLayout.y;
-    const offset = 300;
+    const horizontalOffset = 300;
+    const verticalOffset = 200; // Reduced spacing for top/bottom
     
     switch (side) {
-      case 'top': newY -= offset; break;
-      case 'bottom': newY += offset; break;
-      case 'left': newX -= offset; break;
-      case 'right': newX += offset; break;
+      case 'top': newY -= verticalOffset; break;
+      case 'bottom': newY += verticalOffset; break;
+      case 'left': newX -= horizontalOffset; break;
+      case 'right': newX += horizontalOffset; break;
     }
     
     // Create new table linked to the same entity (user can drag field to create FK)
@@ -73,6 +203,19 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       setEditName(data.name);
     }
   }, [handleSaveEdit, data.name]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (e.shiftKey) {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleTableMultiSelect(data.id);
+    } else {
+      // Normal click - set as selected
+      e.stopPropagation();
+      e.preventDefault();
+      setSelected(data.id);
+    }
+  }, [data.id, toggleTableMultiSelect, setSelected]);
 
   const renderAddButton = (side: HoverSide) => {
     if (hoverSide !== side) return null;
@@ -364,14 +507,21 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       
       <div
         className={clsx('table-node', selected && 'selected')}
+        onClick={handleClick}
+        onMouseDown={(e) => {
+          // Prevent React Flow from handling shift-click
+          if (e.shiftKey) {
+            e.stopPropagation();
+          }
+        }}
         style={{
-          background: colorMode === 'dark' ? '#0d1117' : '#ffffff',
+          background: getTableColorStyles(data.color, colorMode === 'dark').background,
           border: colorMode === 'dark' 
-            ? (selected ? '2px solid #22c55e' : '2px solid #22c55e') 
-            : (selected ? '2px solid #16a34a' : '2px solid #86efac'),
+            ? (isMultiSelected ? '2px solid #22c55e' : selected ? `2px solid ${getTableColorStyles(data.color, true).borderSelected}` : `2px solid ${getTableColorStyles(data.color, true).border}`) 
+            : (isMultiSelected ? '2px solid #22c55e' : selected ? `2px solid ${getTableColorStyles(data.color, false).borderSelected}` : `2px solid ${getTableColorStyles(data.color, false).border}`),
           borderRadius: '8px',
           minWidth: '240px',
-          boxShadow: selected 
+          boxShadow: (selected || isMultiSelected)
             ? (colorMode === 'dark' 
                 ? '0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2)' 
                 : '0 0 20px rgba(22, 163, 74, 0.3), 0 4px 12px rgba(0,0,0,0.1)')
@@ -380,25 +530,46 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                 : '0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)'),
           overflow: 'hidden',
           fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+          position: 'relative',
         }}
       >
+      {/* Multi-selection indicator badge */}
+      {isMultiSelected && (
+        <div style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: '#22c55e',
+          border: '2px solid white',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          zIndex: 10,
+        }} />
+      )}
       {/* Header */}
       <div
         onDoubleClick={handleDoubleClick}
         style={{
-          background: colorMode === 'dark' ? '#161b22' : '#f0fdf4',
-          color: colorMode === 'dark' ? '#e6edf3' : '#166534',
+          background: getTableColorStyles(data.color, colorMode === 'dark').headerBg,
+          color: getTableColorStyles(data.color, colorMode === 'dark').headerText,
           padding: '12px 14px',
           fontWeight: 600,
           fontSize: '15px',
-          borderBottom: colorMode === 'dark' ? '1px solid #30363d' : '1px solid #bbf7d0',
+          borderBottom: `1px solid ${getTableColorStyles(data.color, colorMode === 'dark').headerBorder}`,
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
           cursor: isEditing ? 'text' : 'grab',
         }}
       >
-        <Table2 size={16} style={{ color: colorMode === 'dark' ? '#22c55e' : '#16a34a', flexShrink: 0 }} />
+        <Table2 size={16} style={{ 
+          color: data.color && data.color !== 'default' 
+            ? '#ffffff' 
+            : (colorMode === 'dark' ? '#22c55e' : '#16a34a'), 
+          flexShrink: 0 
+        }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
           {isEditing ? (
             <input
@@ -412,18 +583,22 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
               style={{
                 fontSize: '15px',
                 fontWeight: 600,
-                color: colorMode === 'dark' ? '#e6edf3' : '#166534',
-                border: colorMode === 'dark' ? '2px solid #22c55e' : '2px solid #16a34a',
+                color: getTableColorStyles(data.color, colorMode === 'dark').headerText,
+                border: data.color && data.color !== 'default' 
+                  ? '2px solid rgba(255,255,255,0.5)' 
+                  : (colorMode === 'dark' ? '2px solid #22c55e' : '2px solid #16a34a'),
                 borderRadius: '4px',
                 padding: '4px 8px',
                 outline: 'none',
                 width: '100%',
-                background: colorMode === 'dark' ? '#0d1117' : '#ffffff',
+                background: data.color && data.color !== 'default' 
+                  ? 'rgba(255,255,255,0.1)' 
+                  : (colorMode === 'dark' ? '#0d1117' : '#ffffff'),
                 fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
               }}
             />
           ) : (
-            <span>{data.name}</span>
+            <span style={{ textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none' }}>{data.name}</span>
           )}
         </div>
         <button
@@ -435,7 +610,9 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           style={{
             background: 'transparent',
             border: 'none',
-            color: colorMode === 'dark' ? '#22c55e' : '#16a34a',
+            color: data.color && data.color !== 'default' 
+              ? '#ffffff' 
+              : (colorMode === 'dark' ? '#22c55e' : '#16a34a'),
             padding: '4px',
             borderRadius: '4px',
             display: 'flex',
@@ -446,7 +623,9 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.opacity = '1';
-            e.currentTarget.style.background = colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+            e.currentTarget.style.background = data.color && data.color !== 'default'
+              ? 'rgba(255, 255, 255, 0.1)'
+              : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)');
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.opacity = '0.7';
@@ -459,7 +638,11 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       </div>
 
       {/* Body / Columns */}
-      <div className="nodrag" style={{ background: colorMode === 'dark' ? '#0d1117' : '#ffffff' }}>
+      <div className="nodrag" style={{ 
+        background: data.color && data.color !== 'default' 
+          ? 'rgba(0, 0, 0, 0.15)' 
+          : (colorMode === 'dark' ? '#0d1117' : '#ffffff') 
+      }}>
         {data.attributes && data.attributes.length > 0 ? (
           data.attributes.map((attr, index) => (
             <div 
@@ -474,55 +657,83 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
               style={{ 
                 padding: '10px 14px', 
                 borderBottom: index < data.attributes.length - 1 
-                  ? (colorMode === 'dark' ? '1px solid #21262d' : '1px solid #e5e7eb') 
+                  ? (data.color && data.color !== 'default' 
+                      ? '1px solid rgba(255, 255, 255, 0.1)' 
+                      : (colorMode === 'dark' ? '1px solid #21262d' : '1px solid #e5e7eb'))
                   : 'none', 
                 display: 'flex', 
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 fontSize: '14px',
-                color: colorMode === 'dark' ? '#e6edf3' : '#374151',
+                color: data.color && data.color !== 'default' 
+                  ? 'rgba(255, 255, 255, 0.95)' 
+                  : (colorMode === 'dark' ? '#e6edf3' : '#374151'),
                 position: 'relative',
                 cursor: 'crosshair',
                 transition: 'background 0.15s',
                 background: attr.isPrimaryKey 
-                  ? (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)') 
+                  ? (data.color && data.color !== 'default' 
+                      ? 'rgba(255, 255, 255, 0.1)' 
+                      : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)'))
                   : 'transparent',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = colorMode === 'dark' 
-                  ? 'rgba(34, 197, 94, 0.1)' 
-                  : 'rgba(34, 197, 94, 0.08)';
+                e.currentTarget.style.background = data.color && data.color !== 'default' 
+                  ? 'rgba(255, 255, 255, 0.08)' 
+                  : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.08)');
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = attr.isPrimaryKey 
-                  ? (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)') 
+                  ? (data.color && data.color !== 'default' 
+                      ? 'rgba(255, 255, 255, 0.1)' 
+                      : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)'))
                   : 'transparent';
               }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
                 {attr.isPrimaryKey && (
-                  <Key size={14} style={{ color: colorMode === 'dark' ? '#22c55e' : '#16a34a' }} />
+                  <Key size={14} style={{ 
+                    color: data.color && data.color !== 'default' 
+                      ? '#ffffff' 
+                      : (colorMode === 'dark' ? '#22c55e' : '#16a34a') 
+                  }} />
                 )}
                 {attr.isForeignKey && !attr.isPrimaryKey && (
-                  <Link2 size={14} style={{ color: colorMode === 'dark' ? '#22c55e' : '#16a34a' }} />
+                  <Link2 size={14} style={{ 
+                    color: data.color && data.color !== 'default' 
+                      ? '#ffffff' 
+                      : (colorMode === 'dark' ? '#22c55e' : '#16a34a') 
+                  }} />
                 )}
                 {!attr.isPrimaryKey && !attr.isForeignKey && (
                   <Diamond 
                     size={14} 
-                    style={{ color: colorMode === 'dark' ? '#8b949e' : '#9ca3af' }} 
-                    fill={attr.isNullable ? 'transparent' : (colorMode === 'dark' ? '#8b949e' : '#9ca3af')}
+                    style={{ 
+                      color: data.color && data.color !== 'default' 
+                        ? 'rgba(255, 255, 255, 0.5)' 
+                        : (colorMode === 'dark' ? '#8b949e' : '#9ca3af') 
+                    }} 
+                    fill={attr.isNullable 
+                      ? 'transparent' 
+                      : (data.color && data.color !== 'default' 
+                          ? 'rgba(255, 255, 255, 0.5)' 
+                          : (colorMode === 'dark' ? '#8b949e' : '#9ca3af'))}
                   />
                 )}
                 <span style={{ 
                   fontWeight: attr.isPrimaryKey ? 600 : 400,
+                  textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
                 }}>
                   {attr.name}
                 </span>
               </span>
               <span style={{ 
-                color: colorMode === 'dark' ? '#8b949e' : '#9ca3af', 
+                color: data.color && data.color !== 'default' 
+                  ? 'rgba(255, 255, 255, 0.6)' 
+                  : (colorMode === 'dark' ? '#8b949e' : '#9ca3af'), 
                 fontSize: '12px', 
                 pointerEvents: 'none',
+                textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
               }}>
                 {attr.dataType}
               </span>

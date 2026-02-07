@@ -1,0 +1,347 @@
+{
+  "conceptual": {
+    "entities": [
+      {
+        "id": "project-1",
+        "name": "Project",
+        "description": "Development projects"
+      },
+      {
+        "id": "task-1",
+        "name": "Task",
+        "description": "Individual work items"
+      },
+      {
+        "id": "member-1",
+        "name": "Team Member",
+        "description": "Project team members"
+      },
+      {
+        "id": "milestone-1",
+        "name": "Milestone",
+        "description": "Project milestones"
+      }
+    ],
+    "relationships": [
+      {
+        "id": "rel-1",
+        "fromEntityId": "task-1",
+        "toEntityId": "project-1",
+        "label": "part of",
+        "fromCardinality": "0..*",
+        "toCardinality": "1"
+      },
+      {
+        "id": "rel-2",
+        "fromEntityId": "task-1",
+        "toEntityId": "member-1",
+        "label": "assigned to",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1"
+      },
+      {
+        "id": "rel-3",
+        "fromEntityId": "task-1",
+        "toEntityId": "milestone-1",
+        "label": "targets",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1"
+      },
+      {
+        "id": "rel-4",
+        "fromEntityId": "milestone-1",
+        "toEntityId": "project-1",
+        "label": "belongs to",
+        "fromCardinality": "0..*",
+        "toCardinality": "1"
+      }
+    ],
+    "groups": []
+  },
+  "physical": {
+    "tables": [
+      {
+        "id": "project-table-1",
+        "entityId": "project-1",
+        "name": "projects",
+        "attributes": [
+          {
+            "id": "project-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "project-attr-1",
+            "name": "name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "project-attr-2",
+            "name": "description",
+            "dataType": "text",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "project-attr-3",
+            "name": "start_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "project-attr-4",
+            "name": "end_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ],
+        "color": "default"
+      },
+      {
+        "id": "member-table-1",
+        "entityId": "member-1",
+        "name": "team_members",
+        "attributes": [
+          {
+            "id": "member-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "member-attr-1",
+            "name": "name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "member-attr-2",
+            "name": "email",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "member-attr-3",
+            "name": "role",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          }
+        ]
+      },
+      {
+        "id": "milestone-table-1",
+        "entityId": "milestone-1",
+        "name": "milestones",
+        "attributes": [
+          {
+            "id": "milestone-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "milestone-fk-1",
+            "name": "project_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": true,
+            "referencesTableId": "project-table-1",
+            "referencesAttributeId": "project-pk-1"
+          },
+          {
+            "id": "milestone-attr-1",
+            "name": "title",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "milestone-attr-2",
+            "name": "due_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          }
+        ]
+      },
+      {
+        "id": "task-table-1",
+        "entityId": "task-1",
+        "name": "tasks",
+        "attributes": [
+          {
+            "id": "task-pk-1",
+            "name": "id",
+            "dataType": "uuid",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "task-fk-1",
+            "name": "project_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": true,
+            "referencesTableId": "project-table-1",
+            "referencesAttributeId": "project-pk-1"
+          },
+          {
+            "id": "task-fk-2",
+            "name": "assignee_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": true,
+            "referencesTableId": "member-table-1",
+            "referencesAttributeId": "member-pk-1"
+          },
+          {
+            "id": "task-fk-3",
+            "name": "milestone_id",
+            "dataType": "uuid",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": true,
+            "referencesTableId": "milestone-table-1",
+            "referencesAttributeId": "milestone-pk-1"
+          },
+          {
+            "id": "task-attr-1",
+            "name": "title",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "task-attr-2",
+            "name": "status",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "task-attr-3",
+            "name": "priority",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          }
+        ]
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": "fk-1",
+        "fromTableId": "task-table-1",
+        "toTableId": "project-table-1",
+        "fromAttributeId": "task-fk-1",
+        "toAttributeId": "project-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "1",
+        "edgeType": "smoothstep"
+      },
+      {
+        "id": "fk-2",
+        "fromTableId": "task-table-1",
+        "toTableId": "member-table-1",
+        "fromAttributeId": "task-fk-2",
+        "toAttributeId": "member-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1",
+        "edgeType": "smoothstep"
+      },
+      {
+        "id": "fk-3",
+        "fromTableId": "task-table-1",
+        "toTableId": "milestone-table-1",
+        "fromAttributeId": "task-fk-3",
+        "toAttributeId": "milestone-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "0..1",
+        "edgeType": "smoothstep"
+      },
+      {
+        "id": "fk-4",
+        "fromTableId": "milestone-table-1",
+        "toTableId": "project-table-1",
+        "fromAttributeId": "milestone-fk-1",
+        "toAttributeId": "project-pk-1",
+        "fromCardinality": "0..*",
+        "toCardinality": "1",
+        "edgeType": "smoothstep"
+      }
+    ],
+    "tableGroups": []
+  },
+  "nodeLayouts": {
+    "project-1": {
+      "x": 880,
+      "y": 460
+    },
+    "task-1": {
+      "x": 420,
+      "y": 360
+    },
+    "member-1": {
+      "x": 420,
+      "y": 120
+    },
+    "milestone-1": {
+      "x": 420,
+      "y": 620
+    }
+  },
+  "tableLayouts": {
+    "project-table-1": {
+      "x": 720,
+      "y": 260
+    },
+    "member-table-1": {
+      "x": -360,
+      "y": 220
+    },
+    "milestone-table-1": {
+      "x": 380,
+      "y": 460
+    },
+    "task-table-1": {
+      "x": -20,
+      "y": 140
+    }
+  },
+  "viewport": {
+    "x": 292.3323614894671,
+    "y": 71.60271558302337,
+    "zoom": 0.5614545005770324
+  },
+  "viewMode": "physical"
+}

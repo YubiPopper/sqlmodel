@@ -9,9 +9,10 @@ interface EntityGroupData {
   entityDescription?: string;
   width: number;
   height: number;
+  isDropTarget?: boolean; // Flag for when table is dragged over this entity group
 }
 
-const EntityGroupNode = memo(({ data, selected, id }: NodeProps<EntityGroupData>) => {
+const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) => {
   const [isResizing, setIsResizing] = useState(false);
   const [localSize, setLocalSize] = useState({ width: data.width, height: data.height });
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -77,22 +78,33 @@ const EntityGroupNode = memo(({ data, selected, id }: NodeProps<EntityGroupData>
       style={{
         width: localSize.width,
         height: localSize.height,
-        background: colorMode === 'dark' 
-          ? 'rgba(30, 41, 59, 0.3)' 
-          : 'rgba(241, 245, 249, 0.5)',
-        border: colorMode === 'dark'
-          ? (selected ? '2px dashed #3b82f6' : '1.5px dashed #475569')
-          : (selected ? '2px dashed #3b82f6' : '1.5px dashed #94a3b8'),
+        background: data.isDropTarget 
+          ? (colorMode === 'dark' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(199, 210, 254, 0.3)')
+          : (colorMode === 'dark' 
+              ? 'rgba(30, 41, 59, 0.3)' 
+              : 'rgba(241, 245, 249, 0.5)'),
+        border: data.isDropTarget
+          ? `2px dashed #6366f1`
+          : (colorMode === 'dark'
+              ? (selected ? '2px dashed #3b82f6' : '1.5px dashed #475569')
+              : (selected ? '2px dashed #3b82f6' : '1.5px dashed #94a3b8')),
         borderRadius: '12px',
         position: 'relative',
         cursor: 'grab',
-        transition: isResizing ? 'none' : 'border-color 0.2s',
+        transition: isResizing ? 'none' : 'all 0.2s ease',
+        boxShadow: data.isDropTarget
+          ? (colorMode === 'dark' 
+              ? '0 0 0 2px rgba(99, 102, 241, 0.5), 0 0 24px rgba(99, 102, 241, 0.4), 0 8px 16px rgba(0, 0, 0, 0.3)'
+              : '0 0 0 2px rgba(99, 102, 241, 0.5), 0 0 24px rgba(99, 102, 241, 0.3), 0 8px 16px rgba(0, 0, 0, 0.1)')
+          : 'none',
+        pointerEvents: 'all',
       }}
     >
       {/* Drag Handle Area - Top bar */}
       <div
         className="entity-group-drag-handle"
         style={{
+          pointerEvents: 'all',
           position: 'absolute',
           top: 0,
           left: 0,

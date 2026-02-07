@@ -12,7 +12,8 @@ import type {
   PhysicalTable,
   ForeignKey,
   Attribute,
-  EntityGroup 
+  EntityGroup,
+  TableGroup
 } from '../model/schemas';
 
 interface ModelState {
@@ -24,6 +25,7 @@ interface ModelState {
   // Physical layer
   tables: PhysicalTable[];
   foreignKeys: ForeignKey[];
+  tableGroups: TableGroup[];
   
   // Layout: Map nodeId (entityId or tableId) -> layout info
   nodeLayouts: Record<string, Omit<NodeLayout, 'entityId' | 'tableId'>>;
@@ -32,6 +34,8 @@ interface ModelState {
   viewport: Viewport;
   selectedId: string | null; // entityId, relationshipId, tableId, foreignKeyId, or groupId
   multiSelectedEntityIds: string[]; // For shift-click multi-selection in conceptual view
+  multiSelectedTableIds: string[]; // For shift-click multi-selection in physical view
+  editingGroupId: string | null; // For triggering inline editing of group name
   viewMode: 'conceptual' | 'physical';
   colorMode: 'light' | 'dark';
   showEntityOverlay: boolean; // Show entity groupings in physical view
@@ -54,9 +58,16 @@ interface ModelState {
   deleteRelationship: (id: string) => void;
   
   // Table Actions (physical)
-  addTable: (entityId: string) => string;
+  addTable: (entityId?: string) => string;
   updateTable: (id: string, data: Partial<PhysicalTable>) => void;
   deleteTable: (id: string) => void;
+  
+  // Table Group Actions (physical)
+  addTableGroup: (tableIds: string[], name?: string) => string;
+  updateTableGroup: (id: string, data: Partial<TableGroup>) => void;
+  deleteTableGroup: (id: string) => void;
+  addTableToGroup: (groupId: string, tableId: string) => void;
+  removeTableFromGroup: (groupId: string, tableId: string) => void;
   
   // Table Attribute Actions
   addTableAttribute: (tableId: string) => void;
@@ -70,26 +81,35 @@ interface ModelState {
   
   // Layout Actions
   setNodePosition: (id: string, x: number, y: number) => void;
+  setNodeSize: (id: string, width: number, height: number) => void;
   setTablePosition: (id: string, x: number, y: number) => void;
   setViewport: (viewport: Viewport) => void;
   setSelected: (id: string | null) => void;
+  setEditingGroupId: (id: string | null) => void;
   toggleEntityMultiSelect: (entityId: string) => void;
+  toggleTableMultiSelect: (tableId: string) => void;
   clearMultiSelection: () => void;
   setViewMode: (mode: 'conceptual' | 'physical') => void;
   setColorMode: (mode: 'light' | 'dark') => void;
   setShowEntityOverlay: (show: boolean) => void;
+  leftSidebarCollapsed: boolean;
+  toggleLeftSidebar: () => void;
   autoLayout: () => void;
   
   // Persistence
   loadModel: (conceptual: ConceptualData, layout: LayoutData) => void;
+  loadModelFromJSON: (data: any) => void;
   clearModel: () => void;
   
   // Helper methods
   getTablesForEntity: (entityId: string) => PhysicalTable[];
   getEntityForTable: (tableId: string) => Entity | undefined;
   
-  // Demo
+  // Examples (deprecated - use loadModelFromJSON)
   loadExample: () => void;
+  loadEcommerceExample: () => void;
+  loadBlogExample: () => void;
+  loadProjectExample: () => void;
 }
 
 export const useModelStore = create<ModelState>()(
@@ -100,14 +120,18 @@ export const useModelStore = create<ModelState>()(
       entityGroups: [],
       tables: [],
       foreignKeys: [],
+      tableGroups: [],
       nodeLayouts: {},
       tableLayouts: {},
       viewport: { x: 0, y: 0, zoom: 1 },
       selectedId: null,
       multiSelectedEntityIds: [],
+      multiSelectedTableIds: [],
+      editingGroupId: null,
       viewMode: 'conceptual',
       colorMode: 'dark',
       showEntityOverlay: false,
+      leftSidebarCollapsed: false,
 
       // === Entity Actions ===
       addEntity: () => {
@@ -185,8 +209,20 @@ export const useModelStore = create<ModelState>()(
           borderStyle: 'dashed',
           borderWidth: 2,
         };
+        
+        // For empty groups, store a default position so they can be dragged
+        const { viewport, nodeLayouts } = get();
+        const newLayouts = { ...nodeLayouts };
+        if (entityIds.length === 0) {
+          // Create group at viewport center
+          const x = -viewport.x / viewport.zoom + 200;
+          const y = -viewport.y / viewport.zoom + 200;
+          newLayouts[id] = { x, y };
+        }
+        
         set((state) => ({
           entityGroups: [...state.entityGroups, newGroup],
+          nodeLayouts: newLayouts,
           selectedId: id,
         }));
         return id;
@@ -208,23 +244,65 @@ export const useModelStore = create<ModelState>()(
       },
 
       addEntityToGroup: (groupId, entityId) => {
-        set((state) => ({
-          entityGroups: state.entityGroups.map((g) =>
-            g.id === groupId && !g.entityIds.includes(entityId)
-              ? { ...g, entityIds: [...g.entityIds, entityId] }
-              : g
-          ),
-        }));
+        console.log('[Store] addEntityToGroup called - groupId:', groupId, 'entityId:', entityId);
+        set((state) => {
+          const group = state.entityGroups.find(g => g.id === groupId);
+          console.log('[Store] Group found:', !!group, 'Already includes entity:', group?.entityIds.includes(entityId));
+          return {
+            entityGroups: state.entityGroups.map((g) =>
+              g.id === groupId && !g.entityIds.includes(entityId)
+                ? { ...g, entityIds: [...g.entityIds, entityId] }
+                : g
+            ),
+          };
+        });
       },
 
       removeEntityFromGroup: (groupId, entityId) => {
-        set((state) => ({
-          entityGroups: state.entityGroups.map((g) =>
-            g.id === groupId
-              ? { ...g, entityIds: g.entityIds.filter((id) => id !== entityId) }
-              : g
-          ),
-        }));
+        set((state) => {
+          const group = state.entityGroups.find(g => g.id === groupId);
+          if (!group) return state;
+          
+          const remainingEntityIds = group.entityIds.filter(id => id !== entityId);
+          const newNodeLayouts = { ...state.nodeLayouts };
+          
+          // Always calculate and store current group position when removing entities
+          // This prevents the group from jumping/moving as entities are removed
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          let hasPositionedEntities = false;
+          
+          group.entityIds.forEach(eid => {
+            const layout = state.nodeLayouts[eid];
+            if (layout) {
+              hasPositionedEntities = true;
+              minX = Math.min(minX, layout.x);
+              minY = Math.min(minY, layout.y);
+              maxX = Math.max(maxX, layout.x + 220);
+              maxY = Math.max(maxY, layout.y + 120);
+            }
+          });
+          
+          // Store the group's position and size (before entity is removed)
+          if (hasPositionedEntities) {
+            const padding = 60;
+            const headerPadding = 60;
+            newNodeLayouts[groupId] = { 
+              x: minX - padding, 
+              y: minY - headerPadding,
+              width: maxX - minX + padding * 2,
+              height: maxY - minY + padding + headerPadding
+            };
+          }
+          
+          return {
+            entityGroups: state.entityGroups.map((g) =>
+              g.id === groupId
+                ? { ...g, entityIds: remainingEntityIds }
+                : g
+            ),
+            nodeLayouts: newNodeLayouts,
+          };
+        });
       },
 
       // === Relationship Actions ===
@@ -263,21 +341,30 @@ export const useModelStore = create<ModelState>()(
       // === Table Actions ===
       addTable: (entityId) => {
         const id = uuidv4();
-        const entity = get().entities.find(e => e.id === entityId);
-        const existingTables = get().tables.filter(t => t.entityId === entityId);
-        const suffix = existingTables.length > 0 ? `_${existingTables.length + 1}` : '';
+        const { viewport } = get();
+        
+        let tableName = 'new_table';
+        let x = -viewport.x / viewport.zoom + 100 + Math.random() * 50;
+        let y = -viewport.y / viewport.zoom + 100 + Math.random() * 50;
+        
+        if (entityId) {
+          const entity = get().entities.find(e => e.id === entityId);
+          const existingTables = get().tables.filter(t => t.entityId === entityId);
+          const suffix = existingTables.length > 0 ? `_${existingTables.length + 1}` : '';
+          tableName = entity ? `${entity.name.toLowerCase().replace(/\s+/g, '_')}${suffix}` : `table${suffix}`;
+          
+          // Position table based on entity layout or offset from existing tables
+          const entityLayout = get().nodeLayouts[entityId];
+          x = entityLayout ? entityLayout.x + existingTables.length * 50 : x;
+          y = entityLayout ? entityLayout.y + existingTables.length * 30 : y;
+        }
         
         const newTable: PhysicalTable = {
           id,
           entityId,
-          name: entity ? `${entity.name.toLowerCase().replace(/\s+/g, '_')}${suffix}` : `table${suffix}`,
+          name: tableName,
           attributes: [],
         };
-        
-        // Position table based on entity layout or offset from existing tables
-        const entityLayout = get().nodeLayouts[entityId];
-        const x = entityLayout ? entityLayout.x + existingTables.length * 50 : 100 + Math.random() * 50;
-        const y = entityLayout ? entityLayout.y + existingTables.length * 30 : 100 + Math.random() * 50;
 
         set((state) => ({
           tables: [...state.tables, newTable],
@@ -303,11 +390,119 @@ export const useModelStore = create<ModelState>()(
           );
           const newTables = state.tables.filter((t) => t.id !== id);
           const { [id]: _, ...newTableLayouts } = state.tableLayouts;
+          
+          // Remove table from any groups
+          const newTableGroups = state.tableGroups.map(group => ({
+            ...group,
+            tableIds: group.tableIds.filter(tid => tid !== id),
+          }));
+          
           return {
             tables: newTables,
             foreignKeys: newForeignKeys,
             tableLayouts: newTableLayouts,
+            tableGroups: newTableGroups,
             selectedId: state.selectedId === id ? null : state.selectedId,
+          };
+        });
+      },
+
+      // === Table Group Actions ===
+      addTableGroup: (tableIds, name = 'New Group') => {
+        const id = uuidv4();
+        const newGroup: TableGroup = {
+          id,
+          name,
+          tableIds,
+          borderStyle: 'dashed',
+          borderWidth: 2,
+        };
+        
+        // For empty groups, store a default position so they can be dragged
+        const { viewport, tableLayouts } = get();
+        const newLayouts = { ...tableLayouts };
+        if (tableIds.length === 0) {
+          // Create group at viewport center
+          const x = -viewport.x / viewport.zoom + 200;
+          const y = -viewport.y / viewport.zoom + 200;
+          newLayouts[id] = { x, y };
+        }
+        
+        set((state) => ({
+          tableGroups: [...state.tableGroups, newGroup],
+          tableLayouts: newLayouts,
+          selectedId: id,
+        }));
+        return id;
+      },
+
+      updateTableGroup: (id, data) => {
+        set((state) => ({
+          tableGroups: state.tableGroups.map((g) =>
+            g.id === id ? { ...g, ...data } : g
+          ),
+        }));
+      },
+
+      deleteTableGroup: (id) => {
+        set((state) => ({
+          tableGroups: state.tableGroups.filter((g) => g.id !== id),
+          selectedId: state.selectedId === id ? null : state.selectedId,
+        }));
+      },
+
+      addTableToGroup: (groupId, tableId) => {
+        set((state) => ({
+          tableGroups: state.tableGroups.map((g) =>
+            g.id === groupId && !g.tableIds.includes(tableId)
+              ? { ...g, tableIds: [...g.tableIds, tableId] }
+              : g
+          ),
+        }));
+      },
+
+      removeTableFromGroup: (groupId, tableId) => {
+        set((state) => {
+          const group = state.tableGroups.find(g => g.id === groupId);
+          if (!group) return state;
+          
+          const remainingTableIds = group.tableIds.filter(id => id !== tableId);
+          const newTableLayouts = { ...state.tableLayouts };
+          
+          // Calculate and store current group position when removing tables
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          let hasPositionedTables = false;
+          
+          group.tableIds.forEach(tid => {
+            const layout = state.tableLayouts[tid];
+            if (layout) {
+              hasPositionedTables = true;
+              minX = Math.min(minX, layout.x);
+              minY = Math.min(minY, layout.y);
+              maxX = Math.max(maxX, layout.x + 280);
+              maxY = Math.max(maxY, layout.y + 200);
+            }
+          });
+          
+          // Store the group's position and size (before table is removed)
+          if (hasPositionedTables) {
+            const padding = 60;
+            const headerPadding = 60;
+            newTableLayouts[groupId] = { 
+              x: minX - padding, 
+              y: minY - headerPadding,
+              width: maxX - minX + padding * 2,
+              height: maxY - minY + padding + headerPadding
+            };
+          }
+          
+          return {
+            tableGroups: state.tableGroups.map((g) =>
+              g.id === groupId
+                ? { ...g, tableIds: remainingTableIds }
+                : g
+            ),
+            tableLayouts: newTableLayouts,
           };
         });
       },
@@ -443,6 +638,15 @@ export const useModelStore = create<ModelState>()(
           },
         }));
       },
+
+      setNodeSize: (id, width, height) => {
+        set((state) => ({
+          nodeLayouts: {
+            ...state.nodeLayouts,
+            [id]: { ...state.nodeLayouts[id], width, height },
+          },
+        }));
+      },
       
       setTablePosition: (id, x, y) => {
         set((state) => ({
@@ -455,7 +659,9 @@ export const useModelStore = create<ModelState>()(
 
       setViewport: (viewport) => set({ viewport }),
       
-      setSelected: (id) => set({ selectedId: id, multiSelectedEntityIds: [] }),
+      setSelected: (id) => set({ selectedId: id, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
+      
+      setEditingGroupId: (id) => set({ editingGroupId: id }),
       
       toggleEntityMultiSelect: (entityId) => {
         set((state) => {
@@ -486,13 +692,44 @@ export const useModelStore = create<ModelState>()(
         });
       },
       
-      clearMultiSelection: () => set({ multiSelectedEntityIds: [] }),
+      toggleTableMultiSelect: (tableId) => {
+        set((state) => {
+          const isAlreadyMultiSelected = state.multiSelectedTableIds.includes(tableId);
+          
+          // If removing from multi-selection
+          if (isAlreadyMultiSelected) {
+            return {
+              multiSelectedTableIds: state.multiSelectedTableIds.filter(id => id !== tableId),
+              selectedId: null,
+            };
+          }
+          
+          // If starting multi-selection from a single selected table
+          if (state.selectedId && !state.multiSelectedTableIds.length) {
+            // Add both the currently selected table and the new table to multi-selection
+            return {
+              multiSelectedTableIds: [state.selectedId, tableId],
+              selectedId: null, // Clear single selection
+            };
+          }
+          
+          // Adding to existing multi-selection
+          return {
+            multiSelectedTableIds: [...state.multiSelectedTableIds, tableId],
+            selectedId: null,
+          };
+        });
+      },
       
-      setViewMode: (mode) => set({ viewMode: mode, multiSelectedEntityIds: [] }),
+      clearMultiSelection: () => set({ multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
+      
+      setViewMode: (mode) => set({ viewMode: mode, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
       
       setColorMode: (mode) => set({ colorMode: mode }),
       
       setShowEntityOverlay: (show) => set({ showEntityOverlay: show }),
+
+      toggleLeftSidebar: () => set((state) => ({ leftSidebarCollapsed: !state.leftSidebarCollapsed })),
 
       autoLayout: () => {
         const { entities, relationships, tables, foreignKeys, viewMode, showEntityOverlay } = get();
@@ -502,10 +739,10 @@ export const useModelStore = create<ModelState>()(
         if (viewMode === 'conceptual') {
           dagreGraph.setGraph({ 
             rankdir: 'LR',
-            nodesep: 80,
-            ranksep: 120,
-            marginx: 120,
-            marginy: 120,
+            nodesep: 110,
+            ranksep: 160,
+            marginx: 130,
+            marginy: 130,
           });
 
           // Layout entities with dynamic sizing based on content
@@ -541,10 +778,10 @@ export const useModelStore = create<ModelState>()(
           if (showEntityOverlay) {
             dagreGraph.setGraph({ 
               rankdir: 'LR',
-              nodesep: 200,
-              ranksep: 400,
-              marginx: 120,
-              marginy: 120,
+              nodesep: 110,
+              ranksep: 220,
+              marginx: 50,
+              marginy: 50,
             });
 
             // First, calculate the size of each entity group
@@ -587,7 +824,7 @@ export const useModelStore = create<ModelState>()(
             foreignKeys.forEach((fk) => {
               const fromTable = tables.find(t => t.id === fk.fromTableId);
               const toTable = tables.find(t => t.id === fk.toTableId);
-              if (fromTable && toTable && fromTable.entityId !== toTable.entityId) {
+              if (fromTable && toTable && fromTable.entityId && toTable.entityId && fromTable.entityId !== toTable.entityId) {
                 dagreGraph.setEdge(fromTable.entityId, toTable.entityId);
               }
             });
@@ -596,7 +833,6 @@ export const useModelStore = create<ModelState>()(
 
             // Position tables within their entity groups
             const newTableLayouts: Record<string, Omit<NodeLayout, 'entityId' | 'tableId'>> = {};
-            const newNodeLayouts: Record<string, Omit<NodeLayout, 'entityId' | 'tableId'>> = { ...get().nodeLayouts };
             
             entities.forEach((entity) => {
               const nodeWithPosition = dagreGraph.node(entity.id);
@@ -604,9 +840,6 @@ export const useModelStore = create<ModelState>()(
               
               const entityX = nodeWithPosition.x - nodeWithPosition.width / 2;
               const entityY = nodeWithPosition.y - nodeWithPosition.height / 2;
-              
-              // Store entity position for empty entities
-              newNodeLayouts[entity.id] = { x: entityX, y: entityY };
               
               const entityTables = tables.filter(t => t.entityId === entity.id);
               
@@ -622,15 +855,15 @@ export const useModelStore = create<ModelState>()(
               });
             });
 
-            set({ tableLayouts: newTableLayouts, nodeLayouts: newNodeLayouts });
+            set({ tableLayouts: newTableLayouts });
           } else {
             // Standard table layout without entity grouping
             dagreGraph.setGraph({ 
               rankdir: 'LR',
-              nodesep: 150,
-              ranksep: 300,
-              marginx: 120,
-              marginy: 120,
+              nodesep: 90,
+              ranksep: 180,
+              marginx: 50,
+              marginy: 50,
             });
 
             tables.forEach((table) => {
@@ -681,6 +914,35 @@ export const useModelStore = create<ModelState>()(
           selectedId: null,
           multiSelectedEntityIds: [],
         });
+      },
+
+      loadModelFromJSON: (data) => {
+        // Load model from JSON file format (conceptual + physical structure)
+        const hasLayouts = data.nodeLayouts || data.tableLayouts;
+        
+        set({
+          entities: data.conceptual?.entities || [],
+          relationships: data.conceptual?.relationships || [],
+          entityGroups: data.conceptual?.groups || [],
+          tables: data.physical?.tables || [],
+          foreignKeys: data.physical?.foreignKeys || [],
+          tableGroups: data.physical?.tableGroups || [],
+          nodeLayouts: data.nodeLayouts || {},
+          tableLayouts: data.tableLayouts || {},
+          viewport: data.viewport || { x: 0, y: 0, zoom: 1 },
+          selectedId: null,
+          multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
+          viewMode: data.viewMode || 'conceptual'
+        });
+        
+        // Only apply auto-layout if no layouts were saved
+        if (!hasLayouts) {
+          get().autoLayout();
+          set({ viewMode: 'physical' });
+          get().autoLayout();
+          set({ viewMode: data.viewMode || 'conceptual' });
+        }
       },
 
       clearModel: () => {
@@ -810,6 +1072,7 @@ export const useModelStore = create<ModelState>()(
             toAttributeId: borrowerPKId,
             fromCardinality: '0..*',
             toCardinality: '1',
+            edgeType: 'smoothstep',
           },
           {
             id: uuidv4(),
@@ -819,13 +1082,14 @@ export const useModelStore = create<ModelState>()(
             toAttributeId: bookPKId,
             fromCardinality: '0..*',
             toCardinality: '1',
+            edgeType: 'smoothstep',
           },
         ];
 
         set({
           entities: [entityBorrower, entityLoans, entityBooks],
           relationships,
-          entityGroups: [], // Clear any existing groups
+          entityGroups: [],
           tables: [borrowerTable, loansTable, booksTable],
           foreignKeys,
           nodeLayouts: {},
@@ -833,17 +1097,369 @@ export const useModelStore = create<ModelState>()(
           viewport: { x: 0, y: 0, zoom: 1 },
           selectedId: null,
           multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
           viewMode: 'conceptual'
         });
         
-        // Apply auto-layout for conceptual view
         get().autoLayout();
-        
-        // Apply auto-layout for physical view
         set({ viewMode: 'physical' });
         get().autoLayout();
+        set({ viewMode: 'conceptual' });
+      },
+
+      loadEcommerceExample: () => {
+        // Entities
+        const customerId = uuidv4();
+        const productId = uuidv4();
+        const orderId = uuidv4();
+        const orderItemId = uuidv4();
+        const paymentId = uuidv4();
+
+        const entityCustomer: Entity = { id: customerId, name: 'Customer', description: 'Online store customers' };
+        const entityProduct: Entity = { id: productId, name: 'Product', description: 'Products available for sale' };
+        const entityOrder: Entity = { id: orderId, name: 'Order', description: 'Customer orders' };
+        const entityOrderItem: Entity = { id: orderItemId, name: 'Order Item', description: 'Individual items in an order' };
+        const entityPayment: Entity = { id: paymentId, name: 'Payment', description: 'Payment transactions' };
+
+        // Tables
+        const customerTableId = uuidv4();
+        const productTableId = uuidv4();
+        const orderTableId = uuidv4();
+        const orderItemTableId = uuidv4();
+        const paymentTableId = uuidv4();
+
+        const customerPKId = uuidv4();
+        const productPKId = uuidv4();
+        const orderPKId = uuidv4();
+        const orderItemPKId = uuidv4();
+        const paymentPKId = uuidv4();
+        const orderCustomerFKId = uuidv4();
+        const orderItemOrderFKId = uuidv4();
+        const orderItemProductFKId = uuidv4();
+        const paymentOrderFKId = uuidv4();
+
+        const customerTable: PhysicalTable = {
+          id: customerTableId,
+          entityId: customerId,
+          name: 'customers',
+          attributes: [
+            { id: customerPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'email', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'address', dataType: 'text', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+            { id: uuidv4(), name: 'created_at', dataType: 'timestamp', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const productTable: PhysicalTable = {
+          id: productTableId,
+          entityId: productId,
+          name: 'products',
+          attributes: [
+            { id: productPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'description', dataType: 'text', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+            { id: uuidv4(), name: 'price', dataType: 'decimal', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'stock', dataType: 'int', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const orderTable: PhysicalTable = {
+          id: orderTableId,
+          entityId: orderId,
+          name: 'orders',
+          attributes: [
+            { id: orderPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: orderCustomerFKId, name: 'customer_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: customerTableId, referencesAttributeId: customerPKId },
+            { id: uuidv4(), name: 'order_date', dataType: 'timestamp', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'status', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'total', dataType: 'decimal', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const orderItemTable: PhysicalTable = {
+          id: orderItemTableId,
+          entityId: orderItemId,
+          name: 'order_items',
+          attributes: [
+            { id: orderItemPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: orderItemOrderFKId, name: 'order_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: orderTableId, referencesAttributeId: orderPKId },
+            { id: orderItemProductFKId, name: 'product_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: productTableId, referencesAttributeId: productPKId },
+            { id: uuidv4(), name: 'quantity', dataType: 'int', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'price', dataType: 'decimal', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const paymentTable: PhysicalTable = {
+          id: paymentTableId,
+          entityId: paymentId,
+          name: 'payments',
+          attributes: [
+            { id: paymentPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: paymentOrderFKId, name: 'order_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: orderTableId, referencesAttributeId: orderPKId },
+            { id: uuidv4(), name: 'amount', dataType: 'decimal', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'method', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'paid_at', dataType: 'timestamp', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const relationships: Relationship[] = [
+          { id: uuidv4(), fromEntityId: orderId, toEntityId: customerId, label: 'placed by', fromCardinality: '0..*', toCardinality: '1' },
+          { id: uuidv4(), fromEntityId: orderItemId, toEntityId: orderId, label: 'belongs to', fromCardinality: '1..*', toCardinality: '1' },
+          { id: uuidv4(), fromEntityId: orderItemId, toEntityId: productId, label: 'references', fromCardinality: '0..*', toCardinality: '1' },
+          { id: uuidv4(), fromEntityId: paymentId, toEntityId: orderId, label: 'pays for', fromCardinality: '0..*', toCardinality: '1' },
+        ];
+
+        const foreignKeys: ForeignKey[] = [
+          { id: uuidv4(), fromTableId: orderTableId, toTableId: customerTableId, fromAttributeId: orderCustomerFKId, toAttributeId: customerPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: orderTableId, fromAttributeId: orderItemOrderFKId, toAttributeId: orderPKId, fromCardinality: '1..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: productTableId, fromAttributeId: orderItemProductFKId, toAttributeId: productPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: paymentTableId, toTableId: orderTableId, fromAttributeId: paymentOrderFKId, toAttributeId: orderPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+        ];
+
+        set({
+          entities: [entityCustomer, entityProduct, entityOrder, entityOrderItem, entityPayment],
+          relationships,
+          entityGroups: [],
+          tables: [customerTable, productTable, orderTable, orderItemTable, paymentTable],
+          foreignKeys,
+          nodeLayouts: {},
+          tableLayouts: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selectedId: null,
+          multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
+          viewMode: 'conceptual'
+        });
         
-        // Switch back to conceptual view
+        get().autoLayout();
+        set({ viewMode: 'physical' });
+        get().autoLayout();
+        set({ viewMode: 'conceptual' });
+      },
+
+      loadBlogExample: () => {
+        // Entities
+        const authorId = uuidv4();
+        const postId = uuidv4();
+        const commentId = uuidv4();
+        const categoryId = uuidv4();
+
+        const entityAuthor: Entity = { id: authorId, name: 'Author', description: 'Content creators and writers' };
+        const entityPost: Entity = { id: postId, name: 'Post', description: 'Blog articles and content' };
+        const entityComment: Entity = { id: commentId, name: 'Comment', description: 'User comments on posts' };
+        const entityCategory: Entity = { id: categoryId, name: 'Category', description: 'Content categorization' };
+
+        // Tables
+        const authorTableId = uuidv4();
+        const postTableId = uuidv4();
+        const commentTableId = uuidv4();
+        const categoryTableId = uuidv4();
+
+        const authorPKId = uuidv4();
+        const postPKId = uuidv4();
+        const commentPKId = uuidv4();
+        const categoryPKId = uuidv4();
+        const postAuthorFKId = uuidv4();
+        const postCategoryFKId = uuidv4();
+        const commentPostFKId = uuidv4();
+
+        const authorTable: PhysicalTable = {
+          id: authorTableId,
+          entityId: authorId,
+          name: 'authors',
+          attributes: [
+            { id: authorPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'username', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'email', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'bio', dataType: 'text', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+            { id: uuidv4(), name: 'joined_at', dataType: 'timestamp', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const categoryTable: PhysicalTable = {
+          id: categoryTableId,
+          entityId: categoryId,
+          name: 'categories',
+          attributes: [
+            { id: categoryPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'slug', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'description', dataType: 'text', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+          ],
+        };
+
+        const postTable: PhysicalTable = {
+          id: postTableId,
+          entityId: postId,
+          name: 'posts',
+          attributes: [
+            { id: postPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: postAuthorFKId, name: 'author_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: authorTableId, referencesAttributeId: authorPKId },
+            { id: postCategoryFKId, name: 'category_id', dataType: 'uuid', isPrimaryKey: false, isNullable: true, isForeignKey: true, referencesTableId: categoryTableId, referencesAttributeId: categoryPKId },
+            { id: uuidv4(), name: 'title', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'content', dataType: 'text', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'published_at', dataType: 'timestamp', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+          ],
+        };
+
+        const commentTable: PhysicalTable = {
+          id: commentTableId,
+          entityId: commentId,
+          name: 'comments',
+          attributes: [
+            { id: commentPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: commentPostFKId, name: 'post_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: postTableId, referencesAttributeId: postPKId },
+            { id: uuidv4(), name: 'author_name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'content', dataType: 'text', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'created_at', dataType: 'timestamp', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const relationships: Relationship[] = [
+          { id: uuidv4(), fromEntityId: postId, toEntityId: authorId, label: 'written by', fromCardinality: '0..*', toCardinality: '1' },
+          { id: uuidv4(), fromEntityId: postId, toEntityId: categoryId, label: 'categorized as', fromCardinality: '0..*', toCardinality: '0..1' },
+          { id: uuidv4(), fromEntityId: commentId, toEntityId: postId, label: 'on', fromCardinality: '0..*', toCardinality: '1' },
+        ];
+
+        const foreignKeys: ForeignKey[] = [
+          { id: uuidv4(), fromTableId: postTableId, toTableId: authorTableId, fromAttributeId: postAuthorFKId, toAttributeId: authorPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: postTableId, toTableId: categoryTableId, fromAttributeId: postCategoryFKId, toAttributeId: categoryPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: commentTableId, toTableId: postTableId, fromAttributeId: commentPostFKId, toAttributeId: postPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+        ];
+
+        set({
+          entities: [entityAuthor, entityPost, entityComment, entityCategory],
+          relationships,
+          entityGroups: [],
+          tables: [authorTable, postTable, commentTable, categoryTable],
+          foreignKeys,
+          nodeLayouts: {},
+          tableLayouts: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selectedId: null,
+          multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
+          viewMode: 'conceptual'
+        });
+        
+        get().autoLayout();
+        set({ viewMode: 'physical' });
+        get().autoLayout();
+        set({ viewMode: 'conceptual' });
+      },
+
+      loadProjectExample: () => {
+        // Entities
+        const projectId = uuidv4();
+        const taskId = uuidv4();
+        const memberId = uuidv4();
+        const milestoneId = uuidv4();
+
+        const entityProject: Entity = { id: projectId, name: 'Project', description: 'Development projects' };
+        const entityTask: Entity = { id: taskId, name: 'Task', description: 'Individual work items' };
+        const entityMember: Entity = { id: memberId, name: 'Team Member', description: 'Project team members' };
+        const entityMilestone: Entity = { id: milestoneId, name: 'Milestone', description: 'Project milestones' };
+
+        // Tables
+        const projectTableId = uuidv4();
+        const taskTableId = uuidv4();
+        const memberTableId = uuidv4();
+        const milestoneTableId = uuidv4();
+
+        const projectPKId = uuidv4();
+        const taskPKId = uuidv4();
+        const memberPKId = uuidv4();
+        const milestonePKId = uuidv4();
+        const taskProjectFKId = uuidv4();
+        const taskAssigneeFKId = uuidv4();
+        const taskMilestoneFKId = uuidv4();
+        const milestoneProjectFKId = uuidv4();
+
+        const projectTable: PhysicalTable = {
+          id: projectTableId,
+          entityId: projectId,
+          name: 'projects',
+          attributes: [
+            { id: projectPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'description', dataType: 'text', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+            { id: uuidv4(), name: 'start_date', dataType: 'date', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'end_date', dataType: 'date', isPrimaryKey: false, isNullable: true, isForeignKey: false },
+          ],
+        };
+
+        const memberTable: PhysicalTable = {
+          id: memberTableId,
+          entityId: memberId,
+          name: 'team_members',
+          attributes: [
+            { id: memberPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'name', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'email', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'role', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const milestoneTable: PhysicalTable = {
+          id: milestoneTableId,
+          entityId: milestoneId,
+          name: 'milestones',
+          attributes: [
+            { id: milestonePKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: milestoneProjectFKId, name: 'project_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: projectTableId, referencesAttributeId: projectPKId },
+            { id: uuidv4(), name: 'title', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'due_date', dataType: 'date', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const taskTable: PhysicalTable = {
+          id: taskTableId,
+          entityId: taskId,
+          name: 'tasks',
+          attributes: [
+            { id: taskPKId, name: 'id', dataType: 'uuid', isPrimaryKey: true, isNullable: false, isForeignKey: false },
+            { id: taskProjectFKId, name: 'project_id', dataType: 'uuid', isPrimaryKey: false, isNullable: false, isForeignKey: true, referencesTableId: projectTableId, referencesAttributeId: projectPKId },
+            { id: taskAssigneeFKId, name: 'assignee_id', dataType: 'uuid', isPrimaryKey: false, isNullable: true, isForeignKey: true, referencesTableId: memberTableId, referencesAttributeId: memberPKId },
+            { id: taskMilestoneFKId, name: 'milestone_id', dataType: 'uuid', isPrimaryKey: false, isNullable: true, isForeignKey: true, referencesTableId: milestoneTableId, referencesAttributeId: milestonePKId },
+            { id: uuidv4(), name: 'title', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'status', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+            { id: uuidv4(), name: 'priority', dataType: 'varchar', isPrimaryKey: false, isNullable: false, isForeignKey: false },
+          ],
+        };
+
+        const relationships: Relationship[] = [
+          { id: uuidv4(), fromEntityId: taskId, toEntityId: projectId, label: 'part of', fromCardinality: '0..*', toCardinality: '1' },
+          { id: uuidv4(), fromEntityId: taskId, toEntityId: memberId, label: 'assigned to', fromCardinality: '0..*', toCardinality: '0..1' },
+          { id: uuidv4(), fromEntityId: taskId, toEntityId: milestoneId, label: 'targets', fromCardinality: '0..*', toCardinality: '0..1' },
+          { id: uuidv4(), fromEntityId: milestoneId, toEntityId: projectId, label: 'belongs to', fromCardinality: '0..*', toCardinality: '1' },
+        ];
+
+        const foreignKeys: ForeignKey[] = [
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: projectTableId, fromAttributeId: taskProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: memberTableId, fromAttributeId: taskAssigneeFKId, toAttributeId: memberPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: milestoneTableId, fromAttributeId: taskMilestoneFKId, toAttributeId: milestonePKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: milestoneTableId, toTableId: projectTableId, fromAttributeId: milestoneProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+        ];
+
+        set({
+          entities: [entityProject, entityTask, entityMember, entityMilestone],
+          relationships,
+          entityGroups: [],
+          tables: [projectTable, taskTable, memberTable, milestoneTable],
+          foreignKeys,
+          nodeLayouts: {},
+          tableLayouts: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          selectedId: null,
+          multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
+          viewMode: 'conceptual'
+        });
+        
+        get().autoLayout();
+        set({ viewMode: 'physical' });
+        get().autoLayout();
         set({ viewMode: 'conceptual' });
       }
     }),

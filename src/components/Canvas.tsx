@@ -20,6 +20,9 @@ import EntityGroupNode from './nodes/EntityGroupNode';
 import ConceptualGroupNode from './nodes/ConceptualGroupNode';
 import { MarkerDefs } from './MarkerDefs';
 import { ConfirmationDialog } from './ui/ConfirmationDialog';
+import { DDLDialog } from './ui/DDLDialog';
+import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
+import { Plus, Trash2, Copy, ArrowDownUp, Group, Pencil, Code } from 'lucide-react';
 
 const nodeTypes = {
   entity: EntityNode,
@@ -42,6 +45,17 @@ const CanvasInner = () => {
     position: { x: number; y: number };
   } | null>(null);
 
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    type: 'canvas' | 'entity' | 'table' | 'relationship' | 'foreignKey' | 'group';
+    targetId?: string;
+  }>({ isOpen: false, position: { x: 0, y: 0 }, type: 'canvas' });
+
+  const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
+  const [dragHoverEntityGroupId, setDragHoverEntityGroupId] = useState<string | null>(null);
+  const [ddlDialogTable, setDdlDialogTable] = useState<typeof tables[0] | null>(null);
+
   const { 
     entities, 
     relationships, 
@@ -55,7 +69,12 @@ const CanvasInner = () => {
     colorMode,
     showEntityOverlay,
     multiSelectedEntityIds,
+    multiSelectedTableIds,
     
+    addEntity,
+    addEntityGroup,
+    addTable,
+    updateTable,
     addRelationship,
     updateRelationship,
     deleteEntity,
@@ -63,12 +82,16 @@ const CanvasInner = () => {
     deleteEntityGroup,
     deleteTable,
     deleteForeignKey,
+    updateForeignKey,
     setNodePosition,
     setTablePosition,
     setViewport,
     setSelected,
     selectedId,
     clearMultiSelection,
+    autoLayout,
+    addEntityToGroup,
+    removeEntityFromGroup,
   } = useModelStore();
 
   // Compute all transitively connected entity IDs (for conceptual view)
@@ -161,6 +184,14 @@ const CanvasInner = () => {
 
       // Entity group nodes (background)
       const groupNodes: Node[] = entityGroups.map(group => {
+        const leftPadding = 40; // Left padding (smaller due to label)
+        const rightPadding = 80; // Right padding
+        const headerPadding = 70; // Extra space at top for label
+        const bottomPadding = 60; // Bottom padding
+        
+        // Check if group has a stored layout (from manual positioning/resizing)
+        const storedGroupLayout = nodeLayouts[group.id];
+        
         // Calculate bounding box for all entities in the group
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         let hasEntities = false;
@@ -169,8 +200,9 @@ const CanvasInner = () => {
           const layout = nodeLayouts[entityId];
           if (layout) {
             hasEntities = true;
-            const entityWidth = 220;
-            const entityHeight = 120;
+            // Use stored dimensions or defaults
+            const entityWidth = layout.width || 220;
+            const entityHeight = layout.height || 120;
             
             minX = Math.min(minX, layout.x);
             minY = Math.min(minY, layout.y);
@@ -179,32 +211,80 @@ const CanvasInner = () => {
           }
         });
 
-        // If no entities have positions yet, use default size and position
-        if (!hasEntities) {
-          minX = 100;
-          minY = 100;
-          maxX = 500;
-          maxY = 400;
+        // Determine group position and size
+        let groupX, groupY, groupWidth, groupHeight;
+        
+        if (hasEntities) {
+          const leftMostEntity = minX;
+          const topMostEntity = minY;
+          const rightMostEntity = maxX;
+          const bottomMostEntity = maxY;
+          
+          // Group maintains its position unless entities move beyond its boundaries
+          // Start with stored position or initialize from first entity placement
+          const baseX = storedGroupLayout?.x ?? (leftMostEntity - leftPadding);
+          const baseY = storedGroupLayout?.y ?? (topMostEntity - headerPadding);
+          
+          // Only move position if entities extend beyond current left/top boundaries
+          groupX = Math.min(baseX, leftMostEntity - leftPadding);
+          groupY = Math.min(baseY, topMostEntity - headerPadding);
+          
+          // Calculate required size to contain all entities with padding from the current position
+          const requiredWidth = (rightMostEntity + rightPadding) - groupX;
+          const requiredHeight = (bottomMostEntity + bottomPadding) - groupY;
+          
+          // Use stored size if manually resized and larger, otherwise use required size
+          if (storedGroupLayout?.width && storedGroupLayout?.height) {
+            groupWidth = Math.max(storedGroupLayout.width, requiredWidth);
+            groupHeight = Math.max(storedGroupLayout.height, requiredHeight);
+          } else {
+            groupWidth = requiredWidth;
+            groupHeight = requiredHeight;
+          }
+          
+          // Update stored position only if it expanded left or up
+          if (groupX < baseX || groupY < baseY) {
+            setNodePosition(group.id, groupX, groupY);
+          }
+        } else if (storedGroupLayout) {
+          // Empty group with stored position/size
+          groupX = storedGroupLayout.x;
+          groupY = storedGroupLayout.y;
+          groupWidth = storedGroupLayout.width || 360;
+          groupHeight = storedGroupLayout.height || 180;
+        } else {
+          // Empty group without stored position (shouldn't happen)
+          groupX = 100;
+          groupY = 100;
+          groupWidth = 360;
+          groupHeight = 180;
         }
 
-        const padding = 60;
-        const headerPadding = 60;
+        // Only use passthrough class if group has entities (to allow clicking entities inside)
+        // Empty groups should be fully interactive for dragging
+        const hasEntitiesInGroup = group.entityIds.length > 0 && group.entityIds.some(id => nodeLayouts[id]);
 
         return {
           id: group.id,
           type: 'conceptualGroup',
-          position: { x: minX - padding, y: minY - headerPadding },
+          position: { x: groupX, y: groupY },
           data: {
             ...group,
-            width: maxX - minX + padding * 2,
-            height: maxY - minY + padding + headerPadding,
+            width: groupWidth,
+            height: groupHeight,
+            hasEntities: hasEntitiesInGroup, // Flag for whether group has entities
+            isDropTarget: dragHoverGroupId === group.id, // Highlight when entity is dragged over
           },
-          zIndex: -1,
-          selectable: false, // Disable React Flow's built-in selection - we handle it via label click
+          zIndex: hasEntitiesInGroup ? -1 : 1, // Empty groups need positive z-index but lower than entities
+          selectable: true, // Always allow selection
           draggable: true,
           selected: selectedId === group.id,
-          dragHandle: '.conceptual-group-drag-handle',
-          className: 'group-node-passthrough', // Allow clicks to pass through to entities
+          dragHandle: hasEntitiesInGroup ? '.conceptual-group-drag-handle' : undefined,
+          className: hasEntitiesInGroup ? 'group-node-passthrough' : '', // Only passthrough if has entities
+          // For empty groups, allow dropping entities onto them
+          ...((!hasEntitiesInGroup) && {
+            style: { pointerEvents: 'all' }
+          }),
         };
       });
 
@@ -212,13 +292,19 @@ const CanvasInner = () => {
       return [...groupNodes, ...entityNodes];
     } else {
       // Tables are always positioned absolutely (not relative to groups)
-      const tableNodes = tables.map(t => ({
-        id: t.id,
-        type: 'table',
-        position: tableLayouts[t.id] || { x: 0, y: 0 },
-        data: t,
-        selected: selectedId === t.id,
-      }));
+      const tableNodes = tables.map(t => {
+        const isMultiSelected = multiSelectedTableIds.includes(t.id);
+        const isSingleSelected = !isMultiSelected && selectedId === t.id;
+        return {
+          id: t.id,
+          type: 'table',
+          position: tableLayouts[t.id] || { x: 0, y: 0 },
+          data: t,
+          selected: isMultiSelected || isSingleSelected,
+          draggable: true,
+          zIndex: 5, // Below edges (10) but above entity groups (-1)
+        };
+      });
 
       if (!showEntityOverlay) {
         return tableNodes;
@@ -242,11 +328,13 @@ const CanvasInner = () => {
               entityDescription: entity.description,
               width: 280,
               height: 120,
+              isDropTarget: dragHoverEntityGroupId === entity.id,
             },
             zIndex: -1,
             selectable: true,
             draggable: true,
             dragHandle: '.entity-group-drag-handle',
+            selected: selectedId === entity.id,
           };
         }
 
@@ -277,11 +365,13 @@ const CanvasInner = () => {
             entityDescription: entity.description,
             width: maxX - minX + padding * 2,
             height: maxY - minY + padding + headerPadding + 16,
+            isDropTarget: dragHoverEntityGroupId === entity.id,
           },
           zIndex: -1,
           selectable: true,
           draggable: true,
           dragHandle: '.entity-group-drag-handle',
+          selected: selectedId === entity.id,
         };
       }).filter(Boolean);
 
@@ -428,23 +518,42 @@ const CanvasInner = () => {
         // Default line color: grey in dark mode, darker grey in light mode
         const defaultColor = colorMode === 'dark' ? '#4b5563' : '#9ca3af';
         
+        // Edge type label for visual feedback
+        const edgeTypeLabel = fk.edgeType === 'straight' ? '⎯' : fk.edgeType === 'step' ? '⌐' : '∿';
+        
         return {
           id: fk.id,
           source: fk.fromTableId,
           target: fk.toTableId,
           sourceHandle,
           targetHandle,
-          type: 'smoothstep',
+          type: fk.edgeType || 'smoothstep',
           markerEnd: `url(#marker-${fk.toCardinality})`,
           markerStart: `url(#marker-${fk.fromCardinality})`,
           selected: isEdgeSelected,
+          label: isEdgeSelected ? edgeTypeLabel : undefined,
           className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
           data: fk,
           interactionWidth: 20,
+          zIndex: 10, // Put edges on top of tables
           style: {
             stroke: (isEdgeSelected || isConnectedToSelected) ? '#4ade80' : defaultColor,
             strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 2.5 : 2,
           },
+          labelStyle: {
+            fontSize: '16px',
+            fontWeight: 600,
+            fill: '#22c55e',
+            cursor: 'context-menu',
+          },
+          labelBgStyle: {
+            fill: colorMode === 'dark' ? '#1e293b' : '#ffffff',
+            fillOpacity: 0.95,
+            stroke: '#22c55e',
+            strokeWidth: 1.5,
+          },
+          labelBgPadding: [6, 8],
+          labelBgBorderRadius: 6,
         };
       });
     }
@@ -452,6 +561,9 @@ const CanvasInner = () => {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach(change => {
+      if ('id' in change) {
+        console.log('[Canvas] onNodesChange - change:', change.type, 'id:', change.id, 'dragging:', (change as any).dragging);
+      }
       if (change.type === 'position' && change.position) {
         // Check if this is an entity group node
         const isEntityGroup = change.id.endsWith('-group');
@@ -460,28 +572,39 @@ const CanvasInner = () => {
         if (isConceptualGroup) {
           // For conceptual groups, move all entities within the group
           const group = entityGroups.find(g => g.id === change.id);
-          if (group && group.entityIds.length > 0) {
-            // Calculate the delta from current position
-            const currentGroupNode = nodes.find(n => n.id === change.id);
-            if (currentGroupNode) {
-              const deltaX = change.position.x - currentGroupNode.position.x;
-              const deltaY = change.position.y - currentGroupNode.position.y;
-              
-              // Apply delta to all entities in this group
-              group.entityIds.forEach(entityId => {
-                const currentLayout = nodeLayouts[entityId];
-                if (currentLayout) {
-                  const newX = currentLayout.x + deltaX;
-                  const newY = currentLayout.y + deltaY;
-                  
-                  if (change.dragging === false) {
-                    const snapped = snapToGrid(newX, newY);
-                    setNodePosition(entityId, snapped.x, snapped.y);
-                  } else {
-                    setNodePosition(entityId, newX, newY);
+          if (group) {
+            if (group.entityIds.length > 0) {
+              // Group has entities - move all entities AND clear stored group position
+              const currentGroupNode = nodes.find(n => n.id === change.id);
+              if (currentGroupNode) {
+                const deltaX = change.position.x - currentGroupNode.position.x;
+                const deltaY = change.position.y - currentGroupNode.position.y;
+                
+                // Apply delta to all entities in this group
+                group.entityIds.forEach(entityId => {
+                  const currentLayout = nodeLayouts[entityId];
+                  if (currentLayout) {
+                    const newX = currentLayout.x + deltaX;
+                    const newY = currentLayout.y + deltaY;
+                    
+                    if (change.dragging === false) {
+                      const snapped = snapToGrid(newX, newY);
+                      setNodePosition(entityId, snapped.x, snapped.y);
+                    } else {
+                      setNodePosition(entityId, newX, newY);
+                    }
                   }
-                }
-              });
+                });
+              }
+            } else {
+              // Empty group - store its own position in nodeLayouts
+              // Store the position directly as React Flow provides it (already the visual position)
+              if (change.dragging === false) {
+                const snapped = snapToGrid(change.position.x, change.position.y);
+                setNodePosition(change.id, snapped.x, snapped.y);
+              } else {
+                setNodePosition(change.id, change.position.x, change.position.y);
+              }
             }
           }
           return;
@@ -549,11 +672,17 @@ const CanvasInner = () => {
           else if (!change.selected && selectedId === entityId) setSelected(null);
         } else {
           // Handle normal selection (entities, relationships, conceptual groups, etc.)
-          // Skip React Flow's selection handling for entities in conceptual view
-          // We handle it via onClick with shift key detection
           const isEntity = entities.some(e => e.id === change.id);
+          
           if (isEntity && viewMode === 'conceptual') {
-            // Don't interfere with our custom shift-click logic
+            // For entities in conceptual view, only update our store if it differs
+            // This prevents React Flow's multi-select from overriding our single-select logic
+            if (change.selected && selectedId !== change.id && !multiSelectedEntityIds.length) {
+              // Only select if not already handling multi-selection
+              setSelected(change.id);
+            } else if (!change.selected && change.id === selectedId) {
+              setSelected(null);
+            }
             return;
           }
           
@@ -564,7 +693,7 @@ const CanvasInner = () => {
         }
       }
     });
-  }, [setNodePosition, setTablePosition, setSelected, selectedId, viewMode, snapToGrid, tables, nodes, tableLayouts, entityGroups, entities]);
+  }, [setNodePosition, setTablePosition, setSelected, selectedId, viewMode, snapToGrid, tables, nodes, tableLayouts, entityGroups, entities, addEntityToGroup, dragHoverGroupId, multiSelectedEntityIds, nodeLayouts]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
       changes.forEach(change => {
@@ -589,6 +718,150 @@ const CanvasInner = () => {
     }
   }, [addRelationship, viewMode]);
 
+  const onNodeDrag = useCallback((_: any, node: any) => {
+    // Conceptual view: track entities being dragged over entity groups
+    if (viewMode === 'conceptual' && entities.some(e => e.id === node.id)) {
+      // Check if entity is over any group
+      const entityX = node.position.x + 110; // Entity center
+      const entityY = node.position.y + 60;
+
+      console.log('[Canvas] onNodeDrag - entity:', node.id, 'position:', entityX, entityY);
+      const hoveredGroup = entityGroups.find(group => {
+      // Skip if entity is already in this group
+      if (group.entityIds.includes(node.id)) return false;
+
+      // Calculate group bounds
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let hasEntities = false;
+
+      group.entityIds.forEach(entityId => {
+        const layout = nodeLayouts[entityId];
+        if (layout) {
+          hasEntities = true;
+          const entityWidth = layout.width || 220;
+          const entityHeight = layout.height || 120;
+          minX = Math.min(minX, layout.x);
+          minY = Math.min(minY, layout.y);
+          maxX = Math.max(maxX, layout.x + entityWidth);
+          maxY = Math.max(maxY, layout.y + entityHeight);
+        }
+      });
+
+      // If no entities, use stored group position
+      if (!hasEntities) {
+        const storedPos = nodeLayouts[group.id];
+        if (storedPos) {
+          minX = storedPos.x;
+          minY = storedPos.y;
+          maxX = storedPos.x + 360;
+          maxY = storedPos.y + 180;
+        } else {
+          return false;
+        }
+      }
+
+      const leftPadding = 40;
+      const rightPadding = 80;
+      const headerPadding = 70;
+      const bottomPadding = 60;
+      const groupX = minX - leftPadding;
+      const groupY = minY - headerPadding;
+      const groupWidth = maxX - minX + leftPadding + rightPadding;
+      const groupHeight = maxY - minY + bottomPadding + headerPadding;
+
+      // Check if entity center is within group bounds
+      return entityX >= groupX && entityX <= groupX + groupWidth &&
+             entityY >= groupY && entityY <= groupY + groupHeight;
+    });
+
+    console.log('[Canvas] Hover state changing to:', hoveredGroup?.id || null);
+    setDragHoverGroupId(hoveredGroup?.id || null);
+    return;
+  }
+
+  // Physical view with entity overlay: track tables being dragged over entity groups
+  if (viewMode === 'physical' && showEntityOverlay && tables.some(t => t.id === node.id)) {
+    const tableX = node.position.x + 110; // Table center
+    const tableY = node.position.y + 60;
+
+    // Check if table is over any entity group
+    const hoveredEntityId = entities.find(entity => {
+      const entityTables = tables.filter(t => t.entityId === entity.id);
+      
+      if (entityTables.length === 0) {
+        // Empty entity group - use stored position
+        const storedPos = nodeLayouts[entity.id];
+        if (storedPos) {
+          const groupX = storedPos.x || 0;
+          const groupY = storedPos.y || 0;
+          const groupWidth = 280;
+          const groupHeight = 120;
+          
+          return tableX >= groupX && tableX <= groupX + groupWidth &&
+                 tableY >= groupY && tableY <= groupY + groupHeight;
+        }
+        return false;
+      }
+
+      // Calculate entity group bounds from its tables
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      
+      entityTables.forEach(table => {
+        const layout = tableLayouts[table.id] || { x: 0, y: 0 };
+        const tableWidth = 240;
+        const tableHeight = 40 + (table.attributes.length * 30) + 40;
+        
+        minX = Math.min(minX, layout.x);
+        minY = Math.min(minY, layout.y);
+        maxX = Math.max(maxX, layout.x + tableWidth);
+        maxY = Math.max(maxY, layout.y + tableHeight);
+      });
+
+      const padding = 40;
+      const headerPadding = 60;
+      const groupX = minX - padding;
+      const groupY = minY - headerPadding;
+      const groupWidth = maxX - minX + padding * 2;
+      const groupHeight = maxY - minY + padding + headerPadding + 16;
+
+      return tableX >= groupX && tableX <= groupX + groupWidth &&
+             tableY >= groupY && tableY <= groupY + groupHeight;
+    })?.id;
+
+    console.log('[Canvas] Table drag over entity group:', hoveredEntityId || null);
+    setDragHoverEntityGroupId(hoveredEntityId || null);
+    return;
+  }
+
+  // Clear hover states if not dragging relevant items
+  setDragHoverGroupId(null);
+  setDragHoverEntityGroupId(null);
+}, [viewMode, entities, entityGroups, nodeLayouts, tables, tableLayouts, showEntityOverlay]);
+
+  const onNodeDragStop = useCallback((_: any, node: any) => {
+    // Conceptual view: Handle entities dropped into entity groups
+    if (viewMode === 'conceptual' && dragHoverGroupId) {
+      const entity = entities.find(e => e.id === node.id);
+      if (entity) {
+        console.log('[Canvas] Drop detected - adding entity:', entity.id, 'to group:', dragHoverGroupId);
+        addEntityToGroup(dragHoverGroupId, entity.id);
+      }
+    }
+
+    // Physical view with entity overlay: Handle tables dropped into entity groups
+    if (viewMode === 'physical' && showEntityOverlay && dragHoverEntityGroupId) {
+      const table = tables.find(t => t.id === node.id);
+      if (table) {
+        console.log('[Canvas] Drop detected - assigning table:', table.id, 'to entity:', dragHoverEntityGroupId);
+        updateTable(table.id, { entityId: dragHoverEntityGroupId });
+      }
+    }
+
+    // Clear hover states after handling drop
+    setDragHoverGroupId(null);
+    setDragHoverEntityGroupId(null);
+  }, [viewMode, dragHoverGroupId, dragHoverEntityGroupId, entities, tables, addEntityToGroup, updateTable, showEntityOverlay]);
+
   const onMoveEnd = useCallback((_: any, viewport: any) => {
     setViewport(viewport);
   }, [setViewport]);
@@ -596,7 +869,199 @@ const CanvasInner = () => {
   const onPaneClick = useCallback(() => {
     setSelected(null);
     clearMultiSelection();
+    setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, type: 'canvas' });
   }, [setSelected, clearMultiSelection]);
+
+  // Context menu handlers
+  const handleContextMenu = useCallback((event: React.MouseEvent, nodeId?: string, nodeType?: 'entity' | 'table' | 'group') => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (nodeId) {
+      setSelected(nodeId);
+      setContextMenu({
+        isOpen: true,
+        position: { x: event.clientX, y: event.clientY },
+        type: nodeType || (viewMode === 'conceptual' ? 'entity' : 'table'),
+        targetId: nodeId,
+      });
+    }
+  }, [setSelected, viewMode]);
+
+  const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: any) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    setSelected(edge.id);
+    setContextMenu({
+      isOpen: true,
+      position: { x: event.clientX, y: event.clientY },
+      type: viewMode === 'conceptual' ? 'relationship' : 'foreignKey',
+      targetId: edge.id,
+    });
+  }, [setSelected, viewMode]);
+
+  const handlePaneContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({
+      isOpen: true,
+      position: { x: event.clientX, y: event.clientY },
+      type: 'canvas',
+    });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu({ isOpen: false, position: { x: 0, y: 0 }, type: 'canvas' });
+  }, []);
+
+  // Build context menu items based on type
+  const getContextMenuItems = useCallback((): ContextMenuItem[] => {
+    const { type, targetId } = contextMenu;
+    
+    if (type === 'canvas') {
+      return viewMode === 'conceptual'
+        ? [
+            { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => addEntity() },
+            { label: 'Add Group', icon: <Group size={14} />, onClick: () => addEntityGroup([], 'New Group') },
+            { label: '', divider: true, onClick: () => {} },
+            { label: 'Auto Layout', icon: <ArrowDownUp size={14} />, onClick: autoLayout, shortcut: '⌘L' },
+          ]
+        : [
+            { label: 'Auto Layout', icon: <ArrowDownUp size={14} />, onClick: autoLayout, shortcut: '⌘L' },
+          ];
+    }
+
+    if (type === 'entity' && targetId) {
+      const entity = entities.find(e => e.id === targetId);
+      const entityGroup = entityGroups.find(g => g.entityIds.includes(targetId));
+      
+      const menuItems: ContextMenuItem[] = [
+        { label: 'Edit Entity', icon: <Pencil size={14} />, onClick: () => setSelected(targetId) },
+        { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => {
+          const newId = addEntity();
+          if (entity) {
+            const state = useModelStore.getState();
+            state.updateEntity(newId, { name: `${entity.name} (copy)`, description: entity.description });
+            const layout = nodeLayouts[targetId];
+            if (layout) {
+              setNodePosition(newId, layout.x + 40, layout.y + 40);
+            }
+          }
+        }},
+      ];
+      
+      // Add "Remove from Group" option if entity is in a group
+      if (entityGroup) {
+        menuItems.push(
+          { label: '', divider: true, onClick: () => {} },
+          { label: 'Remove from Group', icon: <Group size={14} />, onClick: () => {
+            removeEntityFromGroup(entityGroup.id, targetId);
+          }}
+        );
+      }
+      
+      menuItems.push(
+        { label: '', divider: true, onClick: () => {} },
+        { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => {
+          setDeleteDialog({
+            isOpen: true,
+            type: 'entity',
+            id: targetId,
+            name: entity?.name,
+          });
+        }, danger: true, shortcut: '⌫' }
+      );
+      
+      return menuItems;
+    }
+
+    if (type === 'table' && targetId) {
+      const table = tables.find(t => t.id === targetId);
+      
+      return [
+        { label: 'Edit Table', icon: <Pencil size={14} />, onClick: () => setSelected(targetId) },
+        { label: 'Export SQL', icon: <Code size={14} />, onClick: () => {
+          handleCloseContextMenu();
+          if (table) {
+            setDdlDialogTable(table);
+          }
+        }},
+        { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => {
+          if (table) {
+            const newId = addTable(table.entityId);
+            const state = useModelStore.getState();
+            state.updateTable(newId, { 
+              name: `${table.name}_copy`,
+              attributes: table.attributes.map(attr => ({
+                ...attr,
+                id: crypto.randomUUID(),
+              })),
+            });
+            const layout = tableLayouts[targetId];
+            if (layout) {
+              setTablePosition(newId, layout.x + 40, layout.y + 40);
+            }
+          }
+        }},
+        { label: '', divider: true, onClick: () => {} },
+        { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => {
+          setDeleteDialog({
+            isOpen: true,
+            type: 'table',
+            id: targetId,
+            name: table?.name,
+          });
+        }, danger: true, shortcut: '⌫' },
+      ];  
+    }
+
+    if (type === 'foreignKey' && targetId) {
+      const fk = foreignKeys.find(f => f.id === targetId);
+      const currentEdgeType = fk?.edgeType || 'smoothstep';
+      
+      return [
+        { label: 'Routing Style', onClick: () => {}, divider: false },
+        { label: currentEdgeType === 'smoothstep' ? '✓ Smooth' : 'Smooth', onClick: () => {
+          updateForeignKey(targetId, { edgeType: 'smoothstep' });
+        }},
+        { label: currentEdgeType === 'straight' ? '✓ Straight' : 'Straight', onClick: () => {
+          updateForeignKey(targetId, { edgeType: 'straight' });
+        }},
+        { label: currentEdgeType === 'step' ? '✓ Step' : 'Step', onClick: () => {
+          updateForeignKey(targetId, { edgeType: 'step' });
+        }},
+        { label: '', divider: true, onClick: () => {} },
+        { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => {
+          setDeleteDialog({
+            isOpen: true,
+            type: 'foreignKey',
+            id: targetId,
+          });
+        }, danger: true, shortcut: '⌫' },
+      ];
+    }
+
+    if (type === 'group' && targetId) {
+      const group = entityGroups.find(g => g.id === targetId);
+      return [
+        { label: 'Edit Group', icon: <Pencil size={14} />, onClick: () => {
+          setSelected(targetId);
+          useModelStore.getState().setEditingGroupId(targetId);
+        }},
+        { label: '', divider: true, onClick: () => {} },
+        { label: 'Delete Group', icon: <Trash2 size={14} />, onClick: () => {
+          setDeleteDialog({
+            isOpen: true,
+            type: 'entityGroup',
+            id: targetId,
+            name: group?.name,
+          });
+        }, danger: true, shortcut: '⌫' },
+      ];
+    }
+
+    return [];
+  }, [contextMenu, viewMode, entities, tables, entityGroups, addEntity, addEntityGroup, addTable, autoLayout, setSelected, setNodePosition, setTablePosition, nodeLayouts, tableLayouts]);
 
   const onEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
     if (viewMode !== 'conceptual') return;
@@ -745,9 +1210,22 @@ const CanvasInner = () => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onMoveEnd={onMoveEnd}
         onPaneClick={onPaneClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
+        onEdgeContextMenu={handleEdgeContextMenu}
+        onNodeContextMenu={(event, node) => {
+          const nodeType = node.type === 'entity' ? 'entity' 
+            : node.type === 'table' ? 'table' 
+            : node.type === 'conceptualGroup' ? 'group'
+            : undefined;
+          if (nodeType) {
+            handleContextMenu(event, node.id, nodeType);
+          }
+        }}
+        onPaneContextMenu={handlePaneContextMenu}
         connectionMode={ConnectionMode.Loose}
         defaultViewport={viewport}
         fitViewOptions={{ padding: 0.2 }}
@@ -790,6 +1268,12 @@ const CanvasInner = () => {
         confirmLabel="Delete"
         cancelLabel="Cancel"
         isDestructive={true}
+      />
+      
+      <DDLDialog
+        isOpen={!!ddlDialogTable}
+        table={ddlDialogTable}
+        onClose={() => setDdlDialogTable(null)}
       />
       
       {/* Edge Label Editor */}
@@ -837,6 +1321,14 @@ const CanvasInner = () => {
           </div>
         </div>
       )}
+      
+      {/* Context Menu */}
+      <ContextMenu
+        isOpen={contextMenu.isOpen}
+        position={contextMenu.position}
+        items={getContextMenuItems()}
+        onClose={handleCloseContextMenu}
+      />
     </div>
   );
 };

@@ -9,7 +9,6 @@ export const LeftPanel = () => {
     tables,
     entityGroups,
     addEntity, 
-    addTable,
     selectedId, 
     setSelected, 
     deleteEntity,
@@ -22,7 +21,6 @@ export const LeftPanel = () => {
   const [entityToDelete, setEntityToDelete] = useState<{ id: string, name: string } | null>(null);
   const [tableToDelete, setTableToDelete] = useState<{ id: string, name: string } | null>(null);
   const [groupToDelete, setGroupToDelete] = useState<{ id: string, name: string } | null>(null);
-  const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const handleDeleteEntityClick = (e: React.MouseEvent, id: string, name: string) => {
@@ -61,19 +59,6 @@ export const LeftPanel = () => {
     }
   };
 
-  const toggleEntityExpand = (entityId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedEntities(prev => {
-      const next = new Set(prev);
-      if (next.has(entityId)) {
-        next.delete(entityId);
-      } else {
-        next.add(entityId);
-      }
-      return next;
-    });
-  };
-
   const toggleGroupExpand = (groupId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedGroups(prev => {
@@ -85,11 +70,6 @@ export const LeftPanel = () => {
       }
       return next;
     });
-  };
-
-  const handleAddTable = (entityId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    addTable(entityId);
   };
 
   // Get tables for an entity
@@ -289,7 +269,8 @@ export const LeftPanel = () => {
                       </div>
                     );
                   })}
-                </>\n              )}
+                </>
+              )}
               
               {/* UNGROUPED ENTITIES Section */}
               {(() => {
