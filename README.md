@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/sqlmodelblue.svg" alt="SQLModel Logo" width="120" />
+  <img src="public/assets/sqlmodelblack.svg" alt="SQLModel Logo" width="120" />
 </p>
 
 <h1 align="center">SQLModel</h1>

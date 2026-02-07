@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useModelStore } from '../../store/useModelStore';
 import { Navbar } from './Navbar';
 import { LeftSidebar } from './Sidebar';
@@ -8,7 +8,20 @@ import Canvas from '../Canvas';
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
+  const entities = useModelStore(state => state.entities);
+  const tables = useModelStore(state => state.tables);
+  const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const isDark = colorMode === 'dark';
+
+  // Load project example on first load if nothing is loaded
+  useEffect(() => {
+    if (entities.length === 0 && tables.length === 0) {
+      fetch('/examples/project.json')
+        .then(res => res.json())
+        .then(data => loadModelFromJSON(data))
+        .catch(err => console.error('Failed to load default example:', err));
+    }
+  }, []); // Only run once on mount
 
   return (
     <div style={{
