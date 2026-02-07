@@ -52,30 +52,68 @@ export const clearAISettings = (): void => {
 // System prompt for data modeling
 const SYSTEM_PROMPT = `You are an expert data architect and database designer. Your role is to help users design conceptual and physical data models.
 
-When generating data models, you should:
-1. Create well-normalized database structures (3NF or higher when appropriate)
-2. Use clear, descriptive names for entities, tables, and columns
-3. Define appropriate relationships with correct cardinality
-4. Include primary keys (usually UUID or auto-increment IDs)
-5. Add relevant attributes with appropriate data types
-6. Consider common patterns like audit fields (created_at, updated_at)
+IMPORTANT: First analyze the user's request to determine the type of data model needed:
 
-Data types should use common database types: uuid, varchar, text, int, bigint, decimal, boolean, date, timestamp, json
+1. **OLTP (Transactional Systems)** - For operational systems like e-commerce, CRM, project management:
+   - Use highly normalized structures (3NF or higher)
+   - Focus on data integrity and avoiding redundancy
+   - Design for frequent inserts, updates, and deletes
+   - Include audit fields (created_at, updated_at)
+   - Use proper foreign key relationships
 
-Cardinality options are: "1" (exactly one), "0..1" (zero or one), "1..*" (one or more), "0..*" (zero or more)
+2. **OLAP/Analytics (Star Schema)** - For reporting, analytics, data warehouses, dashboards:
+   - Use dimensional modeling (star or snowflake schema)
+   - Create fact tables for measurable events/metrics
+   - Create dimension tables for descriptive attributes
+   - Include surrogate keys and natural keys
+   - Add slowly changing dimension (SCD) fields where appropriate
+   - Optimize for read-heavy queries with denormalization
+
+3. **Hybrid** - For systems needing both operational and analytical capabilities:
+   - Design OLTP core with analytical views/summaries
+   - Consider materialized aggregates
+
+Keywords that suggest ANALYTICS/STAR SCHEMA:
+- analytics, reporting, dashboard, metrics, KPIs, data warehouse, BI, business intelligence
+- measures, dimensions, facts, aggregations, historical analysis, trends
+
+Keywords that suggest OLTP:
+- application, system, platform, service, operations, transactions, users, workflow
+- CRUD operations, real-time, live data
+
+When generating data models:
+1. Use clear, descriptive names for entities, tables, and columns
+2. Define appropriate relationships with correct cardinality
+3. Include primary keys (UUID for OLTP, surrogate integers for OLAP)
+4. Add relevant attributes with appropriate data types
+5. For star schema: prefix fact tables with "fact_" and dimension tables with "dim_"
+
+Data types: uuid, varchar, text, int, bigint, decimal, boolean, date, timestamp, json
+
+Cardinality options: "1" (exactly one), "0..1" (zero or one), "1..*" (one or more), "0..*" (zero or more)
 
 Always respond with valid JSON that matches the requested schema.`;
+
+// Progress callback type for real-time updates
+export type ProgressCallback = (stage: string, detail?: string) => void;
 
 // Generate a complete data model from a description
 export const generateDataModel = async (
   description: string,
-  config: AIServiceConfig
+  config: AIServiceConfig,
+  onProgress?: ProgressCallback
 ): Promise<AIGeneratedModel> => {
+  onProgress?.('Analyzing request...', 'Determining model type (OLTP vs Analytics)');
+  
   const prompt = `Generate a complete data model for the following system:
 
 ${description}
 
+FIRST: Analyze whether this is an OLTP system, Analytics/Star Schema, or Hybrid based on the description.
+Then generate the appropriate model structure.
+
 Respond with a JSON object containing:
+- modelType: "oltp" | "star_schema" | "hybrid" (indicate what you detected)
 - entities: Array of conceptual entities with id (uuid), name, description
 - relationships: Array of relationships with id, fromEntityId, toEntityId, label, fromCardinality, toCardinality
 - tables: Array of physical tables with id, entityId (matching entity), name (snake_case), attributes
@@ -83,12 +121,20 @@ Respond with a JSON object containing:
 
 Each table attribute should have: id, name, dataType, isPrimaryKey, isNullable, isForeignKey
 
-Generate 3-8 entities depending on complexity. Include realistic attributes and proper relationships.
+For OLTP: Generate 3-8 normalized entities with proper relationships.
+For Star Schema: Generate 1-3 fact tables and 3-6 dimension tables.
+For Hybrid: Mix of operational entities and analytical structures.
 
 IMPORTANT: Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
 
+  onProgress?.('Calling AI...', 'Generating conceptual entities');
   const response = await callAI(prompt, config);
-  return parseModelResponse(response);
+  
+  onProgress?.('Parsing response...', 'Building entity structures');
+  const result = parseModelResponse(response);
+  
+  onProgress?.('Finalizing...', `Created ${result.entities.length} entities and ${result.tables.length} tables`);
+  return result;
 };
 
 // Enhance an existing model with AI suggestions
@@ -100,8 +146,11 @@ export const enhanceModel = async (
     foreignKeys: ForeignKey[];
   },
   enhancementRequest: string,
-  config: AIServiceConfig
+  config: AIServiceConfig,
+  onProgress?: ProgressCallback
 ): Promise<AIGeneratedModel> => {
+  onProgress?.('Analyzing current model...', `Found ${currentModel.entities.length} entities`);
+  
   const prompt = `Given the current data model, enhance it based on the user's request.
 
 CURRENT MODEL:
@@ -118,6 +167,8 @@ Tables: ${JSON.stringify(currentModel.tables.map(t => ({
 
 USER REQUEST: ${enhancementRequest}
 
+Analyze if this enhancement requires OLTP patterns or Analytics/Star Schema patterns.
+
 Generate ONLY the NEW or MODIFIED elements that should be added/changed. Do not include existing entities/tables unless they are being modified.
 
 Respond with a JSON object containing:
@@ -128,16 +179,25 @@ Respond with a JSON object containing:
 
 IMPORTANT: Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
 
+  onProgress?.('Calling AI...', 'Generating enhancements');
   const response = await callAI(prompt, config);
-  return parseEnhancementResponse(response, currentModel);
+  
+  onProgress?.('Parsing response...', 'Merging with existing model');
+  const result = parseEnhancementResponse(response, currentModel);
+  
+  onProgress?.('Finalizing...', `Adding ${result.entities.length} entities and ${result.tables.length} tables`);
+  return result;
 };
 
 // Generate physical tables from conceptual entities
 export const generatePhysicalFromConceptual = async (
   entities: Entity[],
   relationships: Relationship[],
-  config: AIServiceConfig
+  config: AIServiceConfig,
+  onProgress?: ProgressCallback
 ): Promise<{ tables: PhysicalTable[]; foreignKeys: ForeignKey[] }> => {
+  onProgress?.('Analyzing conceptual model...', `Processing ${entities.length} entities`);
+  
   const prompt = `Convert the following conceptual data model into a physical database schema.
 
 CONCEPTUAL ENTITIES:
@@ -170,8 +230,14 @@ IMPORTANT:
 - Generate new UUIDs for table ids, attribute ids, and foreignKey ids
 - Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
 
+  onProgress?.('Calling AI...', 'Converting to physical schema');
   const response = await callAI(prompt, config);
-  return parsePhysicalResponse(response);
+  
+  onProgress?.('Parsing response...', 'Building tables and foreign keys');
+  const result = parsePhysicalResponse(response);
+  
+  onProgress?.('Finalizing...', `Created ${result.tables.length} tables`);
+  return result;
 };
 
 // Suggest improvements for an entity

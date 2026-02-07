@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { X, Sparkles, Wand2, Settings, Loader2, Lightbulb, ChevronRight, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Wand2, Settings, Loader2, Lightbulb, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import {
   generateDataModel,
@@ -7,7 +7,7 @@ import {
   generatePhysicalFromConceptual,
   getAISettings,
   PROMPT_TEMPLATES,
-  type AIServiceConfig,
+  type ProgressCallback,
 } from '../../services/aiService';
 
 interface AIDialogProps {
@@ -18,12 +18,19 @@ interface AIDialogProps {
 
 type AIMode = 'generate' | 'enhance' | 'physical';
 
+interface ProgressState {
+  stage: string;
+  detail?: string;
+  completedStages: string[];
+}
+
 export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSettings }) => {
   const [mode, setMode] = useState<AIMode>('generate');
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
   
   const colorMode = useModelStore(state => state.colorMode);
   const entities = useModelStore(state => state.entities);
@@ -44,17 +51,29 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
       return;
     }
 
-    if (!prompt.trim()) {
+    if (!prompt.trim() && mode !== 'physical') {
       setError('Please enter a description for your data model.');
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setProgress({ stage: 'Initializing...', completedStages: [] });
+
+    // Progress callback to update UI in real-time
+    const onProgress: ProgressCallback = (stage, detail) => {
+      setProgress(prev => ({
+        stage,
+        detail,
+        completedStages: prev?.stage && prev.stage !== stage 
+          ? [...(prev.completedStages || []), prev.stage]
+          : prev?.completedStages || [],
+      }));
+    };
 
     try {
       if (mode === 'generate') {
-        const result = await generateDataModel(prompt, settings);
+        const result = await generateDataModel(prompt, settings, onProgress);
         
         // Load the generated model
         loadModelFromJSON({
@@ -75,7 +94,8 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
         const result = await enhanceModel(
           { entities, relationships, tables, foreignKeys },
           prompt,
-          settings
+          settings,
+          onProgress
         );
         
         // Merge with existing model
@@ -103,7 +123,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
         
         onClose();
       } else if (mode === 'physical') {
-        const result = await generatePhysicalFromConceptual(entities, relationships, settings);
+        const result = await generatePhysicalFromConceptual(entities, relationships, settings, onProgress);
         
         // Merge with existing model
         const state = useModelStore.getState();
@@ -135,6 +155,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
+      setProgress(null);
     }
   }, [mode, prompt, entities, relationships, tables, foreignKeys, loadModelFromJSON, onClose]);
 
@@ -522,6 +543,72 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
               }}>
                 Current model: <strong>{entities.length}</strong> entities, <strong>{relationships.length}</strong> relationships, <strong>{tables.length}</strong> tables
               </p>
+            </div>
+          )}
+
+          {/* Progress Display */}
+          {isLoading && progress && (
+            <div style={{
+              padding: '16px',
+              background: isDark 
+                ? 'linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)'
+                : 'linear-gradient(135deg, rgba(147, 51, 234, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)',
+              borderRadius: '10px',
+              border: `1px solid ${isDark ? '#9333ea33' : '#9333ea22'}`,
+            }}>
+              {/* Completed stages */}
+              {progress.completedStages.map((stage, index) => (
+                <div 
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '8px',
+                    opacity: 0.6,
+                  }}
+                >
+                  <CheckCircle2 size={16} color="#22c55e" />
+                  <span style={{ 
+                    fontSize: '13px', 
+                    color: isDark ? '#8b949e' : '#6b7280',
+                    textDecoration: 'line-through',
+                  }}>
+                    {stage}
+                  </span>
+                </div>
+              ))}
+              
+              {/* Current stage */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}>
+                <Loader2 
+                  size={16} 
+                  color="#9333ea" 
+                  style={{ animation: 'spin 1s linear infinite' }} 
+                />
+                <div>
+                  <span style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 500,
+                    color: isDark ? '#e6edf3' : '#374151',
+                  }}>
+                    {progress.stage}
+                  </span>
+                  {progress.detail && (
+                    <span style={{ 
+                      fontSize: '13px', 
+                      color: isDark ? '#8b949e' : '#6b7280',
+                      marginLeft: '8px',
+                    }}>
+                      {progress.detail}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
