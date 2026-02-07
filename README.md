@@ -17,11 +17,15 @@
   <img src="public/assets/sqlmodel.png" alt="SQLModel Screenshot" width="800" />
 </p>
 
+<p align="center">
+  <a href="https://sqlmodel.org"><strong>🚀 Try it now at sqlmodel.org →</strong></a>
+</p>
+
 ---
 
 ## ✨ What is SQLModel?
 
-SQLModel is a **free, open-source data modeling tool** that helps you design database schemas visually. Whether you're architecting a new application, documenting an existing database, or collaborating with your team on data design, SQLModel provides an intuitive canvas for bringing your ideas to life.
+SQLModel is a **free, open-source data modeling tool** that helps you design database schemas visually. Whether you're architecting a new application, documenting an existing database, or collaborating with your team on data design, SQLModel provides an intuitive canvas for bringing your ideas to life. Try it at [sqlmodel.org](https://sqlmodel.org).
 
 ### Why SQLModel?
 
@@ -39,7 +43,7 @@ SQLModel is a **free, open-source data modeling tool** that helps you design dat
 
 ### Quick Start (Hosted)
 
-Visit **[sqlmodel.app](https://sqlmodel.app)** to start modeling immediately — no installation required.
+Visit **[sqlmodel.org](https://sqlmodel.org)** to start modeling immediately — no installation required.
 
 ### Run Locally
 
@@ -157,5 +161,6 @@ MIT License — free for personal and commercial use.
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for data architects, developers, and anyone who thinks in tables.</sub>
+  <sub>Built with ❤️ for data architects, developers, and anyone who thinks in tables.</sub><br/>
+  <sub><a href="https://sqlmodel.org">sqlmodel.org</a></sub>
 </p>

@@ -6,15 +6,25 @@ export const NavbarBrand: React.FC = () => {
   const isDark = colorMode === 'dark';
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '6px',
-      paddingRight: '16px',
-      borderRight: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-      marginRight: '12px',
-      flexShrink: 0,
-    }}>
+    <a 
+      href="https://sqlmodel.org"
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '6px',
+        paddingRight: '16px',
+        borderRight: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+        marginRight: '12px',
+        flexShrink: 0,
+        textDecoration: 'none',
+        cursor: 'pointer',
+        transition: 'opacity 0.15s ease',
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+    >
       <div style={{
         width: '28px',
         height: '28px',
@@ -39,6 +49,6 @@ export const NavbarBrand: React.FC = () => {
       }}>
         SQLModel
       </div>
-    </div>
+    </a>
   );
 };
