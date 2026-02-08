@@ -32,11 +32,45 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
   const isDark = colorMode === 'dark';
 
-  // Get entities that are not in any group
+  // Conceptual View - Filter entities, groups, and relationships based on search
+  const filteredConceptualData = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    
+    if (!query) {
+      return { entities, entityGroups, relationships };
+    }
+    
+    // Filter entities by name or description
+    const matchingEntities = entities.filter(e => 
+      e.name.toLowerCase().includes(query) ||
+      (e.description && e.description.toLowerCase().includes(query))
+    );
+    const matchingEntityIds = new Set(matchingEntities.map(e => e.id));
+    
+    // Filter groups - include if group name matches OR if any entity in group matches
+    const matchingGroups = entityGroups.filter(g => {
+      if (g.name.toLowerCase().includes(query)) return true;
+      return g.entityIds.some(entityId => matchingEntityIds.has(entityId));
+    });
+    
+    // Filter relationships - include if label matches OR if connected entities match
+    const matchingRelationships = relationships.filter(rel => {
+      if (rel.label && rel.label.toLowerCase().includes(query)) return true;
+      return matchingEntityIds.has(rel.fromEntityId) || matchingEntityIds.has(rel.toEntityId);
+    });
+    
+    return { 
+      entities: matchingEntities, 
+      entityGroups: matchingGroups,
+      relationships: matchingRelationships 
+    };
+  }, [entities, entityGroups, relationships, searchQuery]);
+
+  // Get entities that are not in any group (based on filtered data)
   const ungroupedEntities = useMemo(() => {
-    const groupedIds = new Set(entityGroups.flatMap(g => g.entityIds));
-    return entities.filter(e => !groupedIds.has(e.id));
-  }, [entities, entityGroups]);
+    const groupedIds = new Set(filteredConceptualData.entityGroups.flatMap(g => g.entityIds));
+    return filteredConceptualData.entities.filter(e => !groupedIds.has(e.id));
+  }, [filteredConceptualData.entities, filteredConceptualData.entityGroups]);
 
   // Physical View - Filter tables and entities based on search
   const filteredTablesAndEntities = useMemo(() => {
@@ -236,7 +270,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   if (viewMode === 'conceptual') {
     return (
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: '8px' }}>
-        {/* Empty State */}
+        {/* Empty State - No Entities */}
         {entities.length === 0 && entityGroups.length === 0 && (
           <div style={{ 
             padding: '32px 16px', 
@@ -251,11 +285,25 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           </div>
         )}
 
+        {/* No Search Results */}
+        {searchQuery && filteredConceptualData.entities.length === 0 && 
+         filteredConceptualData.entityGroups.length === 0 && 
+         filteredConceptualData.relationships.length === 0 && 
+         (entities.length > 0 || entityGroups.length > 0 || relationships.length > 0) && (
+          <div style={{ 
+            padding: '32px 16px', 
+            textAlign: 'center', 
+            color: isDark ? '#8b949e' : '#9ca3af' 
+          }}>
+            <div style={{ fontSize: '13px' }}>No matches found</div>
+          </div>
+        )}
+
         {/* Groups */}
-        {entityGroups.map(group => {
+        {filteredConceptualData.entityGroups.map(group => {
           const isExpanded = expandedGroups.has(group.id);
           const groupEntities = group.entityIds
-            .map(id => entities.find(e => e.id === id))
+            .map(id => filteredConceptualData.entities.find(e => e.id === id))
             .filter(Boolean) as typeof entities;
 
           return (
@@ -361,7 +409,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         )}
 
         {/* Relationships Section */}
-        {relationships.length > 0 && (
+        {filteredConceptualData.relationships.length > 0 && (
           <>
             <div style={{
               padding: '16px 20px 4px',
@@ -373,9 +421,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
               borderTop: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               marginTop: '8px',
             }}>
-              Relationships ({relationships.length})
+              Relationships ({filteredConceptualData.relationships.length})
             </div>
-            {relationships.map(rel => {
+            {filteredConceptualData.relationships.map(rel => {
               const fromEntity = entities.find(e => e.id === rel.fromEntityId);
               const toEntity = entities.find(e => e.id === rel.toEntityId);
               
