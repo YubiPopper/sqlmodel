@@ -39,14 +39,17 @@ export const NavbarBrand: React.FC = () => {
           style={{ width: '24px', height: '24px' }}
         />
       </div>
-      <div style={{ 
-        fontWeight: 700, 
-        fontSize: '16px',
-        color: isDark ? '#e6edf3' : '#1f2937',
-        letterSpacing: '0.3px',
-        fontFamily: '"Rajdhani", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
-        whiteSpace: 'nowrap',
-      }}>
+      <div 
+        className="navbar-brand-text"
+        style={{ 
+          fontWeight: 700, 
+          fontSize: '16px',
+          color: isDark ? '#e6edf3' : '#1f2937',
+          letterSpacing: '0.3px',
+          fontFamily: '"Rajdhani", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+          whiteSpace: 'nowrap',
+        }}
+      >
         SQLModel
       </div>
     </a>

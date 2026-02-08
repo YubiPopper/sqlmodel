@@ -8,68 +8,103 @@ export const ViewModeToggle: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
 
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'conceptual' ? 'physical' : 'conceptual');
+  };
+
+  const isPhysical = viewMode === 'physical';
+
   return (
-    <div style={{
-      display: 'flex',
-      background: isDark ? '#0d1117' : '#f3f4f6',
-      borderRadius: '8px',
-      padding: '3px',
-      gap: '2px',
-    }}>
-      <button
-        onClick={() => setViewMode('conceptual')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 14px',
-          borderRadius: '6px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease',
-          background: viewMode === 'conceptual' 
-            ? (isDark ? '#21262d' : '#ffffff')
-            : 'transparent',
-          color: viewMode === 'conceptual'
-            ? (isDark ? '#e6edf3' : '#1f2937')
-            : (isDark ? '#8b949e' : '#6b7280'),
-          boxShadow: viewMode === 'conceptual'
-            ? (isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.08)')
-            : 'none',
-        }}
-      >
-        <Box size={14} />
-        Conceptual
-      </button>
-      <button
-        onClick={() => setViewMode('physical')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 14px',
-          borderRadius: '6px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '13px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease',
-          background: viewMode === 'physical' 
-            ? (isDark ? '#21262d' : '#ffffff')
-            : 'transparent',
-          color: viewMode === 'physical'
-            ? (isDark ? '#e6edf3' : '#1f2937')
-            : (isDark ? '#8b949e' : '#6b7280'),
-          boxShadow: viewMode === 'physical'
-            ? (isDark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.08)')
-            : 'none',
-        }}
-      >
-        <Table size={14} />
-        Physical
-      </button>
-    </div>
+    <button
+      onClick={toggleViewMode}
+      style={{
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '4px',
+        borderRadius: '24px',
+        border: `2px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        background: isDark ? '#0d1117' : '#f3f4f6',
+        boxShadow: isDark
+          ? 'inset 0 2px 4px rgba(0,0,0,0.2)'
+          : 'inset 0 2px 4px rgba(0,0,0,0.05)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = isDark ? '#3b82f6' : '#60a5fa';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = isDark ? '#30363d' : '#e5e7eb';
+      }}
+      title={`Switch to ${isPhysical ? 'Conceptual' : 'Physical'} view`}
+    >
+      {/* Conceptual option */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        padding: !isPhysical ? '6px 14px' : '6px 10px',
+        borderRadius: '20px',
+        fontSize: '13px',
+        fontWeight: 600,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        background: !isPhysical
+          ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+          : 'transparent',
+        color: !isPhysical ? '#ffffff' : (isDark ? '#8b949e' : '#6b7280'),
+        boxShadow: !isPhysical
+          ? (isDark
+              ? '0 2px 8px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0,0,0,0.2)'
+              : '0 2px 8px rgba(59, 130, 246, 0.3), 0 1px 3px rgba(0,0,0,0.1)')
+          : 'none',
+        transform: !isPhysical ? 'scale(1)' : 'scale(0.95)',
+      }}>
+        <Box size={14} strokeWidth={2.5} />
+        {!isPhysical && (
+          <span style={{ 
+            whiteSpace: 'nowrap',
+            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+          }}>
+            Conceptual
+          </span>
+        )}
+      </div>
+
+      {/* Physical option */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        padding: isPhysical ? '6px 14px' : '6px 10px',
+        borderRadius: '20px',
+        fontSize: '13px',
+        fontWeight: 600,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        background: isPhysical
+          ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+          : 'transparent',
+        color: isPhysical ? '#ffffff' : (isDark ? '#8b949e' : '#6b7280'),
+        boxShadow: isPhysical
+          ? (isDark
+              ? '0 2px 8px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0,0,0,0.2)'
+              : '0 2px 8px rgba(59, 130, 246, 0.3), 0 1px 3px rgba(0,0,0,0.1)')
+          : 'none',
+        transform: isPhysical ? 'scale(1)' : 'scale(0.95)',
+      }}>
+        <Table size={14} strokeWidth={2.5} />
+        {isPhysical && (
+          <span style={{ 
+            whiteSpace: 'nowrap',
+            textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+          }}>
+            Physical
+          </span>
+        )}
+      </div>
+    </button>
   );
 };

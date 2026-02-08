@@ -123,15 +123,15 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        padding: '8px 12px',
-        paddingLeft: `${12 + level * 16}px`,
+        gap: '6px',
+        padding: '6px 8px',
+        paddingLeft: `${8 + level * 14}px`,
         cursor: 'pointer',
         background: selected 
           ? (isDark ? 'rgba(99, 102, 241, 0.15)' : '#eef2ff')
           : 'transparent',
         borderRadius: '6px',
-        margin: '2px 8px',
+        margin: '1px 6px',
         transition: 'all 0.15s',
         borderLeft: selected ? '2px solid #6366f1' : '2px solid transparent',
       }}
@@ -164,7 +164,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: '13px',
+          fontSize: '12px',
           fontWeight: selected ? 600 : 500,
           color: selected 
             ? (isDark ? '#a5b4fc' : '#4338ca')
@@ -177,9 +177,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         </div>
         {secondaryLabel && (
           <div style={{
-            fontSize: '11px',
+            fontSize: '10px',
             color: isDark ? '#8b949e' : '#9ca3af',
-            marginTop: '1px',
+            marginTop: '0px',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -220,12 +220,12 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
       {badge !== undefined && (
         <span style={{
-          fontSize: '10px',
+          fontSize: '9px',
           fontWeight: 600,
           color: isDark ? '#8b949e' : '#6b7280',
           background: isDark ? '#30363d' : '#e5e7eb',
-          padding: '2px 6px',
-          borderRadius: '10px',
+          padding: '1px 5px',
+          borderRadius: '8px',
         }}>
           {badge}
         </span>
@@ -261,7 +261,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           return (
             <div key={group.id}>
               <TreeItem
-                icon={<FolderOpen size={14} />}
+                icon={<FolderOpen size={12} />}
                 label={group.name}
                 selected={selectedId === group.id}
                 onClick={() => setSelected(group.id)}
@@ -278,7 +278,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                 return (
                   <div key={entity.id}>
                     <TreeItem
-                      icon={<Box size={14} />}
+                      icon={<Box size={12} />}
                       label={entity.name}
                       secondaryLabel={entity.description}
                       selected={selectedId === entity.id}
@@ -293,10 +293,10 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                     {isEntityExpanded && entityTables.map(table => (
                       <TreeItem
                         key={table.id}
-                        icon={<Table size={14} />}
+                        icon={<Table size={12} />}
                         label={table.name}
                         selected={selectedId === table.id}
-                        onClick={() => setSelected(table.id)}
+                        onClick={() => { setViewMode('physical'); setSelected(table.id); }}
                         onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
                         onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
                         level={2}
@@ -331,7 +331,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
               return (
                 <div key={entity.id}>
                   <TreeItem
-                    icon={<Box size={14} />}
+                    icon={<Box size={12} />}
                     label={entity.name}
                     secondaryLabel={entity.description}
                     selected={selectedId === entity.id}
@@ -345,10 +345,10 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                   {isEntityExpanded && entityTables.map(table => (
                     <TreeItem
                       key={table.id}
-                      icon={<Table size={14} />}
+                      icon={<Table size={12} />}
                       label={table.name}
                       selected={selectedId === table.id}
-                      onClick={() => setSelected(table.id)}
+                      onClick={() => { setViewMode('physical'); setSelected(table.id); }}
                       onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
                       onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
                       level={1}
@@ -382,7 +382,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
               return (
                 <TreeItem
                   key={rel.id}
-                  icon={<Link size={14} />}
+                  icon={<Link size={12} />}
                   label={rel.label || `${fromEntity?.name || '?'} → ${toEntity?.name || '?'}`}
                   secondaryLabel={`${rel.fromCardinality} : ${rel.toCardinality}`}
                   selected={selectedId === rel.id}
@@ -430,7 +430,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         return (
           <div key={entity.id}>
             <TreeItem
-              icon={<Box size={14} />}
+              icon={<Box size={12} />}
               label={entity.name}
               secondaryLabel={entity.description}
               selected={selectedId === entity.id}
@@ -444,7 +444,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
             {isEntityExpanded && entityTables.map(table => (
               <TreeItem
                 key={table.id}
-                icon={<Table size={14} />}
+                icon={<Table size={12} />}
                 label={table.name}
                 selected={selectedId === table.id}
                 onClick={() => setSelected(table.id)}
@@ -474,7 +474,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           {orphanTables.map(table => (
             <TreeItem
               key={table.id}
-              icon={<Table size={14} />}
+              icon={<Table size={12} />}
               label={table.name}
               selected={selectedId === table.id}
               onClick={() => setSelected(table.id)}
