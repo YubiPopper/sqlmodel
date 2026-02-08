@@ -12,6 +12,7 @@
   "dependencies": {
     "@reactflow/node-resizer": "^2.2.14",
     "@types/dagre": "^0.7.53",
+    "@vercel/analytics": "^1.6.1",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
     "html-to-image": "^1.11.13",
