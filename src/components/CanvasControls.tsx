@@ -7,14 +7,12 @@ export const CanvasControls = () => {
   const { setViewport, fitView, getZoom, getViewport } = useReactFlow();
   const colorMode = useModelStore(state => state.colorMode);
   const viewMode = useModelStore(state => state.viewMode);
-  const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
-  const setShowEntityOverlay = useModelStore(state => state.setShowEntityOverlay);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
   const setTableFieldsDisplay = useModelStore(state => state.setTableFieldsDisplay);
   const autoLayout = useModelStore(state => state.autoLayout);
   
   const [displayZoom, setDisplayZoom] = useState(Math.round(getZoom() * 100));
-  const debounceTimer = useRef<NodeJS.Timeout>();
+  const debounceTimer = useRef<number | null>(null);
 
   // Update display zoom with debounce
   useEffect(() => {
