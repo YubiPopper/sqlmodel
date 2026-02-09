@@ -39,6 +39,7 @@ interface ModelState {
   viewMode: 'conceptual' | 'physical';
   colorMode: 'light' | 'dark';
   showEntityOverlay: boolean; // Show entity groupings in physical view
+  tableFieldsDisplay: 'all' | 'name' | 'keys'; // Table display mode in physical view
   
   // Entity Actions
   addEntity: () => string;
@@ -92,8 +93,11 @@ interface ModelState {
   setViewMode: (mode: 'conceptual' | 'physical') => void;
   setColorMode: (mode: 'light' | 'dark') => void;
   setShowEntityOverlay: (show: boolean) => void;
+  setTableFieldsDisplay: (mode: 'all' | 'name' | 'keys') => void;
   leftSidebarCollapsed: boolean;
   toggleLeftSidebar: () => void;
+  rightPanelMobileOpen: boolean;
+  setRightPanelMobileOpen: (open: boolean) => void;
   autoLayout: () => void;
   
   // Persistence
@@ -131,7 +135,9 @@ export const useModelStore = create<ModelState>()(
       viewMode: 'conceptual',
       colorMode: 'dark',
       showEntityOverlay: false,
+      tableFieldsDisplay: 'all',
       leftSidebarCollapsed: false,
+      rightPanelMobileOpen: false,
 
       // === Entity Actions ===
       addEntity: () => {
@@ -728,8 +734,12 @@ export const useModelStore = create<ModelState>()(
       setColorMode: (mode) => set({ colorMode: mode }),
       
       setShowEntityOverlay: (show) => set({ showEntityOverlay: show }),
+      
+      setTableFieldsDisplay: (mode) => set({ tableFieldsDisplay: mode }),
 
       toggleLeftSidebar: () => set((state) => ({ leftSidebarCollapsed: !state.leftSidebarCollapsed })),
+
+      setRightPanelMobileOpen: (open) => set({ rightPanelMobileOpen: open }),
 
       autoLayout: () => {
         const { entities, relationships, tables, foreignKeys, viewMode, showEntityOverlay } = get();

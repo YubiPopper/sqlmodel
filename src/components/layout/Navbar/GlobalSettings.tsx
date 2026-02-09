@@ -5,9 +5,10 @@ import { IconButton } from '../../shared/IconButton';
 
 interface GlobalSettingsProps {
   isMobile?: boolean;
+  onActionComplete?: () => void;
 }
 
-export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false }) => {
+export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false, onActionComplete }) => {
   const colorMode = useModelStore(state => state.colorMode);
   const setColorMode = useModelStore(state => state.setColorMode);
   const viewMode = useModelStore(state => state.viewMode);
@@ -21,7 +22,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
       display: 'flex', 
       flexDirection: isMobile ? 'column' : 'row',
       alignItems: isMobile ? 'stretch' : 'center', 
-      gap: isMobile ? '8px' : '4px',
+      gap: isMobile ? '6px' : '4px',
       paddingLeft: isMobile ? '0' : '16px',
       borderLeft: isMobile ? 'none' : `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
       marginLeft: isMobile ? '0' : '8px',
@@ -36,14 +37,14 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            padding: '12px 16px',
+            gap: '10px',
+            padding: '10px 12px',
             background: isDark ? '#21262d' : '#f3f4f6',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
             textDecoration: 'none',
             color: isDark ? '#e6edf3' : '#1f2937',
-            fontSize: '15px',
+            fontSize: '14px',
             fontWeight: 500,
             transition: 'all 0.15s ease',
           }}
@@ -54,7 +55,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
           }}
         >
-          <Github size={20} />
+          <Github size={18} />
           <span>View on GitHub</span>
         </a>
       ) : (
@@ -84,19 +85,19 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
       {viewMode === 'physical' && (
         isMobile ? (
           <button
-            onClick={() => setShowEntityOverlay(!showEntityOverlay)}
+            onClick={() => { setShowEntityOverlay(!showEntityOverlay); onActionComplete?.(); }}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              padding: '12px 16px',
+              gap: '10px',
+              padding: '10px 12px',
               background: showEntityOverlay 
                 ? (isDark ? '#30363d' : '#e5e7eb')
                 : (isDark ? '#21262d' : '#f3f4f6'),
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               borderRadius: '6px',
               cursor: 'pointer',
-              fontSize: '15px',
+              fontSize: '14px',
               fontWeight: 500,
               color: isDark ? '#e6edf3' : '#1f2937',
               transition: 'all 0.15s ease',
@@ -111,7 +112,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
                 : (isDark ? '#21262d' : '#f3f4f6');
             }}
           >
-            <Layers size={20} />
+            <Layers size={18} />
             <span>{showEntityOverlay ? 'Hide Entity Groupings' : 'Show Entity Groupings'}</span>
           </button>
         ) : (
@@ -128,17 +129,17 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
       {/* Theme Toggle */}
       {isMobile ? (
         <button
-          onClick={() => setColorMode(isDark ? 'light' : 'dark')}
+          onClick={() => { setColorMode(isDark ? 'light' : 'dark'); onActionComplete?.(); }}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            padding: '12px 16px',
+            gap: '10px',
+            padding: '10px 12px',
             background: isDark ? '#21262d' : '#f3f4f6',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
             cursor: 'pointer',
-            fontSize: '15px',
+            fontSize: '14px',
             fontWeight: 500,
             color: isDark ? '#e6edf3' : '#1f2937',
             transition: 'all 0.15s ease',
@@ -151,7 +152,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
           }}
         >
-          {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
           <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
       ) : (

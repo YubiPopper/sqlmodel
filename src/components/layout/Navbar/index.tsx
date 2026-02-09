@@ -125,45 +125,63 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Menu Dropdown */}
       {isMobile && isMobileMenuOpen && (
-        <div
-          ref={mobileMenuRef}
-          style={{
-            position: 'absolute',
-            top: '56px',
-            left: 0,
-            right: 0,
-            background: isDark 
-              ? '#161b22'
-              : '#ffffff',
-            borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-            boxShadow: isDark
-              ? '0 4px 6px rgba(0, 0, 0, 0.3)'
-              : '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 99,
-            padding: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            maxHeight: 'calc(100vh - 56px)',
-            overflowY: 'auto',
-          }}
-        >
-          {/* Actions */}
-          <div onClick={() => setIsMobileMenuOpen(false)}>
-            <NavbarActions />
-          </div>
+        <>
+          {/* Backdrop - lighter so canvas is still visible */}
+          <div
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              top: '56px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.2)',
+              zIndex: 98,
+              animation: 'fadeIn 0.15s ease',
+            }}
+          />
+          <div
+            ref={mobileMenuRef}
+            style={{
+              position: 'absolute',
+              top: '56px',
+              left: 0,
+              right: 0,
+              background: isDark 
+                ? '#161b22'
+                : '#ffffff',
+              borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+              boxShadow: isDark
+                ? '0 8px 16px rgba(0, 0, 0, 0.4)'
+                : '0 8px 16px rgba(0, 0, 0, 0.15)',
+              zIndex: 99,
+              padding: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              maxHeight: '60vh',
+              overflowY: 'auto',
+              animation: 'slideDown 0.15s ease',
+            }}
+          >
+            {/* Actions */}
+            <div>
+              <NavbarActions onActionComplete={() => setIsMobileMenuOpen(false)} isMobile={true} />
+            </div>
 
-          {/* Divider */}
-          <div style={{
-            height: '1px',
-            background: isDark ? '#30363d' : '#e5e7eb',
-          }} />
+            {/* Divider */}
+            <div style={{
+              height: '1px',
+              background: isDark ? '#30363d' : '#e5e7eb',
+              margin: '4px 0',
+            }} />
 
-          {/* Global Settings */}
-          <div onClick={() => setIsMobileMenuOpen(false)}>
-            <GlobalSettings isMobile={true} />
+            {/* Global Settings */}
+            <div>
+              <GlobalSettings isMobile={true} onActionComplete={() => setIsMobileMenuOpen(false)} />
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

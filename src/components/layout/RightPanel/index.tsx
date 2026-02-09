@@ -1,6 +1,6 @@
 import React from 'react';
-import { useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Sparkles, X, ChevronLeft } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { EntityInspector } from './EntityInspector';
 import { TableInspector } from './TableInspector';
@@ -19,8 +19,56 @@ export const RightPanel: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const multiSelectedEntityIds = useModelStore(state => state.multiSelectedEntityIds);
   const multiSelectedTableIds = useModelStore(state => state.multiSelectedTableIds);
+  const rightPanelMobileOpen = useModelStore(state => state.rightPanelMobileOpen);
+  const setRightPanelMobileOpen = useModelStore(state => state.setRightPanelMobileOpen);
+
+  const [isMobile, setIsMobile] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const isDark = colorMode === 'dark';
+
+  // Detect mobile screen size and handle transitions
+  useEffect(() => {
+    const handleResize = () => {
+      const wasMobile = isMobile;
+      const nowMobile = window.innerWidth <= 1024;
+      setIsMobile(nowMobile);
+      
+      // When transitioning from mobile to desktop with selection, panel should show
+      // When transitioning from desktop to mobile, close the panel
+      if (wasMobile && !nowMobile) {
+        // Mobile -> Desktop: panel will show automatically (no drawer mode)
+        setRightPanelMobileOpen(false);
+      } else if (!wasMobile && nowMobile) {
+        // Desktop -> Mobile: close the drawer
+        setRightPanelMobileOpen(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobile, setRightPanelMobileOpen]);
+
+  // Close panel when clicking outside on mobile
+  useEffect(() => {
+    if (!isMobile || !rightPanelMobileOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setRightPanelMobileOpen(false);
+      }
+    };
+
+    // Small delay to prevent immediate close when opening
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, rightPanelMobileOpen, setRightPanelMobileOpen]);
 
   // Determine what's selected
   const selectedEntity = useMemo(() => entities.find(e => e.id === selectedId), [entities, selectedId]);
@@ -125,30 +173,162 @@ export const RightPanel: React.FC = () => {
   );
 
   return (
-    <aside
-      style={{
-        width: '320px',
-        minWidth: '320px',
-        maxWidth: '320px',
-        height: '100%',
-        background: isDark 
-          ? 'linear-gradient(180deg, #161b22 0%, #0d1117 100%)'
-          : 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
-        borderLeft: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      {selectedGroup && <GroupInspector group={selectedGroup} />}
-      {selectedEntity && <EntityInspector entity={selectedEntity} />}
-      {selectedTable && <TableInspector table={selectedTable} />}
-      {!selectedEntity && !selectedTable && firstMultiSelectedEntity && <EntityInspector entity={firstMultiSelectedEntity} />}
-      {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
-      {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
-      {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
-      {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
-    </aside>
+    <>
+      {/* Floating Tab Button - Only show on mobile when there's something selected */}
+      {isMobile && hasSelection && !rightPanelMobileOpen && (
+        <button
+          onClick={() => setRightPanelMobileOpen(true)}
+          style={{
+            position: 'fixed',
+            top: '50%',
+            right: '-10px',
+            transform: 'translateY(-50%) translateX(10px)',
+            padding: '20px 16px 20px 10px',
+            width: '48px',
+            background: isDark 
+              ? 'linear-gradient(180deg, #161b22 0%, #0d1117 100%)'
+              : 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
+            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            borderRight: 'none',
+            borderRadius: '8px 0 0 8px',
+            boxShadow: isDark
+              ? '-2px 0 8px rgba(0, 0, 0, 0.3)'
+              : '-2px 0 8px rgba(0, 0, 0, 0.1)',
+            cursor: 'pointer',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: '6px',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-50%) translateX(0px)';
+            e.currentTarget.style.boxShadow = isDark
+              ? '-4px 0 12px rgba(0, 0, 0, 0.4)'
+              : '-4px 0 12px rgba(0, 0, 0, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(-50%) translateX(10px)';
+            e.currentTarget.style.boxShadow = isDark
+              ? '-2px 0 8px rgba(0, 0, 0, 0.3)'
+              : '-2px 0 8px rgba(0, 0, 0, 0.1)';
+          }}
+        >
+          <ChevronLeft size={20} style={{ color: isDark ? '#8b949e' : '#6b7280', marginLeft: '-4px' }} />
+          <div style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            color: isDark ? '#8b949e' : '#6b7280',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+          }}>
+            Details
+          </div>
+        </button>
+      )}
+
+      {/* Backdrop for mobile drawer */}
+      {isMobile && rightPanelMobileOpen && (
+        <div
+          onClick={() => setRightPanelMobileOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 98,
+            animation: 'fadeIn 0.2s ease',
+          }}
+        />
+      )}
+
+      {/* Right Panel - Drawer on mobile, fixed sidebar on desktop */}
+      <aside
+        ref={panelRef}
+        style={{
+          width: '320px',
+          minWidth: '320px',
+          maxWidth: '320px',
+          height: '100%',
+          background: isDark 
+            ? 'linear-gradient(180deg, #161b22 0%, #0d1117 100%)'
+            : 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)',
+          borderLeft: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+          display: isMobile && !rightPanelMobileOpen ? 'none' : 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          ...(isMobile ? {
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 99,
+            boxShadow: isDark
+              ? '-4px 0 16px rgba(0, 0, 0, 0.4)'
+              : '-4px 0 16px rgba(0, 0, 0, 0.15)',
+            animation: 'slideInRight 0.2s ease',
+          } : {}),
+        }}
+      >
+        {/* Close button for mobile */}
+        {isMobile && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 16px',
+            borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            background: isDark ? '#0d1117' : '#fafafa',
+          }}>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: isDark ? '#e6edf3' : '#1f2937',
+            }}>
+              Properties
+            </div>
+            <button
+              onClick={() => setRightPanelMobileOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: isDark ? '#8b949e' : '#6b7280',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
+        )}
+        
+        {selectedGroup && <GroupInspector group={selectedGroup} />}
+        {selectedEntity && <EntityInspector entity={selectedEntity} />}
+        {selectedTable && <TableInspector table={selectedTable} />}
+        {!selectedEntity && !selectedTable && firstMultiSelectedEntity && <EntityInspector entity={firstMultiSelectedEntity} />}
+        {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
+        {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
+        {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
+        {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
+      </aside>
+    </>
   );
 };
 

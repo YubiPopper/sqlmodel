@@ -22,7 +22,12 @@ import { FullDDLDialog } from '../../ui/FullDDLDialog';
 import { AIDialog } from '../../ui/AIDialog';
 import { AISettingsDialog } from '../../ui/AISettingsDialog';
 
-export const NavbarActions: React.FC = () => {
+interface NavbarActionsProps {
+  onActionComplete?: () => void;
+  isMobile?: boolean;
+}
+
+export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, isMobile = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showExampleDialog, setShowExampleDialog] = useState(false);
   const [showFullDDLDialog, setShowFullDDLDialog] = useState(false);
@@ -183,22 +188,22 @@ export const NavbarActions: React.FC = () => {
   };
 
   const fileItems: DropdownItem[] = [
-    { label: 'New Model', icon: <FilePlus size={14} />, onClick: clearModel, shortcut: '⌘N' },
+    { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Import Model', icon: <Upload size={14} />, onClick: handleLoadClick, shortcut: '⌘O' },
-    { label: 'Export Model (JSON)', icon: <Download size={14} />, onClick: handleSave, shortcut: '⌘S' },
-    { label: 'Export SQL DDL', icon: <FileDown size={14} />, onClick: handleExportDDL },
+    { label: 'Import Model', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
+    { label: 'Export Model (JSON)', icon: <Download size={14} />, onClick: () => { handleSave(); onActionComplete?.(); }, shortcut: '⌘S' },
+    { label: 'Export SQL DDL', icon: <FileDown size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Load Example', icon: <FileDown size={14} />, onClick: () => setShowExampleDialog(true) },
+    { label: 'Load Example', icon: <FileDown size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
   ];
 
   const insertItems: DropdownItem[] = viewMode === 'conceptual'
     ? [
-        { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => addEntity() },
-        { label: 'Add Group', icon: <Group size={14} />, onClick: () => addEntityGroup([], 'New Group') },
+        { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => { addEntity(); onActionComplete?.(); } },
+        { label: 'Add Group', icon: <Group size={14} />, onClick: () => { addEntityGroup([], 'New Group'); onActionComplete?.(); } },
       ]
     : [
-        { label: 'Add Table', icon: <Plus size={14} />, onClick: handleAddTable },
+        { label: 'Add Table', icon: <Plus size={14} />, onClick: () => { handleAddTable(); onActionComplete?.(); } },
       ];
 
   const canGroupSelected = viewMode === 'conceptual' 
@@ -245,7 +250,163 @@ export const NavbarActions: React.FC = () => {
         onClose={() => setShowAISettingsDialog(false)}
       />
       
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
+      {isMobile ? (
+        // Mobile Layout - Compact vertical stack
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+          {/* Sidebar Toggle */}
+          <button
+            onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 12px',
+              background: isDark ? '#21262d' : '#f3f4f6',
+              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+              borderRadius: '6px',
+              color: isDark ? '#e6edf3' : '#374151',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            {leftSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+            <span>{leftSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
+          </button>
+
+          {/* File Menu - Mobile */}
+          <div style={{ width: '100%' }}>
+            <DropdownButton label="File" items={fileItems} fullWidth={true} compact={true} />
+          </div>
+
+          {/* Insert Menu - Mobile */}
+          <div style={{ width: '100%' }}>
+            <DropdownButton label="Insert" items={insertItems} icon={<Plus size={16} />} fullWidth={true} compact={true} />
+          </div>
+
+          {/* AI Button */}
+          <button
+            onClick={() => { setShowAIDialog(true); onActionComplete?.(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 12px',
+              background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
+              border: `1px solid ${isDark ? '#9333ea' : '#c084fc'}`,
+              borderRadius: '6px',
+              color: '#9333ea',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            <Sparkles size={18} />
+            <span>AI Assistant</span>
+          </button>
+
+          {/* Auto Layout Button */}
+          <button
+            onClick={() => { autoLayout(); onActionComplete?.(); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 12px',
+              background: isDark ? '#21262d' : '#f3f4f6',
+              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+              borderRadius: '6px',
+              color: isDark ? '#e6edf3' : '#374151',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            <ArrowDownUp size={18} />
+            <span>Auto Layout</span>
+          </button>
+
+          {/* Group/Ungroup Buttons */}
+          {(selectedEntityInGroup || selectedTableInGroup) && (
+            <button
+              onClick={() => { handleUngroupSelected(); onActionComplete?.(); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 12px',
+                background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                border: `1px solid ${isDark ? '#ef4444' : '#fecaca'}`,
+                borderRadius: '6px',
+                color: '#ef4444',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
+              <Trash2 size={18} />
+              <span>Ungroup Selected</span>
+            </button>
+          )}
+
+          {canGroupSelected && !selectedEntityInGroup && !selectedTableInGroup && (
+            <button
+              onClick={() => { handleGroupSelected(); onActionComplete?.(); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 12px',
+                background: isDark ? 'rgba(99, 102, 241, 0.15)' : '#eef2ff',
+                border: `1px solid ${isDark ? '#6366f1' : '#c7d2fe'}`,
+                borderRadius: '6px',
+                color: '#6366f1',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
+              <Group size={18} />
+              <span>
+                Group ({viewMode === 'conceptual' ? (multiSelectedEntityIds.length || 1) : (multiSelectedTableIds.length || 1)})
+              </span>
+            </button>
+          )}
+
+          {selectedTablesCount > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 12px',
+                background: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
+                border: `1px solid ${isDark ? '#22c55e' : '#86efac'}`,
+                borderRadius: '6px',
+                color: isDark ? '#22c55e' : '#16a34a',
+                fontSize: '14px',
+                fontWeight: 600,
+                width: '100%',
+              }}
+            >
+              <Layers size={18} />
+              <span>{selectedTablesCount} Selected</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Desktop Layout - Original horizontal layout
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
         <input 
         type="file" 
         ref={fileInputRef} 
@@ -256,7 +417,7 @@ export const NavbarActions: React.FC = () => {
 
       {/* Sidebar Toggle */}
       <button
-        onClick={toggleLeftSidebar}
+        onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
         title={leftSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
         style={{
           display: 'flex',
@@ -290,7 +451,7 @@ export const NavbarActions: React.FC = () => {
 
       {/* AI Button */}
       <button
-        onClick={() => setShowAIDialog(true)}
+        onClick={() => { setShowAIDialog(true); onActionComplete?.(); }}
         title="Generate or enhance model with AI"
         style={{
           display: 'flex',
@@ -320,7 +481,7 @@ export const NavbarActions: React.FC = () => {
 
       {/* Auto Layout Button */}
       <button
-        onClick={autoLayout}
+        onClick={() => { autoLayout(); onActionComplete?.(); }}
         title="Auto-arrange layout"
         style={{
           display: 'flex',
@@ -344,7 +505,7 @@ export const NavbarActions: React.FC = () => {
       {/* Ungroup Selected - Show for both conceptual (entities) and physical (tables) */}
       {(selectedEntityInGroup || selectedTableInGroup) && (
         <button
-          onClick={handleUngroupSelected}
+          onClick={() => { handleUngroupSelected(); onActionComplete?.(); }}
           title={viewMode === 'conceptual' ? 'Remove entity from group' : 'Remove table from group'}
           style={{
             display: 'flex',
@@ -369,7 +530,7 @@ export const NavbarActions: React.FC = () => {
       {/* Group Selected - Show for both conceptual and physical views */}
       {canGroupSelected && !selectedEntityInGroup && !selectedTableInGroup && (
         <button
-          onClick={handleGroupSelected}
+          onClick={() => { handleGroupSelected(); onActionComplete?.(); }}
           title={viewMode === 'conceptual' 
             ? `Group ${multiSelectedEntityIds.length || 1} selected entities`
             : `Group ${multiSelectedTableIds.length || 1} selected tables`}
@@ -416,7 +577,8 @@ export const NavbarActions: React.FC = () => {
           {selectedTablesCount} Selected
         </div>
       )}
-      </div>
+        </div>
+      )}
     </>
   );
 };

@@ -87,7 +87,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
               position: 'absolute',
               top: 'calc(100% + 4px)',
               [align]: 0,
-              minWidth: '180px',
+              minWidth: '220px',
+              width: 'max-content',
+              maxWidth: '280px',
               background: isDark ? '#21262d' : '#ffffff',
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               borderRadius: '8px',
@@ -176,15 +178,24 @@ interface DropdownButtonProps {
   label: string;
   items: DropdownItem[];
   icon?: React.ReactNode;
+  fullWidth?: boolean;
+  compact?: boolean;
 }
 
 export const DropdownButton: React.FC<DropdownButtonProps> = ({
   label,
   items,
   icon,
+  fullWidth = false,
+  compact = false,
 }) => {
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
+
+  const padding = compact ? '10px 12px' : (fullWidth ? '14px 16px' : '6px 12px');
+  const fontSize = compact ? '14px' : (fullWidth ? '15px' : '13px');
+  const gap = compact ? '10px' : (fullWidth ? '12px' : '6px');
+  const iconSize = compact ? 18 : (fullWidth ? 20 : 14);
 
   return (
     <Dropdown
@@ -194,21 +205,23 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
+            gap,
+            padding,
             background: isDark ? '#21262d' : '#f3f4f6',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
             color: isDark ? '#e6edf3' : '#374151',
-            fontSize: '13px',
+            fontSize,
             fontWeight: 500,
             cursor: 'pointer',
             transition: 'all 0.15s',
+            width: fullWidth ? '100%' : 'auto',
+            textAlign: 'left',
           }}
         >
-          {icon}
-          {label}
-          <ChevronDown size={14} />
+          {icon && <span style={{ display: 'flex' }}>{icon}</span>}
+          <span style={{ flex: 1 }}>{label}</span>
+          <ChevronDown size={iconSize} />
         </button>
       }
     />

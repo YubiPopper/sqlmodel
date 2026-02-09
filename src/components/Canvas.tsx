@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import ReactFlow, { 
   Background, 
-  Controls, 
   ConnectionMode,
   ReactFlowProvider,
 } from 'reactflow';
@@ -19,6 +18,7 @@ import TableNode from './nodes/TableNode';
 import EntityGroupNode from './nodes/EntityGroupNode';
 import ConceptualGroupNode from './nodes/ConceptualGroupNode';
 import { MarkerDefs } from './MarkerDefs';
+import { CanvasControls } from './CanvasControls';
 import { ConfirmationDialog } from './ui/ConfirmationDialog';
 import { DDLDialog } from './ui/DDLDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
@@ -1305,10 +1305,11 @@ const CanvasInner = () => {
         maxZoom={4}
         snapToGrid={true}
         snapGrid={[20, 20]}
+        proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} color={gridColor} size={1} />
-        <Controls />
         <MarkerDefs />
+        <CanvasControls />
       </ReactFlow>
       
       <ConfirmationDialog
