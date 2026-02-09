@@ -68,6 +68,7 @@ const CanvasInner = () => {
     viewMode,
     colorMode,
     showEntityOverlay,
+    tableFieldsDisplay,
     multiSelectedEntityIds,
     multiSelectedTableIds,
     
@@ -100,10 +101,23 @@ const CanvasInner = () => {
     
     // Check if selectedId is an entity
     const isEntity = entities.some(e => e.id === selectedId);
-    if (!isEntity) return new Set<string>();
+    // Check if selectedId is an entity group
+    const isGroup = entityGroups.some(g => g.id === selectedId);
+    
+    if (!isEntity && !isGroup) return new Set<string>();
     
     const connected = new Set<string>();
-    const queue = [selectedId];
+    const queue: string[] = [];
+    
+    if (isEntity) {
+      queue.push(selectedId);
+    } else if (isGroup) {
+      // Add all entities in this group to the queue
+      const group = entityGroups.find(g => g.id === selectedId);
+      if (group) {
+        group.entityIds.forEach(entityId => queue.push(entityId));
+      }
+    }
     
     while (queue.length > 0) {
       const current = queue.shift()!;
@@ -122,7 +136,7 @@ const CanvasInner = () => {
     }
     
     return connected;
-  }, [selectedId, entities, relationships]);
+  }, [selectedId, entities, relationships, entityGroups]);
 
   // Snapping helper function
   const snapToGrid = useCallback((x: number, y: number, snapSize: number = 20) => {
@@ -132,16 +146,27 @@ const CanvasInner = () => {
     };
   }, []);
 
-  // Compute all transitively connected table IDs (downstream from selected table)
+  // Compute all transitively connected table IDs (downstream from selected table or entity)
   const connectedTableIds = useMemo(() => {
     if (!selectedId) return new Set<string>();
     
     // Check if selectedId is a table
     const isTable = tables.some(t => t.id === selectedId);
-    if (!isTable) return new Set<string>();
+    // Check if selectedId is an entity (in physical view with overlay)
+    const isEntity = viewMode === 'physical' && showEntityOverlay && entities.some(e => e.id === selectedId);
+    
+    if (!isTable && !isEntity) return new Set<string>();
     
     const connected = new Set<string>();
-    const queue = [selectedId];
+    const queue: string[] = [];
+    
+    if (isTable) {
+      queue.push(selectedId);
+    } else if (isEntity) {
+      // Add all tables belonging to this entity to the queue
+      const entityTables = tables.filter(t => t.entityId === selectedId);
+      entityTables.forEach(t => queue.push(t.id));
+    }
     
     while (queue.length > 0) {
       const current = queue.shift()!;
@@ -160,7 +185,7 @@ const CanvasInner = () => {
     }
     
     return connected;
-  }, [selectedId, tables, foreignKeys]);
+  }, [selectedId, tables, foreignKeys, viewMode, showEntityOverlay, entities]);
 
   // Build nodes based on view mode
   const nodes: Node[] = useMemo(() => {
@@ -342,7 +367,19 @@ const CanvasInner = () => {
           if (!layout) return; // Skip tables without layout
           
           const tableWidth = 240;
-          const tableHeight = 40 + (table.attributes.length * 30) + 40;
+          // Calculate table height based on display mode
+          let tableHeight;
+          if (tableFieldsDisplay === 'name') {
+            // Header only - just title bar
+            tableHeight = 44;
+          } else if (tableFieldsDisplay === 'keys') {
+            // Header + key fields only
+            const keyCount = table.attributes.filter(a => a.isPrimaryKey || a.isForeignKey).length;
+            tableHeight = 44 + (keyCount * 32) + 20;
+          } else {
+            // All fields
+            tableHeight = 44 + (table.attributes.length * 32) + 20;
+          }
           
           minX = Math.min(minX, layout.x);
           minY = Math.min(minY, layout.y);
@@ -374,8 +411,8 @@ const CanvasInner = () => {
           };
         }
 
-        const padding = 60; // Increased padding around tables
-        const headerPadding = 70; // Extra space at top for entity label
+        const padding = 30; // Padding around tables
+        const headerPadding = 50; // Extra space at top for entity label
 
         return {
           id: `${entity.id}-group`,
@@ -401,7 +438,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId]);
+  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId]);
 
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
@@ -458,7 +495,7 @@ const CanvasInner = () => {
           label: r.label,
           sourceHandle,
           targetHandle,
-          type: 'smoothstep',
+          type: 'step',
           markerEnd: `url(#marker-${r.toCardinality})`,
           markerStart: `url(#marker-${r.fromCardinality})`,
           selected: isEdgeSelected,
@@ -482,6 +519,8 @@ const CanvasInner = () => {
       });
     } else {
       // Physical view: FK edges with smart routing
+      const tableFieldsDisplay = useModelStore.getState().tableFieldsDisplay;
+      
       return foreignKeys.map(fk => {
         // Determine which side handles to use based on table positions
         const sourceTable = tableLayouts[fk.fromTableId];
@@ -489,6 +528,9 @@ const CanvasInner = () => {
         
         let sourceHandle: string;
         let targetHandle: string;
+        
+        // Use table-level handles when fields are hidden
+        const useTableHandles = tableFieldsDisplay === 'name';
         
         // Smart handle selection based on relative positions
         // Source = table with FK column, Target = table with PK being referenced
@@ -501,37 +543,47 @@ const CanvasInner = () => {
           // Determine optimal exit/entry sides
           if (targetLeft >= sourceRight - 20) {
             // Target is to the right of source
-            sourceHandle = `source-${fk.fromAttributeId}`; // exit right
-            targetHandle = `target-${fk.toAttributeId}`; // enter left
+            sourceHandle = useTableHandles ? 'table-source-right' : `source-${fk.fromAttributeId}`;
+            targetHandle = useTableHandles ? 'table-target-left' : `target-${fk.toAttributeId}`;
           } else if (sourceLeft >= targetRight - 20) {
             // Target is to the left of source
-            sourceHandle = `source-left-${fk.fromAttributeId}`; // exit left
-            targetHandle = `target-right-${fk.toAttributeId}`; // enter right
+            sourceHandle = useTableHandles ? 'table-source-left' : `source-left-${fk.fromAttributeId}`;
+            targetHandle = useTableHandles ? 'table-target-right' : `target-right-${fk.toAttributeId}`;
           } else {
             // Tables are overlapping horizontally - use vertical positioning
             const sourceY = sourceTable.y;
             const targetY = targetTable.y;
             if (targetY < sourceY) {
               // Target is above - exit left, enter right (or vice versa based on x)
-              sourceHandle = sourceTable.x < targetTable.x 
-                ? `source-${fk.fromAttributeId}` 
-                : `source-left-${fk.fromAttributeId}`;
-              targetHandle = sourceTable.x < targetTable.x 
-                ? `target-${fk.toAttributeId}` 
-                : `target-right-${fk.toAttributeId}`;
+              if (useTableHandles) {
+                sourceHandle = sourceTable.x < targetTable.x ? 'table-source-right' : 'table-source-left';
+                targetHandle = sourceTable.x < targetTable.x ? 'table-target-left' : 'table-target-right';
+              } else {
+                sourceHandle = sourceTable.x < targetTable.x 
+                  ? `source-${fk.fromAttributeId}` 
+                  : `source-left-${fk.fromAttributeId}`;
+                targetHandle = sourceTable.x < targetTable.x 
+                  ? `target-${fk.toAttributeId}` 
+                  : `target-right-${fk.toAttributeId}`;
+              }
             } else {
-              sourceHandle = sourceTable.x < targetTable.x 
-                ? `source-${fk.fromAttributeId}` 
-                : `source-left-${fk.fromAttributeId}`;
-              targetHandle = sourceTable.x < targetTable.x 
-                ? `target-${fk.toAttributeId}` 
-                : `target-right-${fk.toAttributeId}`;
+              if (useTableHandles) {
+                sourceHandle = sourceTable.x < targetTable.x ? 'table-source-right' : 'table-source-left';
+                targetHandle = sourceTable.x < targetTable.x ? 'table-target-left' : 'table-target-right';
+              } else {
+                sourceHandle = sourceTable.x < targetTable.x 
+                  ? `source-${fk.fromAttributeId}` 
+                  : `source-left-${fk.fromAttributeId}`;
+                targetHandle = sourceTable.x < targetTable.x 
+                  ? `target-${fk.toAttributeId}` 
+                  : `target-right-${fk.toAttributeId}`;
+              }
             }
           }
         } else {
           // Fallback
-          sourceHandle = `source-${fk.fromAttributeId}`;
-          targetHandle = `target-${fk.toAttributeId}`;
+          sourceHandle = useTableHandles ? 'table-source-right' : `source-${fk.fromAttributeId}`;
+          targetHandle = useTableHandles ? 'table-target-left' : `target-${fk.toAttributeId}`;
         }
         
         // Check if this FK is connected to the selected table (transitively)
@@ -547,7 +599,8 @@ const CanvasInner = () => {
           target: fk.toTableId,
           sourceHandle,
           targetHandle,
-          type: fk.edgeType || 'smoothstep',
+          type: fk.edgeType || 'step',
+          pathOptions: fk.edgeType === 'smoothstep' ? { borderRadius: 120 } : undefined,
           markerEnd: `url(#marker-${fk.toCardinality})`,
           markerStart: `url(#marker-${fk.fromCardinality})`,
           selected: isEdgeSelected,
@@ -576,7 +629,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode]);
+  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach(change => {
@@ -1036,11 +1089,14 @@ const CanvasInner = () => {
 
     if (type === 'foreignKey' && targetId) {
       const fk = foreignKeys.find(f => f.id === targetId);
-      const currentEdgeType = fk?.edgeType || 'smoothstep';
+      const currentEdgeType = fk?.edgeType || 'step';
       
       return [
         { label: 'Routing Style', onClick: () => {}, divider: false },
-        { label: currentEdgeType === 'smoothstep' ? '✓ Smooth' : 'Smooth', onClick: () => {
+        { label: currentEdgeType === 'step' ? '✓ Step' : 'Step', onClick: () => {
+          updateForeignKey(targetId, { edgeType: 'step' });
+        }},
+        { label: currentEdgeType === 'smoothstep' ? '✓ Curved' : 'Curved', onClick: () => {
           updateForeignKey(targetId, { edgeType: 'smoothstep' });
         }},
         { label: currentEdgeType === 'straight' ? '✓ Straight' : 'Straight', onClick: () => {

@@ -148,6 +148,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const multiSelectedTableIds = useModelStore(state => state.multiSelectedTableIds);
   const toggleTableMultiSelect = useModelStore(state => state.toggleTableMultiSelect);
   const setSelected = useModelStore(state => state.setSelected);
+  const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
 
   // Check if this table is multi-selected
   const isMultiSelected = multiSelectedTableIds.includes(data.id);
@@ -493,6 +494,32 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Table-level handles for when fields are hidden */}
+      <Handle 
+        type="target" 
+        position={Position.Left} 
+        id="table-target-left" 
+        style={{ opacity: 0, left: 0, top: '50%', transform: 'translateY(-50%)' }} 
+      />
+      <Handle 
+        type="source" 
+        position={Position.Left} 
+        id="table-source-left" 
+        style={{ opacity: 0, left: 0, top: '50%', transform: 'translateY(-50%)' }} 
+      />
+      <Handle 
+        type="target" 
+        position={Position.Right} 
+        id="table-target-right" 
+        style={{ opacity: 0, right: 0, top: '50%', transform: 'translateY(-50%)' }} 
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        id="table-source-right" 
+        style={{ opacity: 0, right: 0, top: '50%', transform: 'translateY(-50%)' }} 
+      />
+      
       {/* Hover zones for add buttons */}
       {renderHoverZone('top')}
       {renderHoverZone('right')}
@@ -638,13 +665,24 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       </div>
 
       {/* Body / Columns */}
-      <div className="nodrag" style={{ 
-        background: data.color && data.color !== 'default' 
-          ? 'rgba(0, 0, 0, 0.15)' 
-          : (colorMode === 'dark' ? '#0d1117' : '#ffffff') 
-      }}>
-        {data.attributes && data.attributes.length > 0 ? (
-          data.attributes.map((attr, index) => (
+      {tableFieldsDisplay !== 'name' && (
+        <div className="nodrag" style={{ 
+          background: data.color && data.color !== 'default' 
+            ? 'rgba(0, 0, 0, 0.15)' 
+            : (colorMode === 'dark' ? '#0d1117' : '#ffffff') 
+        }}>
+          {data.attributes && data.attributes.length > 0 ? (
+            // Filter attributes based on tableFieldsDisplay mode
+            data.attributes
+              .filter(attr => {
+                if (tableFieldsDisplay === 'keys') {
+                  // Only show primary keys and foreign keys
+                  return attr.isPrimaryKey || attr.isForeignKey;
+                }
+                // 'all' mode - show all attributes
+                return true;
+              })
+              .map((attr, index, filteredArray) => (
             <div 
               key={attr.id} 
               data-field-id={attr.id}
@@ -656,7 +694,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
               }}
               style={{ 
                 padding: '10px 14px', 
-                borderBottom: index < data.attributes.length - 1 
+                borderBottom: index < filteredArray.length - 1 
                   ? (data.color && data.color !== 'default' 
                       ? '1px solid rgba(255, 255, 255, 0.1)' 
                       : (colorMode === 'dark' ? '1px solid #21262d' : '1px solid #e5e7eb'))
@@ -807,7 +845,8 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
             No columns defined
           </div>
         )}
-      </div>
+        </div>
+      )}
       </div>
       
       <DDLDialog 
