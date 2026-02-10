@@ -7,6 +7,7 @@ import {
   Layers,
   Plus,
   Group,
+  Ungroup,
   PanelLeftClose,
   PanelLeft,
   Download,
@@ -15,12 +16,14 @@ import {
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { DropdownButton } from '../../shared/Dropdown';
+import { Tooltip } from '../../shared/Tooltip';
 import type { DropdownItem } from '../../shared/Dropdown';
 import type { ConceptualData, PhysicalData } from '../../../model/schemas';
 import { ExampleDialog } from '../../ui/ExampleDialog';
 import { FullDDLDialog } from '../../ui/FullDDLDialog';
 import { AIDialog } from '../../ui/AIDialog';
 import { AISettingsDialog } from '../../ui/AISettingsDialog';
+import { SnowflakeDialog } from '../../ui/SnowflakeDialog';
 
 interface NavbarActionsProps {
   onActionComplete?: () => void;
@@ -33,6 +36,10 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const [showFullDDLDialog, setShowFullDDLDialog] = useState(false);
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
+  const [showSnowflakeDialog, setShowSnowflakeDialog] = useState(false);
+  const [importDropdownOpen, setImportDropdownOpen] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
   
   const addEntity = useModelStore(state => state.addEntity);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
@@ -44,14 +51,11 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const autoLayout = useModelStore(state => state.autoLayout);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
-  const multiSelectedEntityIds = useModelStore(state => state.multiSelectedEntityIds);
-  const multiSelectedTableIds = useModelStore(state => state.multiSelectedTableIds);
   const selectedId = useModelStore(state => state.selectedId);
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const entityGroups = useModelStore(state => state.entityGroups);
   const removeEntityFromGroup = useModelStore(state => state.removeEntityFromGroup);
-  const clearMultiSelection = useModelStore(state => state.clearMultiSelection);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
   const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
   const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
@@ -133,34 +137,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     e.target.value = '';
   };
 
-  const handleGroupSelected = () => {
-    if (viewMode === 'conceptual') {
-      const entitiesToGroup = multiSelectedEntityIds.length > 0 
-        ? multiSelectedEntityIds 
-        : (selectedId ? [selectedId] : []);
-      
-      if (entitiesToGroup.length > 0) {
-        addEntityGroup(entitiesToGroup, 'New Group');
-        clearMultiSelection();
-      }
-    } else {
-      // Physical view - create entity for table(s) and group them
-      const tablesToGroup = multiSelectedTableIds.length > 0 
-        ? multiSelectedTableIds 
-        : (selectedId ? [selectedId] : []);
-      
-      if (tablesToGroup.length > 0) {
-        // Create a new entity for these tables
-        const entityId = addEntity();
-        // Assign all tables to this entity
-        tablesToGroup.forEach(tableId => {
-          updateTable(tableId, { entityId });
-        });
-        clearMultiSelection();
-      }
-    }
-  };
-
   const handleUngroupSelected = () => {
     if (selectedId) {
       if (viewMode === 'conceptual') {
@@ -187,14 +163,18 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     addTable();
   };
 
-  const fileItems: DropdownItem[] = [
+  const importItems: DropdownItem[] = [
     { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: '', divider: true, onClick: () => {} },
     { label: 'Import Model', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
+    { label: 'From Snowflake', icon: <Upload size={14} />, onClick: () => { setShowSnowflakeDialog(true); onActionComplete?.(); } },
+    { label: '', divider: true, onClick: () => {} },
+    { label: 'Templates', icon: <Layers size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
+  ];
+
+  const exportItems: DropdownItem[] = [
     { label: 'Export Model (JSON)', icon: <Download size={14} />, onClick: () => { handleSave(); onActionComplete?.(); }, shortcut: '⌘S' },
     { label: 'Export SQL DDL', icon: <FileDown size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
-    { label: '', divider: true, onClick: () => {} },
-    { label: 'Load Example', icon: <FileDown size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
   ];
 
   const insertItems: DropdownItem[] = viewMode === 'conceptual'
@@ -206,10 +186,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         { label: 'Add Table', icon: <Plus size={14} />, onClick: () => { handleAddTable(); onActionComplete?.(); } },
       ];
 
-  const canGroupSelected = viewMode === 'conceptual' 
-    ? (multiSelectedEntityIds.length > 0 || (selectedId && entities.find(e => e.id === selectedId)))
-    : (multiSelectedTableIds.length > 0 || (selectedId && tables.find(t => t.id === selectedId)));
-
   const selectedEntityInGroup = viewMode === 'conceptual' && 
     selectedId && 
     entities.find(e => e.id === selectedId) &&
@@ -218,11 +194,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const selectedTableInGroup = viewMode === 'physical' &&
     selectedId &&
     tables.find(t => t.id === selectedId)?.entityId !== undefined;
-  
-  // For physical view - show multi-selection count
-  const selectedTablesCount = viewMode === 'physical' && multiSelectedTableIds.length > 0 
-    ? multiSelectedTableIds.length 
-    : 0;
 
   return (
     <>
@@ -248,6 +219,11 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       <AISettingsDialog
         isOpen={showAISettingsDialog}
         onClose={() => setShowAISettingsDialog(false)}
+      />
+      
+      <SnowflakeDialog
+        isOpen={showSnowflakeDialog}
+        onClose={() => setShowSnowflakeDialog(false)}
       />
       
       {isMobile ? (
@@ -276,9 +252,14 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
             <span>{leftSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
           </button>
 
-          {/* File Menu - Mobile */}
+          {/* Import Menu - Mobile */}
           <div style={{ width: '100%' }}>
-            <DropdownButton label="File" items={fileItems} fullWidth={true} compact={true} />
+            <DropdownButton label="Import" items={importItems} icon={<Upload size={16} />} fullWidth={true} compact={true} />
+          </div>
+
+          {/* Export Menu - Mobile */}
+          <div style={{ width: '100%' }}>
+            <DropdownButton label="Export" items={exportItems} icon={<Download size={16} />} fullWidth={true} compact={true} />
           </div>
 
           {/* Insert Menu - Mobile */}
@@ -333,76 +314,43 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
           </button>
 
           {/* Group/Ungroup Buttons */}
-          {(selectedEntityInGroup || selectedTableInGroup) && (
-            <button
-              onClick={() => { handleUngroupSelected(); onActionComplete?.(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 12px',
-                background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
-                border: `1px solid ${isDark ? '#ef4444' : '#fecaca'}`,
-                borderRadius: '6px',
-                color: '#ef4444',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                width: '100%',
-                textAlign: 'left',
-              }}
-            >
-              <Trash2 size={18} />
-              <span>Ungroup Selected</span>
-            </button>
-          )}
-
-          {canGroupSelected && !selectedEntityInGroup && !selectedTableInGroup && (
-            <button
-              onClick={() => { handleGroupSelected(); onActionComplete?.(); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 12px',
-                background: isDark ? 'rgba(99, 102, 241, 0.15)' : '#eef2ff',
-                border: `1px solid ${isDark ? '#6366f1' : '#c7d2fe'}`,
-                borderRadius: '6px',
-                color: '#6366f1',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                width: '100%',
-                textAlign: 'left',
-              }}
-            >
-              <Group size={18} />
-              <span>
-                Group ({viewMode === 'conceptual' ? (multiSelectedEntityIds.length || 1) : (multiSelectedTableIds.length || 1)})
-              </span>
-            </button>
-          )}
-
-          {selectedTablesCount > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 12px',
-                background: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
-                border: `1px solid ${isDark ? '#22c55e' : '#86efac'}`,
-                borderRadius: '6px',
-                color: isDark ? '#22c55e' : '#16a34a',
-                fontSize: '14px',
-                fontWeight: 600,
-                width: '100%',
-              }}
-            >
-              <Layers size={18} />
-              <span>{selectedTablesCount} Selected</span>
-            </div>
-          )}
+          {/* Ungroup Selected - Always visible, disabled when not applicable */}
+          <button
+            onClick={() => { 
+              if (selectedEntityInGroup || selectedTableInGroup) {
+                handleUngroupSelected(); 
+                onActionComplete?.(); 
+              }
+            }}
+            disabled={!selectedEntityInGroup && !selectedTableInGroup}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 12px',
+              background: (selectedEntityInGroup || selectedTableInGroup)
+                ? (isDark ? '#21262d' : '#f3f4f6')
+                : (isDark ? '#0d1117' : '#f8f9fa'),
+              border: `1px solid ${
+                (selectedEntityInGroup || selectedTableInGroup)
+                  ? (isDark ? '#30363d' : '#d1d5db')
+                  : (isDark ? '#21262d' : '#d1d5db')
+              }`,
+              borderRadius: '6px',
+              color: (selectedEntityInGroup || selectedTableInGroup)
+                ? (isDark ? '#e6edf3' : '#374151')
+                : (isDark ? '#6e7681' : '#9ca3af'),
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: (selectedEntityInGroup || selectedTableInGroup) ? 'pointer' : 'not-allowed',
+              opacity: (selectedEntityInGroup || selectedTableInGroup) ? 1 : 0.8,
+              width: '100%',
+              textAlign: 'left',
+            }}
+          >
+            <Ungroup size={18} />
+            <span>Ungroup Selected</span>
+          </button>
         </div>
       ) : (
         // Desktop Layout - Original horizontal layout
@@ -416,10 +364,10 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       />
 
       {/* Sidebar Toggle */}
-      <button
-        onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
-        title={leftSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={{
+      <Tooltip content={leftSidebarCollapsed ? 'Show left sidebar with entity/table list' : 'Hide left sidebar'}>
+        <button
+          onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
+          style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -443,17 +391,25 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       >
         {leftSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
       </button>
+      </Tooltip>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <DropdownButton label="File" items={fileItems} />
-        <DropdownButton label="Insert" items={insertItems} icon={<Plus size={14} />} />
+        <Tooltip content="Import models and templates" disabled={importDropdownOpen}>
+          <DropdownButton label="Import" items={importItems} icon={<Upload size={14} />} onOpenChange={setImportDropdownOpen} />
+        </Tooltip>
+        <Tooltip content="Export model as JSON or SQL DDL" disabled={exportDropdownOpen}>
+          <DropdownButton label="Export" items={exportItems} icon={<Download size={14} />} onOpenChange={setExportDropdownOpen} />
+        </Tooltip>
+        <Tooltip content="Add entities, tables, or groups to your model" disabled={insertDropdownOpen}>
+          <DropdownButton label="Insert" items={insertItems} icon={<Plus size={14} />} onOpenChange={setInsertDropdownOpen} />
+        </Tooltip>
       </div>
 
       {/* AI Button */}
-      <button
-        onClick={() => { setShowAIDialog(true); onActionComplete?.(); }}
-        title="Generate or enhance model with AI"
-        style={{
+      <Tooltip content="Generate or enhance your model with AI assistance">
+        <button
+          onClick={() => { setShowAIDialog(true); onActionComplete?.(); }}
+          style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
@@ -478,12 +434,13 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         <Sparkles size={14} />
         <span style={{ whiteSpace: 'nowrap' }}>AI</span>
       </button>
+      </Tooltip>
 
       {/* Auto Layout Button */}
-      <button
-        onClick={() => { autoLayout(); onActionComplete?.(); }}
-        title="Auto-arrange layout"
-        style={{
+      <Tooltip content="Automatically arrange all entities/tables in an organized layout">
+        <button
+          onClick={() => { autoLayout(); onActionComplete?.(); }}
+          style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
@@ -501,82 +458,60 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         <ArrowDownUp size={14} />
         <span style={{ whiteSpace: 'nowrap' }}>Layout</span>
       </button>
+      </Tooltip>
 
-      {/* Ungroup Selected - Show for both conceptual (entities) and physical (tables) */}
-      {(selectedEntityInGroup || selectedTableInGroup) && (
+      {/* Ungroup Selected - Always visible, disabled when not applicable */}
+      <Tooltip
+        content={
+          selectedEntityInGroup || selectedTableInGroup
+            ? (viewMode === 'conceptual' ? 'Remove entity from group' : 'Remove table from entity group')
+            : 'Select a grouped item to ungroup'
+        }
+      >
         <button
-          onClick={() => { handleUngroupSelected(); onActionComplete?.(); }}
-          title={viewMode === 'conceptual' ? 'Remove entity from group' : 'Remove table from group'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
-            border: `1px solid ${isDark ? '#ef4444' : '#fecaca'}`,
-            borderRadius: '6px',
-            color: '#ef4444',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
+          onClick={() => { 
+            if (selectedEntityInGroup || selectedTableInGroup) {
+              handleUngroupSelected(); 
+              onActionComplete?.(); 
+            }
           }}
-        >
-          <Trash2 size={14} />
-          <span style={{ whiteSpace: 'nowrap' }}>Ungroup</span>
-        </button>
-      )}
-
-      {/* Group Selected - Show for both conceptual and physical views */}
-      {canGroupSelected && !selectedEntityInGroup && !selectedTableInGroup && (
-        <button
-          onClick={() => { handleGroupSelected(); onActionComplete?.(); }}
-          title={viewMode === 'conceptual' 
-            ? `Group ${multiSelectedEntityIds.length || 1} selected entities`
-            : `Group ${multiSelectedTableIds.length || 1} selected tables`}
+          disabled={!selectedEntityInGroup && !selectedTableInGroup}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            background: isDark ? 'rgba(99, 102, 241, 0.15)' : '#eef2ff',
-            border: `1px solid ${isDark ? '#6366f1' : '#c7d2fe'}`,
-            borderRadius: '6px',
-            color: '#6366f1',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          <Group size={14} />
-          Group ({viewMode === 'conceptual' ? (multiSelectedEntityIds.length || 1) : (multiSelectedTableIds.length || 1)})
-        </button>
-      )}
-      
-      {/* Physical View - Show multi-selection count */}
-      {selectedTablesCount > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
-            background: isDark ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4',
-            border: `1px solid ${isDark ? '#22c55e' : '#86efac'}`,
-            borderRadius: '6px',
-            color: isDark ? '#22c55e' : '#16a34a',
-            fontSize: '13px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          <Layers size={14} />
-          {selectedTablesCount} Selected
-        </div>
-      )}
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '6px',
+          background: (selectedEntityInGroup || selectedTableInGroup)
+            ? (isDark ? '#21262d' : '#f3f4f6')
+            : (isDark ? '#0d1117' : '#ffffff'),
+          border: `1px solid ${
+            (selectedEntityInGroup || selectedTableInGroup)
+              ? (isDark ? '#30363d' : '#d1d5db')
+              : (isDark ? '#21262d' : '#d1d5db')
+          }`,
+          borderRadius: '6px',
+          color: (selectedEntityInGroup || selectedTableInGroup)
+            ? (isDark ? '#e6edf3' : '#374151')
+            : (isDark ? '#6e7681' : '#9ca3af'),
+          cursor: (selectedEntityInGroup || selectedTableInGroup) ? 'pointer' : 'not-allowed',
+          opacity: (selectedEntityInGroup || selectedTableInGroup) ? 1 : 0.8,
+          flexShrink: 0,
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (selectedEntityInGroup || selectedTableInGroup) {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (selectedEntityInGroup || selectedTableInGroup) {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }
+        }}
+      >
+        <Ungroup size={14} />
+      </button>
+      </Tooltip>
         </div>
       )}
     </>

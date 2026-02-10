@@ -250,27 +250,12 @@ const CanvasInner = () => {
           const rightMostEntity = maxX;
           const bottomMostEntity = maxY;
           
-          // Group maintains its position unless entities move beyond its boundaries
-          // Start with stored position or initialize from first entity placement
-          const baseX = storedGroupLayout?.x ?? (leftMostEntity - leftPadding);
-          const baseY = storedGroupLayout?.y ?? (topMostEntity - headerPadding);
-          
-          // Only move position if entities extend beyond current left/top boundaries
-          groupX = Math.min(baseX, leftMostEntity - leftPadding);
-          groupY = Math.min(baseY, topMostEntity - headerPadding);
-          
-          // Calculate required size to contain all entities with padding from the current position
-          const requiredWidth = (rightMostEntity + rightPadding) - groupX;
-          const requiredHeight = (bottomMostEntity + bottomPadding) - groupY;
-          
-          // Use stored size if manually resized and larger, otherwise use required size
-          if (storedGroupLayout?.width && storedGroupLayout?.height) {
-            groupWidth = Math.max(storedGroupLayout.width, requiredWidth);
-            groupHeight = Math.max(storedGroupLayout.height, requiredHeight);
-          } else {
-            groupWidth = requiredWidth;
-            groupHeight = requiredHeight;
-          }
+          // Group position is always calculated from entity positions
+          // No stored position is used - it follows the entities
+          groupX = leftMostEntity - leftPadding;
+          groupY = topMostEntity - headerPadding;
+          groupWidth = (rightMostEntity - leftMostEntity) + leftPadding + rightPadding;
+          groupHeight = (bottomMostEntity - topMostEntity) + headerPadding + bottomPadding;
         } else if (storedGroupLayout) {
           // Empty group with stored position/size
           groupX = storedGroupLayout.x;
@@ -651,7 +636,7 @@ const CanvasInner = () => {
           const group = entityGroups.find(g => g.id === change.id);
           if (group) {
             if (group.entityIds.length > 0) {
-              // Group has entities - move all entities AND clear stored group position
+              // Group has entities - move all entities, don't update group position
               const currentGroupNode = nodes.find(n => n.id === change.id);
               if (currentGroupNode) {
                 const deltaX = change.position.x - currentGroupNode.position.x;
@@ -673,6 +658,8 @@ const CanvasInner = () => {
                   }
                 });
               }
+              // IMPORTANT: Don't update the group's position - it recalculates from entities
+              return;
             } else {
               // Empty group - store its own position in nodeLayouts
               // Store the position directly as React Flow provides it (already the visual position)

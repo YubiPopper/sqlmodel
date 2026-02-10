@@ -133,6 +133,66 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
         pointerEvents: 'all',
       }}
     >
+      {/* Background Drag Areas - Top */}
+      <div
+        className="entity-group-drag-handle"
+        style={{
+          pointerEvents: 'all',
+          position: 'absolute',
+          top: 0,
+          left: '25%',
+          right: '25%',
+          height: '32px',
+          cursor: 'grab',
+          zIndex: 0,
+        }}
+      />
+      
+      {/* Background Drag Areas - Bottom */}
+      <div
+        className="entity-group-drag-handle"
+        style={{
+          pointerEvents: 'all',
+          position: 'absolute',
+          bottom: 0,
+          left: '25%',
+          right: '25%',
+          height: '32px',
+          cursor: 'grab',
+          zIndex: 0,
+        }}
+      />
+      
+      {/* Background Drag Areas - Left */}
+      <div
+        className="entity-group-drag-handle"
+        style={{
+          pointerEvents: 'all',
+          position: 'absolute',
+          left: 0,
+          top: '25%',
+          bottom: '25%',
+          width: '32px',
+          cursor: 'grab',
+          zIndex: 0,
+        }}
+      />
+      
+      {/* Background Drag Areas - Right */}
+      <div
+        className="entity-group-drag-handle"
+        style={{
+          pointerEvents: 'all',
+          position: 'absolute',
+          right: 0,
+          top: '25%',
+          bottom: '25%',
+          width: '32px',
+          cursor: 'grab',
+          zIndex: 0,
+        }}
+      />
+
       {/* Drag Handle Area - Top bar */}
       <div
         className="entity-group-drag-handle"
@@ -154,6 +214,7 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
           padding: '0 12px',
           gap: '8px',
           cursor: 'grab',
+          zIndex: 1,
         }}
       >
         <Move size={12} style={{ color: colorMode === 'dark' ? '#475569' : '#94a3b8' }} />
@@ -196,6 +257,7 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
             gap: '6px',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
+            zIndex: 2,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = colorMode === 'dark' ? '#334155' : '#cbd5e1';
@@ -228,6 +290,7 @@ const EntityGroupNode = memo(({ data, selected }: NodeProps<EntityGroupData>) =>
           justifyContent: 'center',
           opacity: selected ? 0.8 : 0.4,
           transition: 'opacity 0.2s',
+          zIndex: 2,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.opacity = '1';

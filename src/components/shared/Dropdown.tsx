@@ -15,14 +15,21 @@ interface DropdownProps {
   trigger: React.ReactNode;
   items: DropdownItem[];
   align?: 'left' | 'right';
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
   trigger,
   items,
   align = 'left',
+  onOpenChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  const handleOpenChange = (newState: boolean) => {
+    setIsOpen(newState);
+    onOpenChange?.(newState);
+  };
   const dropdownRef = useRef<HTMLDivElement>(null);
   const colorMode = useModelStore(state => state.colorMode);
 
@@ -31,7 +38,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        handleOpenChange(false);
       }
     };
 
@@ -52,7 +59,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        handleOpenChange(false);
       }
     };
 
@@ -63,8 +70,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const isDark = colorMode === 'dark';
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative' }}>
-      <div onClick={() => setIsOpen(!isOpen)} style={{ cursor: 'pointer' }}>
+    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <div onClick={() => handleOpenChange(!isOpen)}>
         {trigger}
       </div>
       
@@ -72,7 +79,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         <>
           {/* Invisible overlay to catch clicks anywhere including canvas */}
           <div
-            onClick={() => setIsOpen(false)}
+            onClick={() => handleOpenChange(false)}
             style={{
               position: 'fixed',
               top: 0,
@@ -115,7 +122,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
                   onClick={() => {
                     if (!item.disabled) {
                       item.onClick();
-                      setIsOpen(false);
+                      handleOpenChange(false);
                     }
                   }}
                   disabled={item.disabled}
@@ -180,6 +187,8 @@ interface DropdownButtonProps {
   icon?: React.ReactNode;
   fullWidth?: boolean;
   compact?: boolean;
+  title?: string;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 export const DropdownButton: React.FC<DropdownButtonProps> = ({
@@ -188,6 +197,8 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   icon,
   fullWidth = false,
   compact = false,
+  title,
+  onOpenChange,
 }) => {
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
@@ -200,8 +211,10 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   return (
     <Dropdown
       items={items}
+      onOpenChange={onOpenChange}
       trigger={
         <button
+          title={title}
           style={{
             display: 'flex',
             alignItems: 'center',
