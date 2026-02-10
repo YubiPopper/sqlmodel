@@ -45,7 +45,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = 
     onMouseLeave: () => setIsVisible(false),
     onMouseDown: () => setIsVisible(false),
     ref: triggerRef,
-  });
+  } as any);
 
   return (
     <>

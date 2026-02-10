@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
-import { X, Upload, Copy, Check } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
 
 interface SnowflakeDialogProps {
   isOpen: boolean;
@@ -10,7 +10,6 @@ interface SnowflakeDialogProps {
 
 export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClose }) => {
   const colorMode = useModelStore(state => state.colorMode);
-  const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const [ddlText, setDdlText] = useState('');
   const [appendToEnd, setAppendToEnd] = useState(true);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -44,12 +43,11 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
     }
 
     try {
-      const { tables, diagnostics } = parseSnowflakeDDL(ddlText);
+      const { tables } = parseSnowflakeDDL(ddlText);
       
       // Check if parsing found any tables
       if (tables.length === 0) {
-        setDiagnostics(diagnostics + '\n\nERROR: No tables found in DDL');
-        setShowDiagnostics(true);
+        alert('No tables found in DDL');
         return;
       }
 
@@ -81,7 +79,7 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
         }
         
         // Add attributes
-        tableData.columns.forEach((col, idx) => {
+        tableData.columns.forEach((col) => {
           addTableAttribute(tableId);
           
           // Get fresh state after each attribute add

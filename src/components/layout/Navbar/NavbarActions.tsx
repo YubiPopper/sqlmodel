@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { 
   FileDown, 
   FilePlus,
-  Trash2,
   ArrowDownUp,
   Layers,
   Plus,
