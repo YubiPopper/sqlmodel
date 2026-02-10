@@ -3,6 +3,7 @@ import ReactFlow, {
   Background, 
   ConnectionMode,
   ReactFlowProvider,
+  SimpleBezierEdge,
 } from 'reactflow';
 import type { 
   Connection, 
@@ -29,6 +30,10 @@ const nodeTypes = {
   table: TableNode,
   entityGroup: EntityGroupNode,
   conceptualGroup: ConceptualGroupNode,
+};
+
+const edgeTypes = {
+  curved: SimpleBezierEdge,
 };
 
 const CanvasInner = () => {
@@ -495,7 +500,7 @@ const CanvasInner = () => {
           label: r.label,
           sourceHandle,
           targetHandle,
-          type: 'step',
+          type: 'curved',
           markerEnd: `url(#marker-${r.toCardinality})`,
           markerStart: `url(#marker-${r.fromCardinality})`,
           selected: isEdgeSelected,
@@ -599,7 +604,7 @@ const CanvasInner = () => {
           target: fk.toTableId,
           sourceHandle,
           targetHandle,
-          type: fk.edgeType || 'step',
+          type: fk.edgeType || 'curved',
           pathOptions: fk.edgeType === 'smoothstep' ? { borderRadius: 120 } : undefined,
           markerEnd: `url(#marker-${fk.toCardinality})`,
           markerStart: `url(#marker-${fk.fromCardinality})`,
@@ -1089,15 +1094,15 @@ const CanvasInner = () => {
 
     if (type === 'foreignKey' && targetId) {
       const fk = foreignKeys.find(f => f.id === targetId);
-      const currentEdgeType = fk?.edgeType || 'step';
+      const currentEdgeType = fk?.edgeType || 'curved';
       
       return [
         { label: 'Routing Style', onClick: () => {}, divider: false },
+        { label: currentEdgeType === 'curved' ? '✓ Curved' : 'Curved', onClick: () => {
+          updateForeignKey(targetId, { edgeType: 'curved' });
+        }},
         { label: currentEdgeType === 'step' ? '✓ Step' : 'Step', onClick: () => {
           updateForeignKey(targetId, { edgeType: 'step' });
-        }},
-        { label: currentEdgeType === 'smoothstep' ? '✓ Curved' : 'Curved', onClick: () => {
-          updateForeignKey(targetId, { edgeType: 'smoothstep' });
         }},
         { label: currentEdgeType === 'straight' ? '✓ Straight' : 'Straight', onClick: () => {
           updateForeignKey(targetId, { edgeType: 'straight' });
@@ -1332,6 +1337,7 @@ const CanvasInner = () => {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

@@ -17,8 +17,8 @@ const CARDINALITY_OPTIONS: { value: Cardinality; label: string }[] = [
 ];
 
 const EDGE_TYPE_OPTIONS = [
+  { value: 'curved', label: 'Curved (smooth)' },
   { value: 'step', label: 'Step (angular)' },
-  { value: 'smoothstep', label: 'Smooth (curved)' },
   { value: 'straight', label: 'Straight' },
 ];
 

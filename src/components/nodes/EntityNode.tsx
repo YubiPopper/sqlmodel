@@ -424,47 +424,13 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
         : null;
       
       if (dynamicStartSide === 'left' || dynamicStartSide === 'right') {
-        // Horizontal exit - place vertical turn line between entities
-        let turnX: number;
-        
-        if (targetNodeRect) {
-          const targetLeft = targetNodeRect.left - canvasRect.left;
-          const targetRight = targetNodeRect.right - canvasRect.left;
-          
-          if (dynamicStartSide === 'right') {
-            // Going right - turn line should be between source right edge and target left edge
-            turnX = (sourceRight + targetLeft) / 2;
-          } else {
-            // Going left - turn line should be between target right edge and source left edge
-            turnX = (targetRight + sourceLeft) / 2;
-          }
-        } else {
-          // No target - just offset from source
-          turnX = dynamicStartSide === 'right' ? dynamicStartX + 60 : dynamicStartX - 60;
-        }
-        
-        pathD = `M ${dynamicStartX},${dynamicStartY} L ${turnX},${dynamicStartY} L ${turnX},${endY} L ${endX},${endY}`;
+        // Horizontal exit - use smooth bezier curve
+        const controlX = (dynamicStartX + endX) / 2;
+        pathD = `M ${dynamicStartX},${dynamicStartY} Q ${controlX},${dynamicStartY} ${controlX},${(dynamicStartY + endY) / 2} T ${endX},${endY}`;
       } else {
-        // Vertical exit - place horizontal turn line between entities
-        let turnY: number;
-        
-        if (targetNodeRect) {
-          const targetTop = targetNodeRect.top - canvasRect.top;
-          const targetBottom = targetNodeRect.bottom - canvasRect.top;
-          
-          if (dynamicStartSide === 'bottom') {
-            // Going down - turn line should be between source bottom edge and target top edge
-            turnY = (sourceBottom + targetTop) / 2;
-          } else {
-            // Going up - turn line should be between target bottom edge and source top edge
-            turnY = (targetBottom + sourceTop) / 2;
-          }
-        } else {
-          // No target - just offset from source
-          turnY = dynamicStartSide === 'bottom' ? dynamicStartY + 60 : dynamicStartY - 60;
-        }
-        
-        pathD = `M ${dynamicStartX},${dynamicStartY} L ${dynamicStartX},${turnY} L ${endX},${turnY} L ${endX},${endY}`;
+        // Vertical exit - use smooth bezier curve
+        const controlY = (dynamicStartY + endY) / 2;
+        pathD = `M ${dynamicStartX},${dynamicStartY} Q ${dynamicStartX},${controlY} ${(dynamicStartX + endX) / 2},${controlY} T ${endX},${endY}`;
       }
       
       path.setAttribute('d', pathD);

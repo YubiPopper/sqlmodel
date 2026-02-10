@@ -435,13 +435,10 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
         path.setAttribute('stroke', '#2563eb');
       }
       
-      // Create orthogonal path
-      const midX = startX + (endX - startX) / 2;
+      // Create curved path using bezier
+      const controlPointX = startX + (endX - startX) / 2;
       
-      const pathD = `M ${startX} ${startY} ` +
-                    `L ${midX} ${startY} ` +
-                    `L ${midX} ${endY} ` +
-                    `L ${endX} ${endY}`;
+      const pathD = `M ${startX},${startY} Q ${controlPointX},${startY} ${controlPointX},${(startY + endY) / 2} T ${endX},${endY}`;
       
       path.setAttribute('d', pathD);
     };
