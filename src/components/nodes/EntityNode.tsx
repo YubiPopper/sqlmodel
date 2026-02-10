@@ -408,20 +408,8 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
         path.setAttribute('stroke', '#3b82f6');
       }
       
-      // Build path - place the turn in the gap between source and target
+      // Build path - use smooth bezier curve
       let pathD: string;
-      
-      // Get source entity bounds
-      const sourceNodeRect = entityElement.getBoundingClientRect();
-      const sourceLeft = sourceNodeRect.left - canvasRect.left;
-      const sourceRight = sourceNodeRect.right - canvasRect.left;
-      const sourceTop = sourceNodeRect.top - canvasRect.top;
-      const sourceBottom = sourceNodeRect.bottom - canvasRect.top;
-      
-      // Get target entity bounds if snapped
-      const targetNodeRect = snappedTargetEntity 
-        ? (snappedTargetEntity.querySelector('.entity-node') as HTMLElement)?.getBoundingClientRect() 
-        : null;
       
       if (dynamicStartSide === 'left' || dynamicStartSide === 'right') {
         // Horizontal exit - use smooth bezier curve

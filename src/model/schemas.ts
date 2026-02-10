@@ -91,7 +91,7 @@ export const ForeignKeySchema = z.object({
   // Optional: link to parent conceptual relationship
   relationshipId: z.string().uuid().optional(),
   // Edge routing options
-  edgeType: z.enum(['smoothstep', 'straight', 'step']).optional(),
+  edgeType: z.enum(['curved', 'smoothstep', 'straight', 'step']).optional(),
 });
 export type ForeignKey = z.infer<typeof ForeignKeySchema>;
 
