@@ -22,7 +22,6 @@ import ConceptualGroupNode from './nodes/ConceptualGroupNode';
 import { MarkerDefs } from './MarkerDefs';
 import { CanvasControls } from './CanvasControls';
 import { ConfirmationDialog } from './ui/ConfirmationDialog';
-import { DDLDialog } from './ui/DDLDialog';
 import { AddTableDialog } from './ui/AddTableDialog';
 import { AISettingsDialog } from './ui/AISettingsDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
@@ -63,7 +62,7 @@ const CanvasInner = () => {
 
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [dragHoverEntityGroupId, setDragHoverEntityGroupId] = useState<string | null>(null);
-  const [ddlDialogTable, setDdlDialogTable] = useState<typeof tables[0] | null>(null);
+  const [editingTable, setEditingTable] = useState<typeof tables[0] | null>(null);
   const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
 
@@ -1089,7 +1088,7 @@ const CanvasInner = () => {
         { label: 'Export SQL', icon: <Code size={14} />, onClick: () => {
           handleCloseContextMenu();
           if (table) {
-            setDdlDialogTable(table);
+            setEditingTable(table);
           }
         }},
         { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => {
@@ -1441,10 +1440,14 @@ const CanvasInner = () => {
         isDestructive={true}
       />
       
-      <DDLDialog
-        isOpen={!!ddlDialogTable}
-        table={ddlDialogTable}
-        onClose={() => setDdlDialogTable(null)}
+      <AddTableDialog
+        isOpen={!!editingTable}
+        existingTable={editingTable}
+        onClose={() => setEditingTable(null)}
+        onOpenAISettings={() => {
+          setEditingTable(null);
+          setShowAISettingsDialog(true);
+        }}
       />
       
       <AddTableDialog
