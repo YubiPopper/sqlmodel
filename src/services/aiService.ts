@@ -29,13 +29,30 @@ export interface AIServiceConfig {
 // Local storage key for API settings
 const AI_SETTINGS_KEY = 'sqlmodel-ai-settings';
 
-// Get saved AI settings
+// Get default config from environment variables
+const getDefaultConfig = (): AIServiceConfig | null => {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  if (apiKey && apiKey !== 'your-openai-api-key-here') {
+    return {
+      apiKey,
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+    };
+  }
+  return null;
+};
+
+// Get saved AI settings (prioritize user settings over defaults)
 export const getAISettings = (): AIServiceConfig | null => {
   try {
     const saved = localStorage.getItem(AI_SETTINGS_KEY);
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    // Fall back to environment variable default
+    return getDefaultConfig();
   } catch {
-    return null;
+    return getDefaultConfig();
   }
 };
 
@@ -375,7 +392,7 @@ IMPORTANT: Respond ONLY with the JSON array, no markdown code blocks or explanat
 // Call the AI API
 async function callAI(prompt: string, config: AIServiceConfig): Promise<string> {
   const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-  const model = config.model || 'gpt-4o';
+  const model = config.model || 'gpt-4o-mini';
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',

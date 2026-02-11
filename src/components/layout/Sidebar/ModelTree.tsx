@@ -222,6 +222,45 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     return () => document.removeEventListener('dragend', handleGlobalDragEnd);
   }, [draggedTable]);
 
+  // Auto-expand parent items when a table is selected
+  React.useEffect(() => {
+    if (!selectedId || viewMode !== 'physical') return;
+    
+    const selectedTable = tables.find(t => t.id === selectedId);
+    if (!selectedTable) return;
+    
+    if (physicalHierarchyMode === 'entity') {
+      // Expand parent entity if table is selected
+      if (selectedTable.entityId) {
+        setExpandedEntities(prev => {
+          if (prev.has(selectedTable.entityId!)) return prev;
+          const next = new Set(prev);
+          next.add(selectedTable.entityId!);
+          return next;
+        });
+      }
+    } else if (physicalHierarchyMode === 'database') {
+      // Expand parent database and schema if table is selected
+      const dbName = selectedTable.database || 'unassigned';
+      const schemaName = selectedTable.schema || 'unassigned';
+      const schemaKey = `${dbName}.${schemaName}`;
+      
+      setExpandedDatabases(prev => {
+        if (prev.has(dbName)) return prev;
+        const next = new Set(prev);
+        next.add(dbName);
+        return next;
+      });
+      
+      setExpandedSchemas(prev => {
+        if (prev.has(schemaKey)) return prev;
+        const next = new Set(prev);
+        next.add(schemaKey);
+        return next;
+      });
+    }
+  }, [selectedId, viewMode, physicalHierarchyMode, tables]);
+
   const toggleGroupExpand = (id: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);

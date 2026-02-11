@@ -62,7 +62,7 @@ const CanvasInner = () => {
 
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [dragHoverEntityGroupId, setDragHoverEntityGroupId] = useState<string | null>(null);
-  const [editingTable, setEditingTable] = useState<typeof tables[0] | null>(null);
+  const [editingTable, setEditingTable] = useState<typeof tables[0] | undefined>(undefined);
   const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
 
@@ -1443,9 +1443,9 @@ const CanvasInner = () => {
       <AddTableDialog
         isOpen={!!editingTable}
         existingTable={editingTable}
-        onClose={() => setEditingTable(null)}
+        onClose={() => setEditingTable(undefined)}
         onOpenAISettings={() => {
-          setEditingTable(null);
+          setEditingTable(undefined);
           setShowAISettingsDialog(true);
         }}
       />

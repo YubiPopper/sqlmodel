@@ -32,6 +32,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [testMessage, setTestMessage] = useState('');
+  const [hasEnvDefault, setHasEnvDefault] = useState(false);
   
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
@@ -40,6 +41,10 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
   useEffect(() => {
     if (isOpen) {
       const settings = getAISettings();
+      const envKey = import.meta.env.VITE_OPENAI_API_KEY;
+      const hasDefault = envKey && envKey !== 'your-openai-api-key-here';
+      setHasEnvDefault(!!hasDefault);
+      
       if (settings) {
         setApiKey(settings.apiKey);
         
@@ -51,18 +56,24 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
           setCustomUrl(settings.baseUrl || '');
         }
         
-        setModel(settings.model || 'gpt-4o');
+        setModel(settings.model || 'gpt-4o-mini');
+      } else if (hasDefault) {
+        // Show placeholder indicating env var is set
+        setApiKey('');
       }
     }
   }, [isOpen]);
 
   const handleSave = () => {
-    const settings: AIServiceConfig = {
-      apiKey,
-      baseUrl: baseUrl === 'custom' ? customUrl : baseUrl,
-      model,
-    };
-    saveAISettings(settings);
+    // Only save if user has entered a custom API key
+    if (apiKey) {
+      const settings: AIServiceConfig = {
+        apiKey,
+        baseUrl: baseUrl === 'custom' ? customUrl : baseUrl,
+        model,
+      };
+      saveAISettings(settings);
+    }
     onClose();
   };
 
@@ -71,7 +82,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
     setApiKey('');
     setBaseUrl('https://api.openai.com/v1');
     setCustomUrl('');
-    setModel('gpt-4o');
+    setModel('gpt-4o-mini');
     setTestResult(null);
     setTestMessage('');
   };
@@ -356,6 +367,22 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
                 {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {hasEnvDefault && !apiKey && (
+              <div style={{
+                padding: '10px 12px',
+                background: isDark ? 'rgba(34, 197, 94, 0.1)' : '#dcfce7',
+                border: `1px solid ${isDark ? 'rgba(34, 197, 94, 0.3)' : '#86efac'}`,
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: isDark ? '#86efac' : '#166534',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <CheckCircle size={14} />
+                <span>Using default API key from environment (GPT-4o-Mini)</span>
+              </div>
+            )}
             <p style={{ 
               margin: 0, 
               fontSize: '12px', 

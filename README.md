@@ -55,11 +55,33 @@ cd sqlmodel
 # Install dependencies
 npm install
 
+# Configure AI (optional)
+cp .env.example .env
+# Edit .env and add your OpenAI API key
+
 # Start development server
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+### AI Configuration (Optional)
+
+SQLModel includes AI-powered model generation using OpenAI's GPT-4o-Mini by default.
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+
+3. Add your key to `.env`:
+   ```env
+   VITE_OPENAI_API_KEY=sk-your-key-here
+   ```
+
+**Note**: The AI key can be configured at runtime via the AI Settings dialog (⚙️ icon in navbar). Environment variables are just a convenience default.
 
 ### Build for Production
 
