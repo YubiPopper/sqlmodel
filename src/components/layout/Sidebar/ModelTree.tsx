@@ -14,6 +14,11 @@ import {
   Plus
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
+import type { PhysicalTable } from '../../../model/schemas';
+
+// Type aliases for the database hierarchy
+type SchemaMap = Record<string, PhysicalTable[]>;
+type DatabaseHierarchy = Record<string, SchemaMap>;
 
 interface ModelTreeProps {
   searchQuery?: string;
@@ -151,8 +156,8 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
   // Group tables by database/schema hierarchy
   // Use ALL tables to get the full list of databases/schemas, but filter per-schema
-  const databaseHierarchy = useMemo(() => {
-    const hierarchy: Record<string, Record<string, typeof tables>> = {};
+  const databaseHierarchy = useMemo((): DatabaseHierarchy => {
+    const hierarchy: DatabaseHierarchy = {};
     
     // First, get all unique database/schema combinations from ALL tables
     tables.forEach(table => {
@@ -396,7 +401,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       }
     });
     
-    if (foundTarget?.type !== dropTarget?.type || foundTarget?.key !== dropTarget?.key) {
+    if ((foundTarget as { type: string; key: string } | null)?.type !== dropTarget?.type || (foundTarget as { type: string; key: string } | null)?.key !== dropTarget?.key) {
       setDropTarget(foundTarget);
     }
   }, [draggedTable, dropTarget]);
@@ -466,20 +471,6 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       dropTargetsRef.current.set(mapKey, element.getBoundingClientRect());
     } else {
       dropTargetsRef.current.delete(mapKey);
-    }
-  }, []);
-
-  // Legacy HTML5 handlers kept for fallback compatibility
-  const handleTableDragStart = useCallback((tableId: string, e: React.DragEvent) => {
-    e.stopPropagation();
-    console.log('[ModelTree] Starting drag for table:', tableId);
-    setDraggedTable(tableId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', tableId); // Required for Firefox
-    // Set drag image to be more compact
-    const target = e.currentTarget as HTMLElement;
-    if (target) {
-      e.dataTransfer.setDragImage(target, 10, 10);
     }
   }, []);
 
@@ -685,9 +676,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     dropTargetType?: 'database' | 'schema';
     dropTargetKey?: string;
     onRegisterDropTarget?: (type: 'database' | 'schema', key: string, element: HTMLElement | null) => void;
-  }> = ({ icon, label, selected, onClick, onDoubleClick, onExpand, onNavigate, onShowInDiagram, expanded, hasChildren, level = 0, badge, secondaryLabel, isHidden, onRename, onAddChild, isRenaming, renamingValue, onRenamingValueChange, onDragStart, onDragOver, onDragLeave, onDrop, isDragTarget, draggable, tableId, onPointerDragStart, dropTargetType, dropTargetKey, onRegisterDropTarget }) => {
-    const clickTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-    const dragDelayTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  }> = ({ icon, label, selected, onClick, onDoubleClick, onExpand, onNavigate, onShowInDiagram, expanded, hasChildren, level = 0, badge, secondaryLabel, isHidden, onRename: _onRename, onAddChild, isRenaming, renamingValue, onRenamingValueChange, onDragStart: _onDragStart, onDragOver: _onDragOver, onDragLeave: _onDragLeave, onDrop: _onDrop, isDragTarget, draggable, tableId, onPointerDragStart, dropTargetType, dropTargetKey, onRegisterDropTarget }) => {
+    const clickTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dragDelayTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingDragEventRef = React.useRef<React.PointerEvent | null>(null);
     const isDraggingRef = React.useRef(false);
     const elementRef = React.useRef<HTMLDivElement>(null);
@@ -721,7 +712,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       };
     }, [dropTargetType, dropTargetKey, onRegisterDropTarget]);
     
-    const handleClick = (e: React.MouseEvent) => {
+    const handleClick = (_e: React.MouseEvent) => {
       if (isRenaming || isDraggingRef.current) return;
       
       // For draggable items, don't execute click on first mousedown
@@ -786,7 +777,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       }, DRAG_DELAY_MS);
     };
     
-    const handlePointerUp = (e: React.PointerEvent) => {
+    const handlePointerUp = (_e: React.PointerEvent) => {
       // Cancel drag delay if pointer released before delay expired
       if (dragDelayTimerRef.current) {
         clearTimeout(dragDelayTimerRef.current);
@@ -1412,23 +1403,23 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           
           {(() => {
             // Get all database entries from hierarchy
-            const databaseEntries = Object.entries(databaseHierarchy);
+            const databaseEntries: [string, SchemaMap][] = Object.entries(databaseHierarchy);
             
             // Check if we're renaming a new database
             const renamingNewDatabase = renamingItem?.type === 'database' && 
               !databaseEntries.some(([dbName]) => dbName === renamingItem.key);
             
             // Add the new database being renamed if it doesn't exist yet
-            const allDatabases = renamingNewDatabase
-              ? [...databaseEntries, [renamingItem!.key, {}]]
+            const allDatabases: [string, SchemaMap][] = renamingNewDatabase
+              ? [...databaseEntries, [renamingItem!.key, {} as SchemaMap]]
               : databaseEntries;
             
             // Add any empty databases
-            const emptyDatabasesList = Array.from(emptyDatabases)
+            const emptyDatabasesList: [string, SchemaMap][] = Array.from(emptyDatabases)
               .filter(dbName => !allDatabases.some(([name]) => name === dbName))
-              .map(dbName => [dbName, {}] as [string, Record<string, typeof tables>]);
+              .map(dbName => [dbName, {} as SchemaMap]);
             
-            const finalDatabases = [...allDatabases, ...emptyDatabasesList];
+            const finalDatabases: [string, SchemaMap][] = [...allDatabases, ...emptyDatabasesList];
             
             return finalDatabases.map(([dbName, schemas]) => {
             const isDatabaseExpanded = expandedDatabases.has(dbName);
@@ -1491,7 +1482,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                 
                 {isDatabaseExpanded && (() => {
                   // Get all schema entries from the hierarchy
-                  const schemaEntries = Object.entries(schemas);
+                  const schemaEntries: [string, PhysicalTable[]][] = Object.entries(schemas);
                   
                   // Check if we're renaming a new schema for this database
                   const renamingNewSchema = renamingItem?.type === 'schema' && 
@@ -1499,21 +1490,21 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                     !schemaEntries.some(([schemaName]) => `${dbName}.${schemaName}` === renamingItem.key);
                   
                   // Add any empty schemas for this database
-                  const emptySchemasList = Array.from(emptySchemas)
+                  const emptySchemasList: [string, PhysicalTable[]][] = Array.from(emptySchemas)
                     .filter(key => key.startsWith(`${dbName}.`))
-                    .map(key => [key.split('.').slice(1).join('.'), []] as [string, typeof tables]);
+                    .map(key => [key.split('.').slice(1).join('.'), []]);
                   
                   // If we're renaming a new schema, extract the schema name from the key
-                  const newSchemaEntry: [string, typeof tables][] = renamingNewSchema
+                  const newSchemaEntry: [string, PhysicalTable[]][] = renamingNewSchema
                     ? [[renamingItem!.key.split('.').slice(1).join('.'), []]]
                     : [];
                   
                   // Combine all schemas: existing + empty + new being renamed
-                  const allSchemas = [...schemaEntries, ...emptySchemasList, ...newSchemaEntry];
+                  const allSchemas: [string, PhysicalTable[]][] = [...schemaEntries, ...emptySchemasList, ...newSchemaEntry];
                   
                   // Remove duplicates (if an empty schema now has tables)
-                  const uniqueSchemas = Array.from(
-                    new Map(allSchemas.map(([name, tables]) => [name, tables])).entries()
+                  const uniqueSchemas: [string, PhysicalTable[]][] = Array.from(
+                    new Map(allSchemas.map(([name, schemaTables]) => [name, schemaTables])).entries()
                   );
                   
                   return uniqueSchemas.map(([schemaName, schemaTables]) => {

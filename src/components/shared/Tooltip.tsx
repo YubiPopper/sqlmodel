@@ -49,15 +49,16 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = 
   }
 
   // Clone child and add handlers
+  const childProps = children.props as { onMouseEnter?: (e: React.MouseEvent) => void; onMouseLeave?: (e: React.MouseEvent) => void };
   const clonedChild = React.cloneElement(children, {
     ref: triggerRef,
     onMouseEnter: (e: React.MouseEvent) => {
       setIsVisible(true);
-      children.props.onMouseEnter?.(e);
+      childProps.onMouseEnter?.(e);
     },
     onMouseLeave: (e: React.MouseEvent) => {
       setIsVisible(false);
-      children.props.onMouseLeave?.(e);
+      childProps.onMouseLeave?.(e);
     },
   } as any);
 

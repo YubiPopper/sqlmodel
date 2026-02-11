@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import { X, GitBranch, Snowflake, Grid3x3 } from 'lucide-react';
@@ -15,7 +15,6 @@ export const LayoutAlgorithmDialog: React.FC<LayoutAlgorithmDialogProps> = ({ is
   const layoutAlgorithm = useModelStore(state => state.layoutAlgorithm);
   const setLayoutAlgorithm = useModelStore(state => state.setLayoutAlgorithm);
   const autoLayout = useModelStore(state => state.autoLayout);
-  const [hoveredAlgo, setHoveredAlgo] = useState<LayoutAlgorithm | null>(null);
 
   if (!isOpen) return null;
 
@@ -147,14 +146,11 @@ export const LayoutAlgorithmDialog: React.FC<LayoutAlgorithmDialogProps> = ({ is
         >
           {algorithms.map((algo, index) => {
             const isSelected = layoutAlgorithm === algo.id;
-            const isHovered = hoveredAlgo === algo.id;
 
             return (
               <div
                 key={algo.id}
                 onClick={() => handleSelectAlgorithm(algo.id)}
-                onMouseEnter={() => setHoveredAlgo(algo.id)}
-                onMouseLeave={() => setHoveredAlgo(null)}
                 style={{
                   padding: '16px',
                   marginBottom: index < algorithms.length - 1 ? '10px' : '0',
