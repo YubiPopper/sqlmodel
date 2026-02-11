@@ -5,6 +5,7 @@ import { SearchBox } from './SearchBox';
 import { ModelTree } from './ModelTree';
 import { QuickActions } from './QuickActions';
 import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
+import { Tooltip } from '../../shared/Tooltip';
 
 export const LeftSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,46 +50,50 @@ export const LeftSidebar: React.FC = () => {
           {viewMode === 'conceptual' ? 'Model' : 'Schema'}
         </span>
         {viewMode === 'conceptual' && (
-          <button
-            onClick={() => setShowConceptualSettings(true)}
-            title="View Settings"
-            style={{
-              marginLeft: 'auto',
-              padding: '6px',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              color: isDark ? '#8b949e' : '#6b7280',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
-              e.currentTarget.style.color = '#6366f1';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
-            }}
-          >
-            <Settings size={16} />
-          </button>
+          <Tooltip content="View Settings" placement="bottom">
+            <button
+              onClick={() => setShowConceptualSettings(true)}
+              style={{
+                marginLeft: 'auto',
+                padding: '6px',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                color: isDark ? '#8b949e' : '#6b7280',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
+                e.currentTarget.style.color = '#6366f1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+              }}
+            >
+              <Settings size={16} />
+            </button>
+          </Tooltip>
         )}
         {viewMode === 'physical' && (
-          <div 
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 8px',
-              background: isDark ? 'rgba(48, 54, 61, 0.3)' : 'rgba(243, 244, 246, 0.5)',
-              borderRadius: '8px',
-            }}
-            title={physicalHierarchyMode === 'entity' ? 'Click to group by Database/Schema' : 'Click to group by Entity'}
+          <Tooltip 
+            content={physicalHierarchyMode === 'entity' ? 'Group by Database/Schema' : 'Group by Entity'} 
+            placement="bottom"
           >
+            <div 
+              style={{
+                marginLeft: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 8px',
+                background: isDark ? 'rgba(48, 54, 61, 0.3)' : 'rgba(243, 244, 246, 0.5)',
+                borderRadius: '8px',
+              }}
+            >
             {/* Entity label/icon */}
             <div style={{
               display: 'flex',
@@ -154,6 +159,7 @@ export const LeftSidebar: React.FC = () => {
               </span>
             </div>
           </div>
+        </Tooltip>
         )}
       </div>
 
