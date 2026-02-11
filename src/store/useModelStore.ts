@@ -47,6 +47,12 @@ interface ModelState {
   physicalHierarchyMode: 'entity' | 'database'; // Physical sidebar hierarchy: by entity or by database/schema
   layoutAlgorithm: 'left-right' | 'snowflake' | 'compact'; // Auto-layout algorithm
   
+  // Conceptual view settings
+  showEntityDescriptions: boolean; // Show/hide entity descriptions on canvas
+  showRelationshipLabels: boolean; // Show/hide relationship labels
+  entityCardSize: 'compact' | 'normal' | 'large'; // Default entity card size
+  relationshipLabelSize: 'small' | 'normal' | 'large'; // Relationship label font size
+  
   // Entity Actions
   addEntity: () => string;
   updateEntity: (id: string, data: Partial<Entity>) => void;
@@ -104,6 +110,10 @@ interface ModelState {
   setTableFieldsDisplay: (mode: 'all' | 'name' | 'keys') => void;
   setPhysicalHierarchyMode: (mode: 'entity' | 'database') => void;
   setLayoutAlgorithm: (algorithm: 'left-right' | 'snowflake' | 'compact') => void;
+  setShowEntityDescriptions: (show: boolean) => void;
+  setShowRelationshipLabels: (show: boolean) => void;
+  setEntityCardSize: (size: 'compact' | 'normal' | 'large') => void;
+  setRelationshipLabelSize: (size: 'small' | 'normal' | 'large') => void;
   toggleEntityVisibility: (entityId: string) => void;
   toggleTableVisibility: (tableId: string) => void;
   showAllEntities: () => void;
@@ -157,6 +167,10 @@ export const useModelStore = create<ModelState>()(
       tableFieldsDisplay: 'all',
       physicalHierarchyMode: 'entity',
       layoutAlgorithm: 'left-right',
+      showEntityDescriptions: true,
+      showRelationshipLabels: true,
+      entityCardSize: 'compact',
+      relationshipLabelSize: 'large',
       leftSidebarCollapsed: false,
       rightPanelMobileOpen: false,
 
@@ -168,15 +182,23 @@ export const useModelStore = create<ModelState>()(
           name: 'New Entity',
           description: '',
         };
-        const { viewport } = get();
+        const { viewport, entityCardSize } = get();
         const x = -viewport.x / viewport.zoom + 100 + Math.random() * 50;
         const y = -viewport.y / viewport.zoom + 100 + Math.random() * 50;
+        
+        // Set initial size based on current card size setting
+        const sizeMap = {
+          compact: { width: 140, height: 80 },
+          normal: { width: 220, height: 120 },
+          large: { width: 280, height: 160 },
+        };
+        const { width, height } = sizeMap[entityCardSize];
 
         set((state) => ({
           entities: [...state.entities, newEntity],
           nodeLayouts: {
             ...state.nodeLayouts,
-            [id]: { x, y },
+            [id]: { x, y, width, height },
           },
           selectedId: id,
         }));
@@ -763,6 +785,14 @@ export const useModelStore = create<ModelState>()(
       setPhysicalHierarchyMode: (mode) => set({ physicalHierarchyMode: mode }),
       
       setLayoutAlgorithm: (algorithm) => set({ layoutAlgorithm: algorithm }),
+      
+      setShowEntityDescriptions: (show) => set({ showEntityDescriptions: show }),
+      
+      setShowRelationshipLabels: (show) => set({ showRelationshipLabels: show }),
+      
+      setEntityCardSize: (size) => set({ entityCardSize: size }),
+      
+      setRelationshipLabelSize: (size) => set({ relationshipLabelSize: size }),
       
       toggleEntityVisibility: (entityId) => set((state) => {
         const newHidden = new Set(state.hiddenEntityIds);

@@ -450,28 +450,13 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         setPreviewDdl('');
         setManualTableName(existingTable.name);
       } else {
-        // Create mode: start directly in preview with a default table
+        // Create mode: reset everything
         setActiveTab('manual');
         setDdlText('');
         setAiPrompt('');
         setError(null);
-        // Create default table structure with id column
-        setPreview({
-          name: 'new_table',
-          database: undefined,
-          schema: undefined,
-          attributes: [
-            {
-              id: uuidv4(),
-              name: 'id',
-              dataType: 'uuid',
-              isPrimaryKey: true,
-              isNullable: false,
-              isForeignKey: false,
-            },
-          ],
-        });
-        setShowPreview(true);
+        setPreview(null);
+        setShowPreview(false);
         setShowDdlView(false);
         setPreviewDdl('');
         setManualTableName('new_table');
@@ -962,7 +947,9 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                 fontWeight: 600,
                 color: isDark ? '#e6edf3' : '#111827',
               }}>
-                {isEditMode ? 'Preview Changes' : 'New Table'}
+                {showPreview 
+                  ? (isEditMode ? 'Preview Changes' : 'Preview Table')
+                  : (isEditMode ? 'Revise Table' : 'Add Table')}
               </h2>
               {entity && !isEditMode && (
                 <p style={{
@@ -1219,39 +1206,17 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                 <label style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   fontSize: '11px',
                   color: isDark ? '#8b949e' : '#6b7280',
                   cursor: 'pointer',
                 }}>
-                  {/* Switch Track */}
-                  <div
-                    onClick={() => handleToggleDdlView(!showDdlView)}
-                    style={{
-                      position: 'relative',
-                      width: '32px',
-                      height: '18px',
-                      background: showDdlView 
-                        ? (isDark ? '#3b82f6' : '#2563eb')
-                        : (isDark ? '#30363d' : '#d1d5db'),
-                      borderRadius: '9px',
-                      transition: 'background 0.2s ease',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {/* Switch Thumb */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '2px',
-                      left: showDdlView ? '16px' : '2px',
-                      width: '14px',
-                      height: '14px',
-                      background: '#ffffff',
-                      borderRadius: '50%',
-                      transition: 'left 0.2s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                    }} />
-                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showDdlView}
+                    onChange={(e) => handleToggleDdlView(e.target.checked)}
+                    style={{ cursor: 'pointer', width: '14px', height: '14px' }}
+                  />
                   <Code size={12} />
                   DDL View
                 </label>

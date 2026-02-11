@@ -83,6 +83,10 @@ const CanvasInner = () => {
     multiSelectedTableIds,
     hiddenEntityIds,
     hiddenTableIds,
+    showRelationshipLabels,
+    relationshipLabelSize,
+    showEntityDescriptions,
+    entityCardSize,
     
     addEntity,
     addEntityGroup,
@@ -461,7 +465,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds]);
+  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize]);
 
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
@@ -518,7 +522,7 @@ const CanvasInner = () => {
           id: r.id,
           source: r.fromEntityId,
           target: r.toEntityId,
-          label: r.label,
+          label: showRelationshipLabels ? r.label : '',
           sourceHandle,
           targetHandle,
           type: 'curved',
@@ -533,7 +537,7 @@ const CanvasInner = () => {
             strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 2.5 : 2,
           },
           labelStyle: {
-            fontSize: '12px',
+            fontSize: relationshipLabelSize === 'small' ? '10px' : relationshipLabelSize === 'large' ? '14px' : '12px',
             fontWeight: 500,
             fill: colorMode === 'dark' ? '#94a3b8' : '#475569',
           },
@@ -658,7 +662,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds]);
+  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach(change => {

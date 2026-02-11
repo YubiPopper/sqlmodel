@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Layers, Database } from 'lucide-react';
+import { Layers, Database, Box, Settings } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { SearchBox } from './SearchBox';
 import { ModelTree } from './ModelTree';
 import { QuickActions } from './QuickActions';
+import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
 
 export const LeftSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showConceptualSettings, setShowConceptualSettings] = useState(false);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
   const physicalHierarchyMode = useModelStore(state => state.physicalHierarchyMode);
@@ -46,23 +48,20 @@ export const LeftSidebar: React.FC = () => {
         }}>
           {viewMode === 'conceptual' ? 'Model' : 'Schema'}
         </span>
-        {viewMode === 'physical' && (
+        {viewMode === 'conceptual' && (
           <button
-            onClick={() => setPhysicalHierarchyMode(physicalHierarchyMode === 'entity' ? 'database' : 'entity')}
-            title={physicalHierarchyMode === 'entity' ? 'Switch to Database View' : 'Switch to Entity View'}
+            onClick={() => setShowConceptualSettings(true)}
+            title="View Settings"
             style={{
               marginLeft: 'auto',
-              padding: '4px 8px',
+              padding: '6px',
               background: 'transparent',
-              border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+              border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
               color: isDark ? '#8b949e' : '#6b7280',
-              fontSize: '11px',
-              fontWeight: 500,
               transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
@@ -74,9 +73,87 @@ export const LeftSidebar: React.FC = () => {
               e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
             }}
           >
-            <Database size={12} />
-            {physicalHierarchyMode === 'entity' ? 'By Entity' : 'By DB'}
+            <Settings size={16} />
           </button>
+        )}
+        {viewMode === 'physical' && (
+          <div 
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 8px',
+              background: isDark ? 'rgba(48, 54, 61, 0.3)' : 'rgba(243, 244, 246, 0.5)',
+              borderRadius: '8px',
+            }}
+            title={physicalHierarchyMode === 'entity' ? 'Click to group by Database/Schema' : 'Click to group by Entity'}
+          >
+            {/* Entity label/icon */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              opacity: physicalHierarchyMode === 'entity' ? 1 : 0.4,
+              transition: 'opacity 0.2s',
+            }}>
+              <Box size={11} style={{ color: isDark ? '#8b949e' : '#6b7280' }} />
+              <span style={{
+                fontSize: '10px',
+                fontWeight: 500,
+                color: isDark ? '#8b949e' : '#6b7280',
+              }}>
+                Entity
+              </span>
+            </div>
+
+            {/* Switch */}
+            <div
+              onClick={() => setPhysicalHierarchyMode(physicalHierarchyMode === 'entity' ? 'database' : 'entity')}
+              style={{
+                width: '32px',
+                height: '16px',
+                background: physicalHierarchyMode === 'database' 
+                  ? '#6366f1'
+                  : isDark ? '#30363d' : '#cbd5e1',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: '2px',
+                left: physicalHierarchyMode === 'database' ? '16px' : '2px',
+                width: '12px',
+                height: '12px',
+                background: 'white',
+                borderRadius: '50%',
+                transition: 'left 0.2s ease-in-out',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </div>
+
+            {/* Database label/icon */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              opacity: physicalHierarchyMode === 'database' ? 1 : 0.4,
+              transition: 'opacity 0.2s',
+            }}>
+              <Database size={11} style={{ color: isDark ? '#8b949e' : '#6b7280' }} />
+              <span style={{
+                fontSize: '10px',
+                fontWeight: 500,
+                color: isDark ? '#8b949e' : '#6b7280',
+              }}>
+                DB
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -92,6 +169,12 @@ export const LeftSidebar: React.FC = () => {
 
       {/* Quick Actions (bottom) */}
       <QuickActions />
+      
+      {/* Conceptual Settings Dialog */}
+      <ConceptualSettingsDialog 
+        isOpen={showConceptualSettings}
+        onClose={() => setShowConceptualSettings(false)}
+      />
     </aside>
   );
 };

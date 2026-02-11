@@ -6,8 +6,11 @@ import clsx from 'clsx';
 
 type HoverSide = 'top' | 'right' | 'bottom' | 'left' | null;
 
-const DEFAULT_ENTITY_WIDTH = 220;
-const DEFAULT_ENTITY_HEIGHT = 120;
+const ENTITY_SIZE_MAP = {
+  compact: { width: 140, height: 80 },
+  normal: { width: 220, height: 120 },
+  large: { width: 280, height: 160 },
+};
 
 // Helper function to get color gradients based on color scheme
 const getEntityColorStyles = (color: string | undefined, isDark: boolean, selected: boolean) => {
@@ -89,6 +92,12 @@ const getEntityColorStyles = (color: string | undefined, isDark: boolean, select
 const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
   const storedNodeLayouts = useModelStore(state => state.nodeLayouts);
   const storedLayout = storedNodeLayouts[data.id];
+  const entityCardSize = useModelStore(state => state.entityCardSize);
+  
+  // Get default dimensions based on card size setting
+  const defaultSize = ENTITY_SIZE_MAP[entityCardSize];
+  const DEFAULT_ENTITY_WIDTH = defaultSize.width;
+  const DEFAULT_ENTITY_HEIGHT = defaultSize.height;
   
   const [hoverSide, setHoverSide] = useState<HoverSide>(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -125,6 +134,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
   const setSelected = useModelStore(state => state.setSelected);
   const entityGroups = useModelStore(state => state.entityGroups);
   const addEntityToGroup = useModelStore(state => state.addEntityToGroup);
+  const showEntityDescriptions = useModelStore(state => state.showEntityDescriptions);
 
   // Check if this entity is multi-selected (determines color: green for multi, blue for single)
   const isMultiSelected = multiSelectedEntityIds.includes(data.id);
@@ -884,12 +894,12 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
             borderRadius: '12px',
             width: `${nodeSize.width}px`,
             minHeight: `${nodeSize.height}px`,
-            padding: '24px 20px',
+            padding: entityCardSize === 'compact' ? '12px 16px' : '24px 20px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: '10px',
+            gap: entityCardSize === 'compact' ? '6px' : '10px',
             boxShadow: selected
               ? (colorMode === 'dark'
                   ? isMultiSelected
@@ -1004,13 +1014,13 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
                 textAlign: 'center',
                 letterSpacing: '0.3px',
                 userSelect: 'none',
-                marginBottom: data.description ? '6px' : '0',
+                marginBottom: (data.description && showEntityDescriptions) ? '6px' : '0',
                 textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
               }}>
                 {data.name}
               </div>
               
-              {data.description && (
+              {showEntityDescriptions && data.description && (
                 <div style={{
                   width: '70%',
                   height: '1px',
@@ -1027,7 +1037,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
                 }} />
               )}
               
-              {data.description && (
+              {showEntityDescriptions && data.description && (
                 <div style={{ 
                   fontSize: '14px', 
                   color: data.color && data.color !== 'default'
