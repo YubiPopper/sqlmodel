@@ -186,7 +186,7 @@
         "toAttributeId": "borrower-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-2",
@@ -196,7 +196,7 @@
         "toAttributeId": "book-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       }
     ],
     "tableGroups": []
@@ -218,7 +218,7 @@
   "tableLayouts": {
     "borrower-table-1": {
       "x": 660,
-      "y": 130
+      "y": 140
     },
     "loan-table-1": {
       "x": 100,
@@ -230,9 +230,9 @@
     }
   },
   "viewport": {
-    "x": 108.92039666510473,
+    "x": 108.9203966651047,
     "y": -9.231683594063497,
     "zoom": 0.7652483849113348
   },
-  "viewMode": "conceptual"
+  "viewMode": "physical"
 }

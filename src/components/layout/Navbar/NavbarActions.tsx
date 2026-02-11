@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { 
   FileDown, 
   FilePlus,
-  ArrowDownUp,
   Layers,
   Plus,
   Group,
@@ -23,6 +22,7 @@ import { FullDDLDialog } from '../../ui/FullDDLDialog';
 import { AIDialog } from '../../ui/AIDialog';
 import { AISettingsDialog } from '../../ui/AISettingsDialog';
 import { SnowflakeDialog } from '../../ui/SnowflakeDialog';
+import { AddTableDialog } from '../../ui/AddTableDialog';
 
 interface NavbarActionsProps {
   onActionComplete?: () => void;
@@ -36,18 +36,17 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const [showAIDialog, setShowAIDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
   const [showSnowflakeDialog, setShowSnowflakeDialog] = useState(false);
+  const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
   
   const addEntity = useModelStore(state => state.addEntity);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
-  const addTable = useModelStore(state => state.addTable);
   const updateTable = useModelStore(state => state.updateTable);
   const clearModel = useModelStore(state => state.clearModel);
   const loadModel = useModelStore(state => state.loadModel);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
-  const autoLayout = useModelStore(state => state.autoLayout);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
   const selectedId = useModelStore(state => state.selectedId);
@@ -158,8 +157,8 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   };
 
   const handleAddTable = () => {
-    // Tables can now be created without an entity
-    addTable();
+    // Open the Add Table dialog instead of directly adding
+    setShowAddTableDialog(true);
   };
 
   const importItems: DropdownItem[] = [
@@ -225,6 +224,15 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         onClose={() => setShowSnowflakeDialog(false)}
       />
       
+      <AddTableDialog
+        isOpen={showAddTableDialog}
+        onClose={() => setShowAddTableDialog(false)}
+        onOpenAISettings={() => {
+          setShowAddTableDialog(false);
+          setShowAISettingsDialog(true);
+        }}
+      />
+      
       {isMobile ? (
         // Mobile Layout - Compact vertical stack
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
@@ -287,29 +295,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
           >
             <Sparkles size={18} />
             <span>AI Assistant</span>
-          </button>
-
-          {/* Auto Layout Button */}
-          <button
-            onClick={() => { autoLayout(); onActionComplete?.(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              background: isDark ? '#21262d' : '#f3f4f6',
-              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '6px',
-              color: isDark ? '#e6edf3' : '#374151',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              width: '100%',
-              textAlign: 'left',
-            }}
-          >
-            <ArrowDownUp size={18} />
-            <span>Auto Layout</span>
           </button>
 
           {/* Group/Ungroup Buttons */}
@@ -432,30 +417,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       >
         <Sparkles size={14} />
         <span style={{ whiteSpace: 'nowrap' }}>AI</span>
-      </button>
-      </Tooltip>
-
-      {/* Auto Layout Button */}
-      <Tooltip content="Automatically arrange all entities/tables in an organized layout">
-        <button
-          onClick={() => { autoLayout(); onActionComplete?.(); }}
-          style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 12px',
-          background: isDark ? '#21262d' : '#f3f4f6',
-          border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-          borderRadius: '6px',
-          color: isDark ? '#e6edf3' : '#374151',
-          fontSize: '13px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          flexShrink: 0,
-        }}
-      >
-        <ArrowDownUp size={14} />
-        <span style={{ whiteSpace: 'nowrap' }}>Layout</span>
       </button>
       </Tooltip>
 

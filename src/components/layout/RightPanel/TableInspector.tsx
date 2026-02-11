@@ -7,12 +7,14 @@ import ReactFlow, {
 } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode, ChevronDown, ChevronRight } from 'lucide-react';
+import { Table, Trash2, Plus, Key, Link, GripVertical, MoreVertical, Copy, FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
 import { FormField, TextInput, ColorPicker } from './FormComponents';
 import type { PhysicalTable, Attribute } from '../../../model/schemas';
 import { DDLDialog } from '../../ui/DDLDialog';
+import { AddTableDialog } from '../../ui/AddTableDialog';
+import { AISettingsDialog } from '../../ui/AISettingsDialog';
 
 // Mini table node for lineage view
 const LineageTableNode = ({ data }: { data: { table: PhysicalTable; isCenter: boolean; colorMode: string } }) => {
@@ -224,6 +226,8 @@ const DATA_TYPES = [
 export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showDDLDialog, setShowDDLDialog] = useState(false);
+  const [showAIEditDialog, setShowAIEditDialog] = useState(false);
+  const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
   const [colorExpanded, setColorExpanded] = useState(false);
   const [columnsExpanded, setColumnsExpanded] = useState(false);
   const [lineageExpanded, setLineageExpanded] = useState(true);
@@ -531,7 +535,38 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         icon={<Table size={18} />}
         title="Table"
         subtitle={table.name}
-        actions={<ActionsMenu />}
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {/* AI Revise Button */}
+            <button
+              onClick={() => setShowAIEditDialog(true)}
+              title="Revise with AI"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '6px',
+                cursor: 'pointer',
+                color: isDark ? '#8b949e' : '#6b7280',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = isDark ? '#c4b5fd' : '#a855f7';
+                e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <Sparkles size={16} />
+            </button>
+            <ActionsMenu />
+          </div>
+        }
       />
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
@@ -724,6 +759,21 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         isOpen={showDDLDialog}
         table={table}
         onClose={() => setShowDDLDialog(false)}
+      />
+      
+      <AddTableDialog
+        isOpen={showAIEditDialog}
+        onClose={() => setShowAIEditDialog(false)}
+        existingTable={table}
+        onOpenAISettings={() => {
+          setShowAIEditDialog(false);
+          setShowAISettingsDialog(true);
+        }}
+      />
+      
+      <AISettingsDialog
+        isOpen={showAISettingsDialog}
+        onClose={() => setShowAISettingsDialog(false)}
       />
     </div>
   );

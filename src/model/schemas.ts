@@ -60,6 +60,8 @@ export const PhysicalTableSchema = z.object({
   id: z.string().uuid(),
   entityId: z.string().uuid().optional(), // Optional parent conceptual entity
   name: z.string(), // Table name (can differ from entity name)
+  database: z.string().optional(), // Optional database name
+  schema: z.string().optional(), // Optional schema name
   attributes: z.array(AttributeSchema).default([]),
   color: ColorSchema,
 });

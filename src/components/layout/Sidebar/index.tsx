@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Box, Table } from 'lucide-react';
+import { Layers, Database } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { SearchBox } from './SearchBox';
 import { ModelTree } from './ModelTree';
@@ -9,6 +9,8 @@ export const LeftSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
+  const physicalHierarchyMode = useModelStore(state => state.physicalHierarchyMode);
+  const setPhysicalHierarchyMode = useModelStore(state => state.setPhysicalHierarchyMode);
 
   const isDark = colorMode === 'dark';
 
@@ -44,18 +46,38 @@ export const LeftSidebar: React.FC = () => {
         }}>
           {viewMode === 'conceptual' ? 'Model' : 'Schema'}
         </span>
-        <span style={{
-          fontSize: '10px',
-          fontWeight: 500,
-          color: isDark ? '#8b949e' : '#9ca3af',
-          background: isDark ? '#30363d' : '#e5e7eb',
-          padding: '2px 8px',
-          borderRadius: '10px',
-          marginLeft: 'auto',
-        }}>
-          {viewMode === 'conceptual' ? <Box size={10} style={{ display: 'inline', marginRight: '4px' }} /> : <Table size={10} style={{ display: 'inline', marginRight: '4px' }} />}
-          {viewMode}
-        </span>
+        {viewMode === 'physical' && (
+          <button
+            onClick={() => setPhysicalHierarchyMode(physicalHierarchyMode === 'entity' ? 'database' : 'entity')}
+            title={physicalHierarchyMode === 'entity' ? 'Switch to Database View' : 'Switch to Entity View'}
+            style={{
+              marginLeft: 'auto',
+              padding: '4px 8px',
+              background: 'transparent',
+              border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+              borderRadius: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: isDark ? '#8b949e' : '#6b7280',
+              fontSize: '11px',
+              fontWeight: 500,
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
+              e.currentTarget.style.color = '#6366f1';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+            }}
+          >
+            <Database size={12} />
+            {physicalHierarchyMode === 'entity' ? 'By Entity' : 'By DB'}
+          </button>
+        )}
       </div>
 
       {/* Search */}

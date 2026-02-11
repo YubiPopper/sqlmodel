@@ -267,7 +267,7 @@
         "toAttributeId": "project-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-2",
@@ -277,7 +277,7 @@
         "toAttributeId": "member-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "0..1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-3",
@@ -287,7 +287,7 @@
         "toAttributeId": "milestone-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "0..1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-4",
@@ -297,7 +297,7 @@
         "toAttributeId": "project-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       }
     ],
     "tableGroups": []
@@ -339,9 +339,9 @@
     }
   },
   "viewport": {
-    "x": 292.3323614894671,
-    "y": 71.60271558302337,
-    "zoom": 0.5614545005770324
+    "x": 310.8989999081365,
+    "y": 11.337265007391977,
+    "zoom": 0.7350936681945228
   },
   "viewMode": "physical"
 }

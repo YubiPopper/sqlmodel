@@ -4,6 +4,7 @@ import ReactFlow, {
   ConnectionMode,
   ReactFlowProvider,
   SimpleBezierEdge,
+  useReactFlow,
 } from 'reactflow';
 import type { 
   Connection, 
@@ -22,6 +23,8 @@ import { MarkerDefs } from './MarkerDefs';
 import { CanvasControls } from './CanvasControls';
 import { ConfirmationDialog } from './ui/ConfirmationDialog';
 import { DDLDialog } from './ui/DDLDialog';
+import { AddTableDialog } from './ui/AddTableDialog';
+import { AISettingsDialog } from './ui/AISettingsDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
 import { Plus, Trash2, Copy, ArrowDownUp, Group, Pencil, Code } from 'lucide-react';
 
@@ -37,6 +40,7 @@ const edgeTypes = {
 };
 
 const CanvasInner = () => {
+  const reactFlowInstance = useReactFlow();
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     type: 'entity' | 'table' | 'relationship' | 'foreignKey' | 'entityGroup';
@@ -60,6 +64,8 @@ const CanvasInner = () => {
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [dragHoverEntityGroupId, setDragHoverEntityGroupId] = useState<string | null>(null);
   const [ddlDialogTable, setDdlDialogTable] = useState<typeof tables[0] | null>(null);
+  const [showAddTableDialog, setShowAddTableDialog] = useState(false);
+  const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
 
   const { 
     entities, 
@@ -76,6 +82,8 @@ const CanvasInner = () => {
     tableFieldsDisplay,
     multiSelectedEntityIds,
     multiSelectedTableIds,
+    hiddenEntityIds,
+    hiddenTableIds,
     
     addEntity,
     addEntityGroup,
@@ -98,7 +106,27 @@ const CanvasInner = () => {
     autoLayout,
     addEntityToGroup,
     removeEntityFromGroup,
+    setNavigateToNodeCallback,
   } = useModelStore();
+
+  // Register navigation callback for sidebar
+  useEffect(() => {
+    const navigateToNode = (nodeId: string) => {
+      const node = reactFlowInstance.getNode(nodeId);
+      if (node) {
+        reactFlowInstance.setCenter(node.position.x + (node.width || 200) / 2, node.position.y + (node.height || 100) / 2, {
+          zoom: 0.7,
+          duration: 400,
+        });
+      }
+    };
+    setNavigateToNodeCallback(navigateToNode);
+    return () => setNavigateToNodeCallback(null);
+  }, [reactFlowInstance, setNavigateToNodeCallback]);
+
+  // Ensure hiddenEntityIds and hiddenTableIds are Sets (fallback for localStorage migration)
+  const safeHiddenEntityIds = hiddenEntityIds instanceof Set ? hiddenEntityIds : new Set(hiddenEntityIds || []);
+  const safeHiddenTableIds = hiddenTableIds instanceof Set ? hiddenTableIds : new Set(hiddenTableIds || []);
 
   // Compute all transitively connected entity IDs (for conceptual view)
   const connectedEntityIds = useMemo(() => {
@@ -195,8 +223,11 @@ const CanvasInner = () => {
   // Build nodes based on view mode
   const nodes: Node[] = useMemo(() => {
     if (viewMode === 'conceptual') {
+      // Filter out hidden entities
+      const visibleEntities = entities.filter(e => !safeHiddenEntityIds.has(e.id));
+      
       // Entity nodes - higher z-index so they're always clickable above groups
-      const entityNodes = entities.map(e => {
+      const entityNodes = visibleEntities.map(e => {
         const isMultiSelected = multiSelectedEntityIds.includes(e.id);
         // Only mark as selected if it's either multi-selected OR single-selected (but not both)
         const isSingleSelected = !isMultiSelected && selectedId === e.id;
@@ -301,8 +332,11 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then entity nodes on top
       return [...groupNodes, ...entityNodes];
     } else {
+      // Filter out hidden tables
+      const visibleTables = tables.filter(t => !safeHiddenTableIds.has(t.id));
+      
       // Tables are always positioned absolutely (not relative to groups)
-      const tableNodes = tables.map(t => {
+      const tableNodes = visibleTables.map(t => {
         const isMultiSelected = multiSelectedTableIds.includes(t.id);
         const isSingleSelected = !isMultiSelected && selectedId === t.id;
         return {
@@ -322,8 +356,8 @@ const CanvasInner = () => {
 
       // Create entity group nodes as background containers (independent positioning)
       const entityGroupNodes: Node[] = entities.map(entity => {
-        // Find all tables belonging to this entity
-        const entityTables = tables.filter(t => t.entityId === entity.id);
+        // Find all visible tables belonging to this entity
+        const entityTables = visibleTables.filter(t => t.entityId === entity.id);
         
         if (entityTables.length === 0) {
           // No tables yet - create a placeholder group at entity's conceptual position
@@ -428,12 +462,15 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId]);
+  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds]);
 
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
     if (viewMode === 'conceptual') {
-      return relationships.map(r => {
+      // Filter out relationships where either entity is hidden
+      return relationships
+        .filter(r => !safeHiddenEntityIds.has(r.fromEntityId) && !safeHiddenEntityIds.has(r.toEntityId))
+        .map(r => {
         let sourceHandle = r.sourceHandle || null;
         let targetHandle = r.targetHandle || null;
 
@@ -511,7 +548,10 @@ const CanvasInner = () => {
       // Physical view: FK edges with smart routing
       const tableFieldsDisplay = useModelStore.getState().tableFieldsDisplay;
       
-      return foreignKeys.map(fk => {
+      // Filter out foreign keys where either table is hidden
+      return foreignKeys
+        .filter(fk => !safeHiddenTableIds.has(fk.fromTableId) && !safeHiddenTableIds.has(fk.toTableId))
+        .map(fk => {
         // Determine which side handles to use based on table positions
         const sourceTable = tableLayouts[fk.fromTableId];
         const targetTable = tableLayouts[fk.toTableId];
@@ -619,7 +659,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay]);
+  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach(change => {
@@ -991,6 +1031,8 @@ const CanvasInner = () => {
             { label: 'Auto Layout', icon: <ArrowDownUp size={14} />, onClick: autoLayout, shortcut: '⌘L' },
           ]
         : [
+            { label: 'Add Table', icon: <Plus size={14} />, onClick: () => setShowAddTableDialog(true) },
+            { label: '', divider: true, onClick: () => {} },
             { label: 'Auto Layout', icon: <ArrowDownUp size={14} />, onClick: autoLayout, shortcut: '⌘L' },
           ];
     }
@@ -1403,6 +1445,20 @@ const CanvasInner = () => {
         isOpen={!!ddlDialogTable}
         table={ddlDialogTable}
         onClose={() => setDdlDialogTable(null)}
+      />
+      
+      <AddTableDialog
+        isOpen={showAddTableDialog}
+        onClose={() => setShowAddTableDialog(false)}
+        onOpenAISettings={() => {
+          setShowAddTableDialog(false);
+          setShowAISettingsDialog(true);
+        }}
+      />
+      
+      <AISettingsDialog
+        isOpen={showAISettingsDialog}
+        onClose={() => setShowAISettingsDialog(false)}
       />
       
       {/* Edge Label Editor */}

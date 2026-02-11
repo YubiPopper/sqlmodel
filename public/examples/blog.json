@@ -1,6 +1,4 @@
 {
-  "name": "Blog Platform",
-  "description": "Content management with authors, posts, comments, and categories",
   "conceptual": {
     "entities": [
       {
@@ -258,7 +256,7 @@
         "toAttributeId": "author-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-2",
@@ -268,7 +266,7 @@
         "toAttributeId": "category-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "0..1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       },
       {
         "id": "fk-3",
@@ -278,8 +276,51 @@
         "toAttributeId": "post-pk-1",
         "fromCardinality": "0..*",
         "toCardinality": "1",
-        "edgeType": "smoothstep"
+        "edgeType": "curved"
       }
-    ]
-  }
+    ],
+    "tableGroups": []
+  },
+  "nodeLayouts": {
+    "author-1": {
+      "x": 890,
+      "y": 130
+    },
+    "post-1": {
+      "x": 510,
+      "y": 256
+    },
+    "comment-1": {
+      "x": 130,
+      "y": 256
+    },
+    "category-1": {
+      "x": 890,
+      "y": 382
+    }
+  },
+  "tableLayouts": {
+    "author-table-1": {
+      "x": 1010,
+      "y": 130
+    },
+    "category-table-1": {
+      "x": 1010,
+      "y": 464
+    },
+    "post-table-1": {
+      "x": 570,
+      "y": 273
+    },
+    "comment-table-1": {
+      "x": 130,
+      "y": 289
+    }
+  },
+  "viewport": {
+    "x": 109.9203966651047,
+    "y": -9.231683594063497,
+    "zoom": 0.7652483849113348
+  },
+  "viewMode": "physical"
 }

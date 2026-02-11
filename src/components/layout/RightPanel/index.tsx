@@ -7,6 +7,8 @@ import { TableInspector } from './TableInspector';
 import { RelationshipInspector } from './RelationshipInspector';
 import { ForeignKeyInspector } from './ForeignKeyInspector';
 import { GroupInspector } from './GroupInspector';
+import { DatabaseInspector } from './DatabaseInspector';
+import { SchemaInspector } from './SchemaInspector';
 
 export const RightPanel: React.FC = () => {
   const selectedId = useModelStore(state => state.selectedId);
@@ -76,6 +78,25 @@ export const RightPanel: React.FC = () => {
   const selectedRelationship = useMemo(() => relationships.find(r => r.id === selectedId), [relationships, selectedId]);
   const selectedForeignKey = useMemo(() => foreignKeys.find(fk => fk.id === selectedId), [foreignKeys, selectedId]);
   const selectedGroup = useMemo(() => entityGroups.find(g => g.id === selectedId), [entityGroups, selectedId]);
+  
+  // Check if selected is a database or schema
+  const selectedDatabase = useMemo(() => {
+    if (selectedId?.startsWith('db-')) {
+      const dbName = selectedId.substring(3);
+      return { name: dbName };
+    }
+    return null;
+  }, [selectedId]);
+  
+  const selectedSchema = useMemo(() => {
+    if (selectedId?.startsWith('schema-')) {
+      const parts = selectedId.substring(7).split('-');
+      const dbName = parts[0];
+      const schemaName = parts.slice(1).join('-');
+      return { dbName, schemaName };
+    }
+    return null;
+  }, [selectedId]);
 
   // For multi-selected entities/tables, show the first one in the panel
   const firstMultiSelectedEntity = useMemo(() => {
@@ -93,7 +114,7 @@ export const RightPanel: React.FC = () => {
   }, [tables, multiSelectedTableIds]);
 
   // Hide panel if nothing is selected
-  const hasSelection = selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || firstMultiSelectedEntity || firstMultiSelectedTable;
+  const hasSelection = selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || selectedDatabase || selectedSchema || firstMultiSelectedEntity || firstMultiSelectedTable;
   if (!hasSelection) {
     return null;
   }
@@ -322,11 +343,13 @@ export const RightPanel: React.FC = () => {
         {selectedGroup && <GroupInspector group={selectedGroup} />}
         {selectedEntity && <EntityInspector entity={selectedEntity} />}
         {selectedTable && <TableInspector table={selectedTable} />}
+        {selectedDatabase && <DatabaseInspector dbName={selectedDatabase.name} />}
+        {selectedSchema && <SchemaInspector dbName={selectedSchema.dbName} schemaName={selectedSchema.schemaName} />}
         {!selectedEntity && !selectedTable && firstMultiSelectedEntity && <EntityInspector entity={firstMultiSelectedEntity} />}
         {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
         {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
         {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
-        {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
+        {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
       </aside>
     </>
   );
@@ -337,5 +360,7 @@ export { TableInspector } from './TableInspector';
 export { RelationshipInspector } from './RelationshipInspector';
 export { ForeignKeyInspector } from './ForeignKeyInspector';
 export { GroupInspector } from './GroupInspector';
+export { DatabaseInspector } from './DatabaseInspector';
+export { SchemaInspector } from './SchemaInspector';
 export { InspectorHeader } from './InspectorHeader';
 export { FormField, TextInput, SelectInput } from './FormComponents';

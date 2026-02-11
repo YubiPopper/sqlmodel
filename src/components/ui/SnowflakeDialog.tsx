@@ -67,8 +67,12 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
         const tableId = addTable(undefined);
         tableIdMap.set(tableData.name.toLowerCase(), tableId);
         
-        // Update table name
-        updateTable(tableId, { name: tableData.name });
+        // Update table with name, database, and schema
+        updateTable(tableId, { 
+          name: tableData.name,
+          database: tableData.database,
+          schema: tableData.schema,
+        });
         
         // Get fresh state after table creation
         const freshState = useModelStore.getState();
@@ -150,6 +154,8 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
 
   interface ParsedTable {
     name: string;
+    database?: string;
+    schema?: string;
     columns: ParsedColumn[];
     foreignKeys: ParsedForeignKey[];
   }
@@ -168,7 +174,26 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i];
       const fullTableName = match[1];
-      const tableName = fullTableName.split('.').pop() || fullTableName;
+      
+      // Parse fully qualified name: DATABASE.SCHEMA.TABLE or SCHEMA.TABLE or TABLE
+      const nameParts = fullTableName.split('.');
+      let tableName: string;
+      let schemaName: string | undefined;
+      let databaseName: string | undefined;
+      
+      if (nameParts.length === 3) {
+        // DATABASE.SCHEMA.TABLE
+        databaseName = nameParts[0];
+        schemaName = nameParts[1];
+        tableName = nameParts[2];
+      } else if (nameParts.length === 2) {
+        // SCHEMA.TABLE (or DATABASE.TABLE, but typically SCHEMA.TABLE)
+        schemaName = nameParts[0];
+        tableName = nameParts[1];
+      } else {
+        // Just TABLE
+        tableName = nameParts[0];
+      }
       
       // Find the table body between ( and );
       const startIdx = match.index! + match[0].length;
@@ -250,6 +275,8 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
       if (columns.length > 0) {
         tables.push({
           name: tableName,
+          database: databaseName,
+          schema: schemaName,
           columns,
           foreignKeys,
         });

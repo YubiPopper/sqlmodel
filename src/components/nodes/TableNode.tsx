@@ -3,8 +3,9 @@ import { Handle, Position, type NodeProps } from 'reactflow';
 import type { PhysicalTable } from '../../model/schemas';
 import { useModelStore } from '../../store/useModelStore';
 import clsx from 'clsx';
-import { Key, Link2, Diamond, Table2, Code } from 'lucide-react';
-import { DDLDialog } from '../ui/DDLDialog';
+import { Key, Link2, Diamond, Table2, Sparkles } from 'lucide-react';
+import { AddTableDialog } from '../ui/AddTableDialog';
+import { AISettingsDialog } from '../ui/AISettingsDialog';
 
 type HoverSide = 'top' | 'right' | 'bottom' | 'left' | null;
 
@@ -135,7 +136,8 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const [hoverSide, setHoverSide] = useState<HoverSide>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(data.name);
-  const [showDDL, setShowDDL] = useState(false);
+  const [showAIDialog, setShowAIDialog] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   
   const addForeignKey = useModelStore(state => state.addForeignKey);
@@ -629,14 +631,14 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           className="nodrag nopan"
           onClick={(e) => {
             e.stopPropagation();
-            setShowDDL(true);
+            setShowAIDialog(true);
           }}
           style={{
             background: 'transparent',
             border: 'none',
             color: data.color && data.color !== 'default' 
               ? '#ffffff' 
-              : (colorMode === 'dark' ? '#22c55e' : '#16a34a'),
+              : (colorMode === 'dark' ? '#c4b5fd' : '#9333ea'),
             padding: '4px',
             borderRadius: '4px',
             display: 'flex',
@@ -649,15 +651,15 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
             e.currentTarget.style.opacity = '1';
             e.currentTarget.style.background = data.color && data.color !== 'default'
               ? 'rgba(255, 255, 255, 0.1)'
-              : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.1)');
+              : (colorMode === 'dark' ? 'rgba(196, 181, 253, 0.15)' : 'rgba(147, 51, 234, 0.1)');
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.opacity = '0.7';
             e.currentTarget.style.background = 'transparent';
           }}
-          title="View DDL"
+          title="Edit with AI"
         >
-          <Code size={16} />
+          <Sparkles size={16} />
         </button>
       </div>
 
@@ -846,10 +848,19 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       )}
       </div>
       
-      <DDLDialog 
-        isOpen={showDDL}
-        table={data}
-        onClose={() => setShowDDL(false)}
+      <AddTableDialog
+        isOpen={showAIDialog}
+        onClose={() => setShowAIDialog(false)}
+        existingTable={data}
+        onOpenAISettings={() => {
+          setShowAIDialog(false);
+          setShowAISettings(true);
+        }}
+      />
+      
+      <AISettingsDialog
+        isOpen={showAISettings}
+        onClose={() => setShowAISettings(false)}
       />
     </div>
   );

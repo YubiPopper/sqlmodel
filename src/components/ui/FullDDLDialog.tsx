@@ -15,7 +15,15 @@ const generateFullDDL = (): string => {
   // Generate CREATE TABLE statements
   state.tables.forEach((table, index) => {
     if (index > 0) lines.push('');
-    lines.push(`CREATE TABLE ${table.name} (`);
+    
+    // Build fully qualified table name with database and schema if available
+    const tableParts: string[] = [];
+    if (table.database) tableParts.push(table.database);
+    if (table.schema) tableParts.push(table.schema);
+    tableParts.push(table.name);
+    const fullTableName = tableParts.join('.');
+    
+    lines.push(`CREATE TABLE ${fullTableName} (`);
     
     const columnLines: string[] = [];
     const constraints: string[] = [];
@@ -48,11 +56,24 @@ const generateFullDDL = (): string => {
       const targetAttr = targetTable?.attributes.find(a => a.id === fk.toAttributeId);
       
       if (sourceTable && targetTable && sourceAttr && targetAttr) {
+        // Build fully qualified table names for both source and target
+        const sourceTableParts: string[] = [];
+        if (sourceTable.database) sourceTableParts.push(sourceTable.database);
+        if (sourceTable.schema) sourceTableParts.push(sourceTable.schema);
+        sourceTableParts.push(sourceTable.name);
+        const fullSourceTableName = sourceTableParts.join('.');
+        
+        const targetTableParts: string[] = [];
+        if (targetTable.database) targetTableParts.push(targetTable.database);
+        if (targetTable.schema) targetTableParts.push(targetTable.schema);
+        targetTableParts.push(targetTable.name);
+        const fullTargetTableName = targetTableParts.join('.');
+        
         lines.push('');
-        lines.push(`ALTER TABLE ${sourceTable.name}`);
+        lines.push(`ALTER TABLE ${fullSourceTableName}`);
         lines.push(`  ADD CONSTRAINT fk_${sourceTable.name}_${sourceAttr.name}`);
         lines.push(`  FOREIGN KEY (${sourceAttr.name})`);
-        lines.push(`  REFERENCES ${targetTable.name}(${targetAttr.name});`);
+        lines.push(`  REFERENCES ${fullTargetTableName}(${targetAttr.name});`);
       }
     });
   }

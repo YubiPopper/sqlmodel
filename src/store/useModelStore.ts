@@ -36,10 +36,16 @@ interface ModelState {
   multiSelectedEntityIds: string[]; // For shift-click multi-selection in conceptual view
   multiSelectedTableIds: string[]; // For shift-click multi-selection in physical view
   editingGroupId: string | null; // For triggering inline editing of group name
+  hiddenEntityIds: Set<string>; // Hidden entities in conceptual view
+  hiddenTableIds: Set<string>; // Hidden tables in physical view
+  emptyDatabases: Set<string>; // Empty databases with no tables (for physical view hierarchy)
+  emptySchemas: Set<string>; // Empty schemas with no tables (for physical view hierarchy)
   viewMode: 'conceptual' | 'physical';
   colorMode: 'light' | 'dark';
   showEntityOverlay: boolean; // Show entity groupings in physical view
   tableFieldsDisplay: 'all' | 'name' | 'keys'; // Table display mode in physical view
+  physicalHierarchyMode: 'entity' | 'database'; // Physical sidebar hierarchy: by entity or by database/schema
+  layoutAlgorithm: 'left-right' | 'snowflake' | 'compact'; // Auto-layout algorithm
   
   // Entity Actions
   addEntity: () => string;
@@ -86,6 +92,8 @@ interface ModelState {
   setTablePosition: (id: string, x: number, y: number) => void;
   setViewport: (viewport: Viewport) => void;
   setSelected: (id: string | null) => void;
+  navigateToNodeCallback: ((nodeId: string) => void) | null;
+  setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
   setEditingGroupId: (id: string | null) => void;
   toggleEntityMultiSelect: (entityId: string) => void;
   toggleTableMultiSelect: (tableId: string) => void;
@@ -94,6 +102,12 @@ interface ModelState {
   setColorMode: (mode: 'light' | 'dark') => void;
   setShowEntityOverlay: (show: boolean) => void;
   setTableFieldsDisplay: (mode: 'all' | 'name' | 'keys') => void;
+  setPhysicalHierarchyMode: (mode: 'entity' | 'database') => void;
+  setLayoutAlgorithm: (algorithm: 'left-right' | 'snowflake' | 'compact') => void;
+  toggleEntityVisibility: (entityId: string) => void;
+  toggleTableVisibility: (tableId: string) => void;
+  showAllEntities: () => void;
+  showAllTables: () => void;
   leftSidebarCollapsed: boolean;
   toggleLeftSidebar: () => void;
   rightPanelMobileOpen: boolean;
@@ -130,12 +144,19 @@ export const useModelStore = create<ModelState>()(
       viewport: { x: 0, y: 0, zoom: 1 },
       selectedId: null,
       multiSelectedEntityIds: [],
+      navigateToNodeCallback: null,
       multiSelectedTableIds: [],
       editingGroupId: null,
+      hiddenEntityIds: new Set(),
+      hiddenTableIds: new Set(),
+      emptyDatabases: new Set(),
+      emptySchemas: new Set(),
       viewMode: 'conceptual',
       colorMode: 'dark',
       showEntityOverlay: false,
       tableFieldsDisplay: 'all',
+      physicalHierarchyMode: 'entity',
+      layoutAlgorithm: 'left-right',
       leftSidebarCollapsed: false,
       rightPanelMobileOpen: false,
 
@@ -667,6 +688,8 @@ export const useModelStore = create<ModelState>()(
       
       setSelected: (id) => set({ selectedId: id, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
       
+      setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
+      
       setEditingGroupId: (id) => set({ editingGroupId: id }),
       
       toggleEntityMultiSelect: (entityId) => {
@@ -736,24 +759,85 @@ export const useModelStore = create<ModelState>()(
       setShowEntityOverlay: (show) => set({ showEntityOverlay: show }),
       
       setTableFieldsDisplay: (mode) => set({ tableFieldsDisplay: mode }),
+      
+      setPhysicalHierarchyMode: (mode) => set({ physicalHierarchyMode: mode }),
+      
+      setLayoutAlgorithm: (algorithm) => set({ layoutAlgorithm: algorithm }),
+      
+      toggleEntityVisibility: (entityId) => set((state) => {
+        const newHidden = new Set(state.hiddenEntityIds);
+        if (newHidden.has(entityId)) {
+          newHidden.delete(entityId);
+        } else {
+          newHidden.add(entityId);
+        }
+        return { hiddenEntityIds: newHidden };
+      }),
+      
+      toggleTableVisibility: (tableId) => set((state) => {
+        const newHidden = new Set(state.hiddenTableIds);
+        if (newHidden.has(tableId)) {
+          newHidden.delete(tableId);
+        } else {
+          newHidden.add(tableId);
+        }
+        return { hiddenTableIds: newHidden };
+      }),
+      
+      showAllEntities: () => set({ hiddenEntityIds: new Set() }),
+      
+      showAllTables: () => set({ hiddenTableIds: new Set() }),
 
       toggleLeftSidebar: () => set((state) => ({ leftSidebarCollapsed: !state.leftSidebarCollapsed })),
 
       setRightPanelMobileOpen: (open) => set({ rightPanelMobileOpen: open }),
 
       autoLayout: () => {
-        const { entities, relationships, tables, foreignKeys, viewMode, showEntityOverlay } = get();
+        const { entities, relationships, tables, foreignKeys, viewMode, showEntityOverlay, layoutAlgorithm } = get();
         const dagreGraph = new dagre.graphlib.Graph();
         dagreGraph.setDefaultEdgeLabel(() => ({}));
 
+        // Configure graph based on selected algorithm
+        let graphOptions: dagre.GraphLabel;
+        
+        switch (layoutAlgorithm) {
+          case 'snowflake':
+            // Radial/snowflake layout - TB direction optimized for star schemas
+            graphOptions = {
+              rankdir: 'TB',
+              nodesep: 140,
+              ranksep: 180,
+              marginx: 120,
+              marginy: 120,
+              ranker: 'network-simplex', // Better for centered/radial layouts
+            };
+            break;
+          case 'compact':
+            // Compact layout - TB with minimal spacing and tight clustering
+            graphOptions = {
+              rankdir: 'TB',
+              nodesep: 50,
+              ranksep: 80,
+              marginx: 40,
+              marginy: 40,
+              ranker: 'tight-tree', // Minimizes edge length
+            };
+            break;
+          case 'left-right':
+          default:
+            // Left-right layout (default)
+            graphOptions = {
+              rankdir: 'LR',
+              nodesep: 110,
+              ranksep: 160,
+              marginx: 130,
+              marginy: 130,
+            };
+            break;
+        }
+
         if (viewMode === 'conceptual') {
-          dagreGraph.setGraph({ 
-            rankdir: 'LR',
-            nodesep: 110,
-            ranksep: 160,
-            marginx: 130,
-            marginy: 130,
-          });
+          dagreGraph.setGraph(graphOptions);
 
           // Layout entities with dynamic sizing based on content
           entities.forEach((entity) => {
@@ -786,13 +870,19 @@ export const useModelStore = create<ModelState>()(
         } else {
           // Physical view: Layout by entity groups when overlay is enabled
           if (showEntityOverlay) {
-            dagreGraph.setGraph({ 
-              rankdir: 'LR',
-              nodesep: 110,
-              ranksep: 220,
-              marginx: 50,
-              marginy: 50,
-            });
+            // Adjust graph options for entity grouping
+            if (layoutAlgorithm === 'compact') {
+              graphOptions.nodesep = 80;
+              graphOptions.ranksep = 120;
+            } else if (layoutAlgorithm === 'snowflake') {
+              graphOptions.nodesep = 130;
+              graphOptions.ranksep = 180;
+            } else {
+              graphOptions.nodesep = 110;
+              graphOptions.ranksep = 220;
+            }
+            
+            dagreGraph.setGraph(graphOptions);
 
             // First, calculate the size of each entity group
             const entitySizes: Record<string, { width: number; height: number }> = {};
@@ -868,13 +958,7 @@ export const useModelStore = create<ModelState>()(
             set({ tableLayouts: newTableLayouts });
           } else {
             // Standard table layout without entity grouping
-            dagreGraph.setGraph({ 
-              rankdir: 'LR',
-              nodesep: 90,
-              ranksep: 180,
-              marginx: 50,
-              marginy: 50,
-            });
+            dagreGraph.setGraph(graphOptions);
 
             tables.forEach((table) => {
               const width = 280;
@@ -1475,6 +1559,22 @@ export const useModelStore = create<ModelState>()(
     }),
     {
       name: 'sqlmodel-storage',
+      partialize: (state) => ({
+        ...state,
+        hiddenEntityIds: Array.from(state.hiddenEntityIds),
+        hiddenTableIds: Array.from(state.hiddenTableIds),
+        emptyDatabases: Array.from(state.emptyDatabases),
+        emptySchemas: Array.from(state.emptySchemas),
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Convert arrays back to Sets after rehydration
+          state.hiddenEntityIds = new Set(state.hiddenEntityIds as any);
+          state.hiddenTableIds = new Set(state.hiddenTableIds as any);
+          state.emptyDatabases = new Set(state.emptyDatabases as any);
+          state.emptySchemas = new Set(state.emptySchemas as any);
+        }
+      },
     }
   )
 );

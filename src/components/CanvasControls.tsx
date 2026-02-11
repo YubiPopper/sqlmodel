@@ -2,6 +2,8 @@ import { useReactFlow } from 'reactflow';
 import { useState, useEffect, useRef } from 'react';
 import { Minus, Plus, Maximize2, Grid3x3 } from 'lucide-react';
 import { useModelStore } from '../store/useModelStore';
+import { LayoutAlgorithmDialog } from './ui/LayoutAlgorithmDialog';
+import { Tooltip } from './shared/Tooltip';
 
 export const CanvasControls = () => {
   const { setViewport, fitView, getZoom, getViewport } = useReactFlow();
@@ -9,9 +11,9 @@ export const CanvasControls = () => {
   const viewMode = useModelStore(state => state.viewMode);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
   const setTableFieldsDisplay = useModelStore(state => state.setTableFieldsDisplay);
-  const autoLayout = useModelStore(state => state.autoLayout);
   
   const [displayZoom, setDisplayZoom] = useState(Math.round(getZoom() * 100));
+  const [isLayoutDialogOpen, setIsLayoutDialogOpen] = useState(false);
   const debounceTimer = useRef<number | null>(null);
 
   // Update display zoom with debounce
@@ -49,7 +51,6 @@ export const CanvasControls = () => {
     boxShadow: colorMode === 'dark' 
       ? '0 4px 12px rgba(0, 0, 0, 0.5)' 
       : '0 2px 8px rgba(0, 0, 0, 0.1)',
-    overflow: 'hidden',
     position: 'relative' as const,
   };
 
@@ -79,92 +80,102 @@ export const CanvasControls = () => {
   };
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: '24px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 10,
+    <>
+      <style>
+        {`
+          .canvas-control-button {
+            background: transparent;
+            border: none;
+            color: ${colorMode === 'dark' ? '#e2e8f0' : '#1e293b'};
+            padding: 0 8px;
+            height: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            fontSize: 13px;
+            font-weight: 500;
+            line-height: 1;
+            outline: none;
+            box-shadow: none;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .canvas-control-button:hover {
+            background: ${colorMode === 'dark' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(241, 245, 249, 0.8)'} !important;
+          }
+        `}
+      </style>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10,
         pointerEvents: 'auto',
       }}
     >
       <div style={containerStyle}>
         {/* Zoom Out */}
-        <button
-          onClick={() => adjustZoom(-0.1)}
-          style={{ ...buttonStyle, padding: '0 6px' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = colorMode === 'dark' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(241, 245, 249, 0.8)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Zoom out"
-        >
-          <Minus size={14} />
-        </button>
+        <Tooltip content="Zoom out" placement="top">
+          <button
+            onClick={() => adjustZoom(-0.1)}
+            className="canvas-control-button"
+            style={{ padding: '0 6px' }}
+          >
+            <Minus size={14} />
+          </button>
+        </Tooltip>
 
         {/* Zoom Display */}
-        <div
-          style={{
-            ...buttonStyle,
-            minWidth: '38px',
-            fontWeight: 600,
-            cursor: 'default',
-            padding: '0 2px',
-          }}
-        >
-          {displayZoom}%
-        </div>
+        <Tooltip content="Current zoom level" placement="top">
+          <div
+            style={{
+              ...buttonStyle,
+              minWidth: '38px',
+              fontWeight: 600,
+              cursor: 'default',
+              padding: '0 2px',
+            }}
+          >
+            {displayZoom}%
+          </div>
+        </Tooltip>
 
         {/* Zoom In */}
-        <button
-          onClick={() => adjustZoom(0.1)}
-          style={{ ...buttonStyle, padding: '0 6px' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = colorMode === 'dark' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(241, 245, 249, 0.8)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Zoom in"
-        >
-          <Plus size={14} />
-        </button>
+        <Tooltip content="Zoom in" placement="top">
+          <button
+            onClick={() => adjustZoom(0.1)}
+            className="canvas-control-button"
+            style={{ padding: '0 6px' }}
+          >
+            <Plus size={14} />
+          </button>
+        </Tooltip>
 
         {/* Separator */}
         <div style={separatorStyle} />
 
         {/* Fit View */}
-        <button
-          onClick={() => fitView({ padding: 0.2 })}
-          style={buttonStyle}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = colorMode === 'dark' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(241, 245, 249, 0.8)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Fit to view"
-        >
-          <Maximize2 size={14} />
-        </button>
+        <Tooltip content="Fit to view" placement="top">
+          <button
+            onClick={() => fitView({ padding: 0.2 })}
+            className="canvas-control-button"
+          >
+            <Maximize2 size={14} />
+          </button>
+        </Tooltip>
 
         {/* Auto Layout */}
-        <button
-          onClick={autoLayout}
-          style={buttonStyle}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = colorMode === 'dark' ? 'rgba(51, 65, 85, 0.8)' : 'rgba(241, 245, 249, 0.8)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Auto layout"
-        >
-          <Grid3x3 size={14} />
-        </button>
+        <Tooltip content="Auto layout" placement="top">
+          <button
+            onClick={() => setIsLayoutDialogOpen(true)}
+            className="canvas-control-button"
+          >
+            <Grid3x3 size={14} />
+          </button>
+        </Tooltip>
 
         {/* Show All Fields - Only in Physical View */}
         {viewMode === 'physical' && (
@@ -173,65 +184,76 @@ export const CanvasControls = () => {
             <div style={separatorStyle} />
 
             {/* Show All Fields Dropdown */}
-            <div style={{ 
-              position: 'relative', 
-              display: 'flex', 
-              alignItems: 'center',
-              height: '100%',
-            }}>
-              <span style={{ 
-                padding: '0 8px',
-                fontSize: '13px',
-                color: colorMode === 'dark' ? '#94a3b8' : '#64748b',
-                fontWeight: 500,
-                flexShrink: 0,
+            <Tooltip content="Toggle table field visibility" placement="top">
+              <div style={{ 
+                position: 'relative', 
+                display: 'flex', 
+                alignItems: 'center',
+                height: '100%',
               }}>
-                show
-              </span>
-              <select
-                value={tableFieldsDisplay}
-                onChange={(e) => setTableFieldsDisplay(e.target.value as 'all' | 'name' | 'keys')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: colorMode === 'dark' ? '#e2e8f0' : '#1e293b',
-                  padding: '0 20px 0 6px',
-                  height: '100%',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  lineHeight: '1',
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none',
-                  maxWidth: '120px',
-                  boxShadow: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <option value="all">All Fields</option>
-                <option value="name">Table Name</option>
-                <option value="keys">Key Only</option>
-              </select>
-              {/* Dropdown Arrow */}
-              <div
-                style={{
-                  position: 'absolute',
-                  right: '6px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  pointerEvents: 'none',
+                <span style={{ 
+                  padding: '0 8px',
+                  fontSize: '12px',
                   color: colorMode === 'dark' ? '#94a3b8' : '#64748b',
-                  fontSize: '11px',
-                }}
-              >
-                ▾
+                  fontWeight: 500,
+                  flexShrink: 0,
+                  cursor: 'default',
+                }}>
+                  show
+                </span>
+                <select
+                  value={tableFieldsDisplay}
+                  onChange={(e) => setTableFieldsDisplay(e.target.value as 'all' | 'name' | 'keys')}
+                  className="canvas-control-button"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: colorMode === 'dark' ? '#e2e8f0' : '#1e293b',
+                    padding: '0 20px 0 6px',
+                    height: '100%',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    lineHeight: '1',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    maxWidth: '120px',
+                    boxShadow: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <option value="all">All Fields</option>
+                  <option value="name">Table Name</option>
+                  <option value="keys">Key Only</option>
+                </select>
+                {/* Dropdown Arrow */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '6px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: colorMode === 'dark' ? '#94a3b8' : '#64748b',
+                    fontSize: '11px',
+                  }}
+                >
+                  ▾
+                </div>
               </div>
-            </div>
+            </Tooltip>
           </>
         )}
       </div>
+      
+      {/* Layout Algorithm Dialog */}
+      <LayoutAlgorithmDialog
+        isOpen={isLayoutDialogOpen}
+        onClose={() => setIsLayoutDialogOpen(false)}
+      />
     </div>
+    </>
   );
 };
