@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, Globe, Bot, Eye, EyeOff, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
-import { getAISettings, saveAISettings, clearAISettings, type AIServiceConfig } from '../../services/aiService';
+import { saveAISettings, clearAISettings, type AIServiceConfig } from '../../services/aiService';
 
 interface AISettingsDialogProps {
   isOpen: boolean;
@@ -40,13 +40,16 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
   // Load existing settings
   useEffect(() => {
     if (isOpen) {
-      const settings = getAISettings();
+      // Check for environment default
       const envKey = import.meta.env.VITE_OPENAI_API_KEY;
       const hasDefault = envKey && envKey !== 'your-openai-api-key-here';
       setHasEnvDefault(!!hasDefault);
       
-      if (settings) {
-        setApiKey(settings.apiKey);
+      // Only load from localStorage (never show env key in UI)
+      const saved = localStorage.getItem('sqlmodel-ai-settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        setApiKey(settings.apiKey || '');
         
         const provider = PRESET_PROVIDERS.find(p => p.value === settings.baseUrl);
         if (provider) {
@@ -57,9 +60,12 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
         }
         
         setModel(settings.model || 'gpt-4o-mini');
-      } else if (hasDefault) {
-        // Show placeholder indicating env var is set
+      } else {
+        // No custom settings - leave fields empty (env default will be used in backend)
         setApiKey('');
+        setBaseUrl('https://api.openai.com/v1');
+        setCustomUrl('');
+        setModel('gpt-4o-mini');
       }
     }
   }, [isOpen]);
