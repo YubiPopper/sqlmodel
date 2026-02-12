@@ -5,11 +5,16 @@ export const NavbarBrand: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Reload the current page (clears query params and resets state)
+    window.location.href = window.location.origin;
+  };
+
   return (
     <a 
-      href="https://sqlmodel.org"
-      target="_blank"
-      rel="noopener noreferrer"
+      href="/"
+      onClick={handleClick}
       style={{ 
         display: 'flex', 
         alignItems: 'center', 

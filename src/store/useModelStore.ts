@@ -128,9 +128,23 @@ interface ModelState {
   showAllEntities: () => void;
   showAllTables: () => void;
   leftSidebarCollapsed: boolean;
+  setLeftSidebarCollapsed: (collapsed: boolean) => void;
   toggleLeftSidebar: () => void;
   rightPanelMobileOpen: boolean;
   setRightPanelMobileOpen: (open: boolean) => void;
+  
+  // Dialog visibility states (persisted across component unmounts)
+  showAddTableDialog: boolean;
+  setShowAddTableDialog: (show: boolean) => void;
+  showAIDialog: boolean;
+  setShowAIDialog: (show: boolean) => void;
+  showExampleDialog: boolean;
+  setShowExampleDialog: (show: boolean) => void;
+  showSnowflakeDialog: boolean;
+  setShowSnowflakeDialog: (show: boolean) => void;
+  showAISettingsDialog: boolean;
+  setShowAISettingsDialog: (show: boolean) => void;
+  
   autoLayout: () => void;
   
   // Persistence
@@ -203,6 +217,18 @@ export const useModelStore = create<ModelState>()(
       rightPanelMobileOpen: false,
       currentDiagramId: null,
       setCurrentDiagramId: (id) => set({ currentDiagramId: id }),
+      
+      // Dialog visibility states
+      showAddTableDialog: false,
+      setShowAddTableDialog: (show) => set({ showAddTableDialog: show }),
+      showAIDialog: false,
+      setShowAIDialog: (show) => set({ showAIDialog: show }),
+      showExampleDialog: false,
+      setShowExampleDialog: (show) => set({ showExampleDialog: show }),
+      showSnowflakeDialog: false,
+      setShowSnowflakeDialog: (show) => set({ showSnowflakeDialog: show }),
+      showAISettingsDialog: false,
+      setShowAISettingsDialog: (show) => set({ showAISettingsDialog: show }),
 
       // === Entity Actions ===
       addEntity: () => {
@@ -847,6 +873,8 @@ export const useModelStore = create<ModelState>()(
       showAllEntities: () => set({ hiddenEntityIds: new Set() }),
       
       showAllTables: () => set({ hiddenTableIds: new Set() }),
+
+      setLeftSidebarCollapsed: (collapsed) => set({ leftSidebarCollapsed: collapsed }),
 
       toggleLeftSidebar: () => set((state) => ({ leftSidebarCollapsed: !state.leftSidebarCollapsed })),
 
@@ -1770,13 +1798,26 @@ export const useModelStore = create<ModelState>()(
     }),
     {
       name: 'sqlmodel-storage',
-      partialize: (state) => ({
-        ...state,
-        hiddenEntityIds: Array.from(state.hiddenEntityIds),
-        hiddenTableIds: Array.from(state.hiddenTableIds),
-        emptyDatabases: Array.from(state.emptyDatabases),
-        emptySchemas: Array.from(state.emptySchemas),
-      }),
+      partialize: (state) => {
+        // Exclude dialog states and transient UI state from persistence
+        const { 
+          showAddTableDialog, 
+          showAIDialog, 
+          showExampleDialog, 
+          showSnowflakeDialog, 
+          showAISettingsDialog,
+          navigateToNodeCallback,
+          ...persistedState 
+        } = state;
+        
+        return {
+          ...persistedState,
+          hiddenEntityIds: Array.from(state.hiddenEntityIds),
+          hiddenTableIds: Array.from(state.hiddenTableIds),
+          emptyDatabases: Array.from(state.emptyDatabases),
+          emptySchemas: Array.from(state.emptySchemas),
+        };
+      },
       onRehydrateStorage: () => (state) => {
         if (state) {
           // Convert arrays back to Sets after rehydration
@@ -1784,6 +1825,12 @@ export const useModelStore = create<ModelState>()(
           state.hiddenTableIds = new Set(state.hiddenTableIds as any);
           state.emptyDatabases = new Set(state.emptyDatabases as any);
           state.emptySchemas = new Set(state.emptySchemas as any);
+          // Ensure dialog states are always false on rehydration
+          state.showAddTableDialog = false;
+          state.showAIDialog = false;
+          state.showExampleDialog = false;
+          state.showSnowflakeDialog = false;
+          state.showAISettingsDialog = false;
         }
       },
     }

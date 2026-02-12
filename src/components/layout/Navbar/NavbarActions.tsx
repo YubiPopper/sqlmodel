@@ -17,12 +17,7 @@ import { DropdownButton } from '../../shared/Dropdown';
 import { Tooltip } from '../../shared/Tooltip';
 import type { DropdownItem } from '../../shared/Dropdown';
 import type { ConceptualData, PhysicalData } from '../../../model/schemas';
-import { ExampleDialog } from '../../ui/ExampleDialog';
 import { FullDDLDialog } from '../../ui/FullDDLDialog';
-import { AIDialog } from '../../ui/AIDialog';
-import { AISettingsDialog } from '../../ui/AISettingsDialog';
-import { SnowflakeDialog } from '../../ui/SnowflakeDialog';
-import { AddTableDialog } from '../../ui/AddTableDialog';
 
 interface NavbarActionsProps {
   onActionComplete?: () => void;
@@ -31,15 +26,16 @@ interface NavbarActionsProps {
 
 export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, isMobile = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showExampleDialog, setShowExampleDialog] = useState(false);
   const [showFullDDLDialog, setShowFullDDLDialog] = useState(false);
-  const [showAIDialog, setShowAIDialog] = useState(false);
-  const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
-  const [showSnowflakeDialog, setShowSnowflakeDialog] = useState(false);
-  const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
+  
+  // Dialog states from store (persisted across component unmounts)
+  const setShowExampleDialog = useModelStore(state => state.setShowExampleDialog);
+  const setShowAIDialog = useModelStore(state => state.setShowAIDialog);
+  const setShowSnowflakeDialog = useModelStore(state => state.setShowSnowflakeDialog);
+  const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
   
   const addEntity = useModelStore(state => state.addEntity);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
@@ -195,84 +191,55 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
 
   return (
     <>
-      <ExampleDialog 
-        isOpen={showExampleDialog} 
-        onClose={() => setShowExampleDialog(false)} 
-      />
-      
       <FullDDLDialog 
         isOpen={showFullDDLDialog}
         onClose={() => setShowFullDDLDialog(false)}
       />
       
-      <AIDialog
-        isOpen={showAIDialog}
-        onClose={() => setShowAIDialog(false)}
-        onOpenSettings={() => {
-          setShowAIDialog(false);
-          setShowAISettingsDialog(true);
-        }}
-      />
-      
-      <AISettingsDialog
-        isOpen={showAISettingsDialog}
-        onClose={() => setShowAISettingsDialog(false)}
-      />
-      
-      <SnowflakeDialog
-        isOpen={showSnowflakeDialog}
-        onClose={() => setShowSnowflakeDialog(false)}
-      />
-      
-      <AddTableDialog
-        isOpen={showAddTableDialog}
-        onClose={() => setShowAddTableDialog(false)}
-        onOpenAISettings={() => {
-          setShowAddTableDialog(false);
-          setShowAISettingsDialog(true);
-        }}
-      />
-      
       {isMobile ? (
-        // Mobile Layout - Compact vertical stack
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+        // Mobile Layout - Buttons render directly into parent grid
+        <>
           {/* Sidebar Toggle */}
           <button
             onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
+              justifyContent: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              minHeight: '48px',
+              height: '48px',
+              boxSizing: 'border-box',
               background: isDark ? '#21262d' : '#f3f4f6',
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '6px',
+              borderRadius: '8px',
               color: isDark ? '#e6edf3' : '#374151',
               fontSize: '14px',
               fontWeight: 500,
               cursor: 'pointer',
               width: '100%',
-              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
             }}
           >
-            {leftSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+            {leftSidebarCollapsed ? <PanelLeft size={18} style={{ flexShrink: 0 }} /> : <PanelLeftClose size={18} style={{ flexShrink: 0 }} />}
             <span>{leftSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
           </button>
 
           {/* Import Menu - Mobile */}
-          <div style={{ width: '100%' }}>
-            <DropdownButton label="Import" items={importItems} icon={<Upload size={16} />} fullWidth={true} compact={true} />
-          </div>
+          <DropdownButton label="Import" items={importItems} icon={<Upload size={16} />} fullWidth={true} compact={true} />
 
           {/* Export Menu - Mobile */}
-          <div style={{ width: '100%' }}>
-            <DropdownButton label="Export" items={exportItems} icon={<Download size={16} />} fullWidth={true} compact={true} />
-          </div>
+          <DropdownButton label="Export" items={exportItems} icon={<Download size={16} />} fullWidth={true} compact={true} />
 
           {/* Insert Menu - Mobile */}
-          <div style={{ width: '100%' }}>
-            <DropdownButton label="Insert" items={insertItems} icon={<Plus size={16} />} fullWidth={true} compact={true} />
-          </div>
+          <DropdownButton label="Insert" items={insertItems} icon={<Plus size={16} />} fullWidth={true} compact={true} />
 
           {/* AI Button */}
           <button
@@ -280,20 +247,35 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
-              border: `1px solid ${isDark ? '#9333ea' : '#c084fc'}`,
-              borderRadius: '6px',
-              color: '#9333ea',
+              justifyContent: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              minHeight: '48px',
+              height: '48px',
+              boxSizing: 'border-box',
+              background: isDark
+                ? 'linear-gradient(135deg, rgba(147, 51, 234, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)'
+                : 'linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)',
+              border: `1.5px solid ${isDark ? '#a855f7' : '#c084fc'}`,
+              borderRadius: '8px',
+              color: isDark ? '#e9d5ff' : '#7c3aed',
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
               width: '100%',
-              textAlign: 'left',
+              transition: 'all 0.15s ease',
+              boxShadow: isDark 
+                ? '0 2px 8px rgba(168, 85, 247, 0.15)'
+                : '0 2px 8px rgba(192, 132, 252, 0.15)',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'scale(0.98)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <Sparkles size={18} />
+            <Sparkles size={18} style={{ flexShrink: 0 }} />
             <span>AI Assistant</span>
           </button>
 
@@ -310,33 +292,47 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
+              justifyContent: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              minHeight: '48px',
+              height: '48px',
+              boxSizing: 'border-box',
               background: (selectedEntityInGroup || selectedTableInGroup)
                 ? (isDark ? '#21262d' : '#f3f4f6')
-                : (isDark ? '#0d1117' : '#f8f9fa'),
+                : (isDark ? 'rgba(33, 38, 45, 0.5)' : 'rgba(243, 244, 246, 0.5)'),
               border: `1px solid ${
                 (selectedEntityInGroup || selectedTableInGroup)
                   ? (isDark ? '#30363d' : '#d1d5db')
-                  : (isDark ? '#21262d' : '#d1d5db')
+                  : (isDark ? '#21262d' : '#e5e7eb')
               }`,
-              borderRadius: '6px',
+              borderRadius: '8px',
               outline: 'none',
               color: (selectedEntityInGroup || selectedTableInGroup)
                 ? (isDark ? '#e6edf3' : '#374151')
                 : (isDark ? '#6e7681' : '#9ca3af'),
               fontSize: '14px',
-              fontWeight: 600,
+              fontWeight: 500,
               cursor: (selectedEntityInGroup || selectedTableInGroup) ? 'pointer' : 'not-allowed',
-              opacity: (selectedEntityInGroup || selectedTableInGroup) ? 1 : 0.8,
+              opacity: (selectedEntityInGroup || selectedTableInGroup) ? 1 : 0.6,
               width: '100%',
-              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseDown={(e) => {
+              if (selectedEntityInGroup || selectedTableInGroup) {
+                e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+              }
+            }}
+            onMouseUp={(e) => {
+              if (selectedEntityInGroup || selectedTableInGroup) {
+                e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+              }
             }}
           >
-            <Ungroup size={18} />
+            <Ungroup size={18} style={{ flexShrink: 0 }} />
             <span>Ungroup Selected</span>
           </button>
-        </div>
+        </>
       ) : (
         // Desktop Layout - Original horizontal layout
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
@@ -394,7 +390,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       {/* AI Button */}
       <Tooltip content="Generate or enhance your model with AI assistance">
         <button
-          onClick={() => { setShowAIDialog(true); onActionComplete?.(); }}
+          onClick={() => { setShowAIDialog(true); }}
           style={{
           display: 'flex',
           alignItems: 'center',

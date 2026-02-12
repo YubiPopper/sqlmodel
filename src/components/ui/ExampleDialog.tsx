@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Database, ShoppingCart, FileText, FolderKanban, Search, Tag } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 
@@ -116,7 +117,7 @@ export const ExampleDialog: React.FC<ExampleDialogProps> = ({ isOpen, onClose })
     );
   };
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -483,6 +484,7 @@ export const ExampleDialog: React.FC<ExampleDialogProps> = ({ isOpen, onClose })
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };

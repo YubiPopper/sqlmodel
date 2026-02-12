@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Key, Globe, Bot, Eye, EyeOff, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import { saveAISettings, clearAISettings, type AIServiceConfig } from '../../services/aiService';
@@ -135,7 +136,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -534,6 +535,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 };

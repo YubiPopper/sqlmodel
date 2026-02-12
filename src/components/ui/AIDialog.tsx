@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Sparkles, Wand2, Settings, Loader2, Lightbulb, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import {
@@ -185,7 +186,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -714,6 +715,7 @@ export const AIDialog: React.FC<AIDialogProps> = ({ isOpen, onClose, onOpenSetti
           to { transform: rotate(360deg); }
         }
       `}</style>
-    </>
+    </>,
+    document.body
   );
 };

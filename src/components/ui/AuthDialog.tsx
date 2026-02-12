@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../services/supabaseClient';
 import { X, Mail, Lock, Github, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
@@ -17,21 +18,28 @@ export const AuthDialog = ({ isOpen, onClose }: AuthDialogProps) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const colorMode = useModelStore(state => state.colorMode);
 
   useEffect(() => {
     if (isOpen) {
-      setMounted(true);
+      setIsClosing(false);
       // Reset form when dialog opens
       setError(null);
       setSuccess(null);
     } else {
-      setTimeout(() => setMounted(false), 200); // Wait for exit animation
+      // Start closing animation
+      setIsClosing(true);
+      // Reset isClosing after animation completes
+      const timer = setTimeout(() => {
+        setIsClosing(false);
+      }, 200); // Match transition duration
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  if (!isOpen && !mounted) return null;
+  // Don't render if closed and not currently closing
+  if (!isOpen && !isClosing) return null;
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +109,7 @@ export const AuthDialog = ({ isOpen, onClose }: AuthDialogProps) => {
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -113,7 +121,8 @@ export const AuthDialog = ({ isOpen, onClose }: AuthDialogProps) => {
         justifyContent: 'center',
         zIndex: 9999,
         padding: '16px',
-        animation: isOpen ? 'fadeIn 0.2s ease-out' : 'fadeOut 0.15s ease-in',
+        opacity: isClosing ? 0 : 1,
+        transition: 'opacity 0.15s ease-in',
       }}
       onClick={onClose}
     >
@@ -130,7 +139,9 @@ export const AuthDialog = ({ isOpen, onClose }: AuthDialogProps) => {
             : '0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(226, 232, 240, 0.8)',
           border: colorMode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
           overflow: 'hidden',
-          animation: isOpen ? 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideDown 0.2s ease-in',
+          transform: isClosing ? 'translateY(20px) scale(0.95)' : 'translateY(0) scale(1)',
+          opacity: isClosing ? 0 : 1,
+          transition: 'all 0.2s ease-in',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -660,6 +671,7 @@ export const AuthDialog = ({ isOpen, onClose }: AuthDialogProps) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

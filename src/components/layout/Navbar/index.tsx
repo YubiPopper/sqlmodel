@@ -113,7 +113,15 @@ export const Navbar: React.FC = () => {
           )}
           {isMobile && (
             <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsMobileMenuOpen(!isMobileMenuOpen);
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -153,9 +161,10 @@ export const Navbar: React.FC = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(0, 0, 0, 0.2)',
+              background: isDark ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.25)',
+              backdropFilter: 'blur(2px)',
               zIndex: 98,
-              animation: 'fadeIn 0.15s ease',
+              animation: 'fadeIn 0.15s ease-out forwards',
             }}
           />
           <div
@@ -166,70 +175,37 @@ export const Navbar: React.FC = () => {
               left: 0,
               right: 0,
               background: isDark 
-                ? '#161b22'
-                : '#ffffff',
+                ? 'linear-gradient(180deg, #1a1f26 0%, #161b22 100%)'
+                : 'linear-gradient(180deg, #ffffff 0%, #fafbfc 100%)',
               borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               boxShadow: isDark
-                ? '0 8px 16px rgba(0, 0, 0, 0.4)'
-                : '0 8px 16px rgba(0, 0, 0, 0.15)',
+                ? '0 10px 30px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4)'
+                : '0 10px 30px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.08)',
               zIndex: 99,
-              padding: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              maxHeight: '60vh',
+              padding: '16px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px',
+              maxHeight: '65vh',
               overflowY: 'auto',
-              animation: 'slideDown 0.15s ease',
+              overflowX: 'hidden',
+              animation: 'menuSlideDown 0.15s ease-out forwards',
             }}
           >
-            {/* Actions */}
-            <div>
-              <NavbarActions onActionComplete={() => setIsMobileMenuOpen(false)} isMobile={true} />
-            </div>
-
-            {/* Divider */}
-            <div style={{
-              height: '1px',
-              background: isDark ? '#30363d' : '#e5e7eb',
-              margin: '4px 0',
-            }} />
-
-            {/* Save & Share Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', gap: '8px' }}>
-              <SaveShareButtons 
-                onSaveClick={() => setTriggerSave(true)} 
-                onSaveAsClick={() => setTriggerSaveAs(true)}
-              />
-            </div>
-
-            {/* Divider */}
-            <div style={{
-              height: '1px',
-              background: isDark ? '#30363d' : '#e5e7eb',
-              margin: '4px 0',
-            }} />
-
-            {/* Auth Button */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
-              <AuthButton 
-                triggerSave={triggerSave} 
-                triggerSaveAs={triggerSaveAs}
-                onSaveComplete={() => setTriggerSave(false)} 
-                onSaveAsComplete={() => setTriggerSaveAs(false)}
-              />
-            </div>
-
-            {/* Divider */}
-            <div style={{
-              height: '1px',
-              background: isDark ? '#30363d' : '#e5e7eb',
-              margin: '4px 0',
-            }} />
-
-            {/* Global Settings */}
-            <div>
-              <GlobalSettings isMobile={true} onActionComplete={() => setIsMobileMenuOpen(false)} />
-            </div>
+            <NavbarActions onActionComplete={() => setIsMobileMenuOpen(false)} isMobile={true} />
+            <SaveShareButtons 
+              onSaveClick={() => setTriggerSave(true)} 
+              onSaveAsClick={() => setTriggerSaveAs(true)}
+              isMobile={true}
+            />
+            <AuthButton 
+              triggerSave={triggerSave} 
+              triggerSaveAs={triggerSaveAs}
+              onSaveComplete={() => setTriggerSave(false)} 
+              onSaveAsComplete={() => setTriggerSaveAs(false)}
+              isMobile={true}
+            />
+            <GlobalSettings isMobile={true} onActionComplete={() => setIsMobileMenuOpen(false)} />
           </div>
         </>
       )}

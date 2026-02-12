@@ -30,6 +30,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
     setIsOpen(newState);
     onOpenChange?.(newState);
   };
+  
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleOpenChange(!isOpen);
+  };
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
   const colorMode = useModelStore(state => state.colorMode);
 
@@ -71,7 +78,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
-      <div onClick={() => handleOpenChange(!isOpen)}>
+      <div onClick={handleToggle}>
         {trigger}
       </div>
       
@@ -79,7 +86,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
         <>
           {/* Invisible overlay to catch clicks anywhere including canvas */}
           <div
-            onClick={() => handleOpenChange(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenChange(false);
+            }}
             style={{
               position: 'fixed',
               top: 0,
@@ -90,6 +100,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
             }}
           />
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: 'absolute',
               top: 'calc(100% + 4px)',
@@ -105,6 +116,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
               zIndex: 1000,
               overflow: 'hidden',
               padding: '4px',
+              pointerEvents: 'auto',
             }}
           >
           {items.map((item, index) => (
@@ -205,9 +217,9 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
 
-  const padding = compact ? '10px 12px' : (fullWidth ? '14px 16px' : '6px 12px');
+  const padding = compact ? '12px 14px' : (fullWidth ? '14px 16px' : '6px 12px');
   const fontSize = compact ? '14px' : (fullWidth ? '15px' : '13px');
-  const gap = compact ? '10px' : (fullWidth ? '12px' : '6px');
+  const gap = compact ? '12px' : (fullWidth ? '12px' : '6px');
   const iconSize = compact ? 18 : (fullWidth ? 20 : 14);
 
   return (
@@ -222,9 +234,10 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
             alignItems: 'center',
             gap,
             padding: variant === 'ghost' ? '8px' : padding,
+            minHeight: compact ? '48px' : 'auto',
             background: variant === 'ghost' ? 'transparent' : (isDark ? '#21262d' : '#f3f4f6'),
             border: variant === 'ghost' ? 'none' : `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-            borderRadius: '6px',
+            borderRadius: compact ? '8px' : '6px',
             outline: 'none',
             color: variant === 'ghost' 
               ? (isDark ? '#9ca3af' : '#6b7280')
@@ -234,7 +247,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
             cursor: 'pointer',
             transition: 'all 0.15s',
             width: fullWidth ? '100%' : 'auto',
-            textAlign: 'left',
+            justifyContent: 'center',
           }}
           onMouseEnter={(e) => {
             if (variant === 'ghost') {

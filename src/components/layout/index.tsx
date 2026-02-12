@@ -4,15 +4,34 @@ import { Navbar } from './Navbar';
 import { LeftSidebar } from './Sidebar';
 import { RightPanel } from './RightPanel';
 import Canvas from '../Canvas';
+import { StarRepoDialog } from '../ui/StarRepoDialog';
+import { ExampleDialog } from '../ui/ExampleDialog';
+import { AIDialog } from '../ui/AIDialog';
+import { AISettingsDialog } from '../ui/AISettingsDialog';
+import { SnowflakeDialog } from '../ui/SnowflakeDialog';
+import { AddTableDialog } from '../ui/AddTableDialog';
 
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
-  const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
+  const setLeftSidebarCollapsed = useModelStore(state => state.setLeftSidebarCollapsed);
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const loadDiagramFromCloud = useModelStore(state => state.loadDiagramFromCloud);
+  
+  // Dialog states from store
+  const showExampleDialog = useModelStore(state => state.showExampleDialog);
+  const setShowExampleDialog = useModelStore(state => state.setShowExampleDialog);
+  const showAIDialog = useModelStore(state => state.showAIDialog);
+  const setShowAIDialog = useModelStore(state => state.setShowAIDialog);
+  const showAISettingsDialog = useModelStore(state => state.showAISettingsDialog);
+  const setShowAISettingsDialog = useModelStore(state => state.setShowAISettingsDialog);
+  const showSnowflakeDialog = useModelStore(state => state.showSnowflakeDialog);
+  const setShowSnowflakeDialog = useModelStore(state => state.setShowSnowflakeDialog);
+  const showAddTableDialog = useModelStore(state => state.showAddTableDialog);
+  const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
+  
   const isDark = colorMode === 'dark';
 
   // Load diagram from URL or default example
@@ -46,14 +65,8 @@ export const AppLayout: React.FC = () => {
   // Force sidebar state based on screen size on mount
   useEffect(() => {
     const isMobile = window.innerWidth <= 768;
-    // On mobile, always collapse the sidebar on initial load
-    if (isMobile && !leftSidebarCollapsed) {
-      toggleLeftSidebar();
-    }
-    // On desktop, always expand the sidebar on initial load
-    else if (!isMobile && leftSidebarCollapsed) {
-      toggleLeftSidebar();
-    }
+    // On mobile, always collapse; on desktop, always expand
+    setLeftSidebarCollapsed(isMobile);
   }, []); // Only run once on mount
 
   // Handle resize events to toggle sidebar
@@ -63,16 +76,16 @@ export const AppLayout: React.FC = () => {
     const handleResize = () => {
       const isMobile = window.innerWidth <= 768;
       
-      // Only toggle if crossing the mobile/desktop boundary
+      // Only update if crossing the mobile/desktop boundary
       if (wasMobile !== isMobile) {
-        toggleLeftSidebar();
+        setLeftSidebarCollapsed(isMobile);
         wasMobile = isMobile;
       }
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [toggleLeftSidebar]);
+  }, [setLeftSidebarCollapsed]);
 
   return (
     <div style={{
@@ -107,6 +120,39 @@ export const AppLayout: React.FC = () => {
         {/* Right Panel - Properties Inspector */}
         <RightPanel />
       </div>
+      
+      {/* Star Repo Dialog */}
+      <StarRepoDialog />
+      
+      {/* Global Dialogs */}
+      <ExampleDialog 
+        isOpen={showExampleDialog} 
+        onClose={() => setShowExampleDialog(false)} 
+      />
+      <AIDialog
+        isOpen={showAIDialog}
+        onClose={() => setShowAIDialog(false)}
+        onOpenSettings={() => {
+          setShowAIDialog(false);
+          setShowAISettingsDialog(true);
+        }}
+      />
+      <AISettingsDialog
+        isOpen={showAISettingsDialog}
+        onClose={() => setShowAISettingsDialog(false)}
+      />
+      <SnowflakeDialog
+        isOpen={showSnowflakeDialog}
+        onClose={() => setShowSnowflakeDialog(false)}
+      />
+      <AddTableDialog
+        isOpen={showAddTableDialog}
+        onClose={() => setShowAddTableDialog(false)}
+        onOpenAISettings={() => {
+          setShowAddTableDialog(false);
+          setShowAISettingsDialog(true);
+        }}
+      />
     </div>
   );
 };

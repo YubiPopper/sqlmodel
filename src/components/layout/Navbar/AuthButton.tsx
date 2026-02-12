@@ -11,9 +11,10 @@ interface AuthButtonProps {
   triggerSaveAs?: boolean;
   onSaveComplete?: () => void;
   onSaveAsComplete?: () => void;
+  isMobile?: boolean;
 }
 
-export const AuthButton = ({ triggerSave, triggerSaveAs, onSaveComplete, onSaveAsComplete }: AuthButtonProps = {}) => {
+export const AuthButton = ({ triggerSave, triggerSaveAs, onSaveComplete, onSaveAsComplete, isMobile = false }: AuthButtonProps = {}) => {
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [showDiagramsDialog, setShowDiagramsDialog] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -147,8 +148,12 @@ export const AuthButton = ({ triggerSave, triggerSaveAs, onSaveComplete, onSaveA
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
+            gap: isMobile ? '12px' : '6px',
+            justifyContent: 'center',
+            padding: isMobile ? '12px 14px' : '6px 12px',
+            minHeight: isMobile ? '48px' : 'auto',
+            height: isMobile ? '48px' : 'auto',
+            boxSizing: 'border-box',
             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
             border: 'none',
             borderRadius: '8px',
@@ -158,6 +163,8 @@ export const AuthButton = ({ triggerSave, triggerSaveAs, onSaveComplete, onSaveA
             cursor: 'pointer',
             transition: 'all 0.2s',
             boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+            whiteSpace: 'nowrap',
+            width: isMobile ? '100%' : 'auto',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-1px)';
@@ -168,37 +175,183 @@ export const AuthButton = ({ triggerSave, triggerSaveAs, onSaveComplete, onSaveA
             e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)';
           }}
         >
-          <LogIn size={16} />
-          Sign In
+          <LogIn size={isMobile ? 18 : 16} style={{ flexShrink: 0 }} />
+          <span>Sign In</span>
         </button>
         <AuthDialog isOpen={showAuthDialog} onClose={() => setShowAuthDialog(false)} />
       </>
     );
   }
 
+  // Mobile mode: render buttons directly in grid layout (no dropdown)
+  if (isMobile) {
+    return (
+      <>
+        <button
+          onClick={() => setShowSaveDialog(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: '12px 14px',
+            minHeight: '48px',
+            height: '48px',
+            boxSizing: 'border-box',
+            background: isDark ? '#21262d' : '#f3f4f6',
+            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            borderRadius: '8px',
+            color: isDark ? '#e6edf3' : '#1f2937',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            width: '100%',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+        >
+          <Save size={18} style={{ flexShrink: 0 }} />
+          <span>{currentDiagramId ? 'Update' : 'Save'}</span>
+        </button>
+
+        <button
+          onClick={() => setShowDiagramsDialog(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: '12px 14px',
+            minHeight: '48px',
+            height: '48px',
+            boxSizing: 'border-box',
+            background: isDark ? '#21262d' : '#f3f4f6',
+            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            borderRadius: '8px',
+            color: isDark ? '#e6edf3' : '#1f2937',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            width: '100%',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+        >
+          <FolderOpen size={18} style={{ flexShrink: 0 }} />
+          <span>My Diagrams</span>
+        </button>
+
+        <button
+          onClick={async () => {
+            await signOut();
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: '12px 14px',
+            minHeight: '48px',
+            height: '48px',
+            boxSizing: 'border-box',
+            background: isDark ? '#21262d' : '#f3f4f6',
+            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            borderRadius: '8px',
+            color: '#ef4444',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            width: '100%',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#fef2f2';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#fef2f2';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+        >
+          <LogOut size={18} style={{ flexShrink: 0 }} />
+          <span>Sign Out</span>
+        </button>
+
+      </>
+    );
+  }
+
+  // Desktop mode: render dropdown menu
   return (
-    <div style={{ position: 'relative' }} ref={menuRef}>
+    <div style={{ position: 'relative', width: isMobile ? '100%' : 'auto' }} ref={menuRef}>
       <button
         onClick={() => setShowUserMenu(!showUserMenu)}
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
-          padding: '4px',
-          background: 'transparent',
-          border: 'none',
+          gap: isMobile ? '12px' : '4px',
+          padding: isMobile ? '12px 14px' : '4px',
+          background: isMobile ? (isDark ? '#21262d' : '#f3f4f6') : 'transparent',
+          border: isMobile ? `1px solid ${isDark ? '#30363d' : '#e5e7eb'}` : 'none',
           outline: 'none',
+          borderRadius: isMobile ? '8px' : '0',
           color: isDark ? '#e6edf3' : '#1f2937',
           fontSize: '14px',
-          fontWeight: 500,
+          fontWeight: isMobile ? 500 : 500,
           cursor: 'pointer',
-          transition: 'opacity 0.2s',
+          transition: 'all 0.15s ease',
+          width: isMobile ? '100%' : 'auto',
+          textAlign: 'left',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.opacity = '0.7';
+          if (isMobile) {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          } else {
+            e.currentTarget.style.opacity = '0.7';
+          }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = '1';
+          if (isMobile) {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          } else {
+            e.currentTarget.style.opacity = '1';
+          }
+        }}
+        onMouseDown={(e) => {
+          if (isMobile) {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }
+        }}
+        onMouseUp={(e) => {
+          if (isMobile) {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }
         }}
       >
         <div
