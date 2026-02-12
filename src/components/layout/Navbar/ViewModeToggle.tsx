@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Table } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
+import { Tooltip } from '../../shared/Tooltip';
 
 export const ViewModeToggle: React.FC = () => {
   const viewMode = useModelStore(state => state.viewMode);
@@ -15,9 +16,10 @@ export const ViewModeToggle: React.FC = () => {
   const isPhysical = viewMode === 'physical';
 
   return (
-    <button
-      onClick={toggleViewMode}
-      style={{
+    <Tooltip content={`Switch to ${isPhysical ? 'conceptual' : 'physical'} view`}>
+      <button
+        onClick={toggleViewMode}
+        style={{
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
@@ -25,6 +27,7 @@ export const ViewModeToggle: React.FC = () => {
         padding: '4px',
         borderRadius: '24px',
         border: `2px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+        outline: 'none',
         cursor: 'pointer',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         background: isDark ? '#0d1117' : '#f3f4f6',
@@ -38,7 +41,6 @@ export const ViewModeToggle: React.FC = () => {
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = isDark ? '#30363d' : '#e5e7eb';
       }}
-      title={`Switch to ${isPhysical ? 'Conceptual' : 'Physical'} view`}
     >
       {/* Conceptual option */}
       <div style={{
@@ -106,5 +108,6 @@ export const ViewModeToggle: React.FC = () => {
         )}
       </div>
     </button>
+    </Tooltip>
   );
 };

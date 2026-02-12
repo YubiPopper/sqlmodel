@@ -511,7 +511,7 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         }
       />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
         <FormField label="Table Name">
           <TextInput
             value={table.name}

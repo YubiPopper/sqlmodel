@@ -126,7 +126,7 @@ export const ForeignKeyInspector: React.FC<ForeignKeyInspectorProps> = ({ foreig
         actions={<ActionsMenu />}
       />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
         {/* Connection Info */}
         <div style={{
           padding: '16px',

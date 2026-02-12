@@ -5,11 +5,15 @@ import { NavbarBrand } from './NavbarBrand';
 import { ViewModeToggle } from './ViewModeToggle';
 import { NavbarActions } from './NavbarActions';
 import { GlobalSettings } from './GlobalSettings';
+import { AuthButton } from './AuthButton';
+import { SaveShareButtons } from './SaveShareButtons';
 
 export const Navbar: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [triggerSave, setTriggerSave] = useState(false);
+  const [triggerSaveAs, setTriggerSaveAs] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isDark = colorMode === 'dark';
 
@@ -92,7 +96,21 @@ export const Navbar: React.FC = () => {
           minWidth: '0',
           justifyContent: 'flex-end',
         }}>
-          {!isMobile && <GlobalSettings />}
+          {!isMobile && (
+            <>
+              <SaveShareButtons 
+                onSaveClick={() => setTriggerSave(true)} 
+                onSaveAsClick={() => setTriggerSaveAs(true)}
+              />
+              <AuthButton 
+                triggerSave={triggerSave} 
+                triggerSaveAs={triggerSaveAs}
+                onSaveComplete={() => setTriggerSave(false)} 
+                onSaveAsComplete={() => setTriggerSaveAs(false)}
+              />
+              <GlobalSettings />
+            </>
+          )}
           {isMobile && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -167,6 +185,38 @@ export const Navbar: React.FC = () => {
             {/* Actions */}
             <div>
               <NavbarActions onActionComplete={() => setIsMobileMenuOpen(false)} isMobile={true} />
+            </div>
+
+            {/* Divider */}
+            <div style={{
+              height: '1px',
+              background: isDark ? '#30363d' : '#e5e7eb',
+              margin: '4px 0',
+            }} />
+
+            {/* Save & Share Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', gap: '8px' }}>
+              <SaveShareButtons 
+                onSaveClick={() => setTriggerSave(true)} 
+                onSaveAsClick={() => setTriggerSaveAs(true)}
+              />
+            </div>
+
+            {/* Divider */}
+            <div style={{
+              height: '1px',
+              background: isDark ? '#30363d' : '#e5e7eb',
+              margin: '4px 0',
+            }} />
+
+            {/* Auth Button */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+              <AuthButton 
+                triggerSave={triggerSave} 
+                triggerSaveAs={triggerSaveAs}
+                onSaveComplete={() => setTriggerSave(false)} 
+                onSaveAsComplete={() => setTriggerSaveAs(false)}
+              />
             </div>
 
             {/* Divider */}

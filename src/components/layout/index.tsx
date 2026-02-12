@@ -12,16 +12,35 @@ export const AppLayout: React.FC = () => {
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
+  const loadDiagramFromCloud = useModelStore(state => state.loadDiagramFromCloud);
   const isDark = colorMode === 'dark';
 
-  // Load library example on first load if nothing is loaded
+  // Load diagram from URL or default example
   useEffect(() => {
-    if (entities.length === 0 && tables.length === 0) {
-      fetch('/examples/library.json')
-        .then(res => res.json())
-        .then(data => loadModelFromJSON(data))
-        .catch(err => console.error('Failed to load default example:', err));
-    }
+    const loadInitialData = async () => {
+      // Check for diagram ID in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const diagramId = urlParams.get('diagram');
+      
+      if (diagramId) {
+        try {
+          await loadDiagramFromCloud(diagramId);
+          return; // Don't load default example if URL diagram loads
+        } catch (error) {
+          console.error('Failed to load diagram from URL:', error);
+        }
+      }
+      
+      // Load default example only if nothing is loaded and no URL diagram
+      if (entities.length === 0 && tables.length === 0) {
+        fetch('/examples/library.json')
+          .then(res => res.json())
+          .then(data => loadModelFromJSON(data))
+          .catch(err => console.error('Failed to load default example:', err));
+      }
+    };
+    
+    loadInitialData();
   }, []); // Only run once on mount
 
   // Force sidebar state based on screen size on mount

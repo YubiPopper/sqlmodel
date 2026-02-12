@@ -2,6 +2,7 @@ import React from 'react';
 import { Sun, Moon, Layers, Github } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { IconButton } from '../../shared/IconButton';
+import { Tooltip } from '../../shared/Tooltip';
 
 interface GlobalSettingsProps {
   isMobile?: boolean;
@@ -42,6 +43,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             background: isDark ? '#21262d' : '#f3f4f6',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
+            outline: 'none',
             textDecoration: 'none',
             color: isDark ? '#e6edf3' : '#1f2937',
             fontSize: '14px',
@@ -59,26 +61,28 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
           <span>View on GitHub</span>
         </a>
       ) : (
-        <a
-          href="https://github.com/sqlmodel/sqlmodel"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="View on GitHub"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textDecoration: 'none',
-            color: isDark ? '#e6edf3' : '#1f2937',
-          }}
-        >
-          <IconButton
-            icon={<Github size={16} />}
-            onClick={() => {}}
-            title="View on GitHub"
-            variant="ghost"
-          />
-        </a>
+        <Tooltip content="View source code on GitHub">
+          <div>
+            <a
+              href="https://github.com/sqlmodel/sqlmodel"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                color: isDark ? '#e6edf3' : '#1f2937',
+              }}
+            >
+              <IconButton
+                icon={<Github size={16} />}
+                onClick={() => {}}
+                variant="ghost"
+              />
+            </a>
+          </div>
+        </Tooltip>
       )}
 
       {/* Entity Overlay Toggle - Only in Physical view */}
@@ -96,6 +100,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
                 : (isDark ? '#21262d' : '#f3f4f6'),
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               borderRadius: '6px',
+              outline: 'none',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: 500,
@@ -116,13 +121,16 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             <span>{showEntityOverlay ? 'Hide Entity Groupings' : 'Show Entity Groupings'}</span>
           </button>
         ) : (
-          <IconButton
-            icon={<Layers size={16} />}
-            onClick={() => setShowEntityOverlay(!showEntityOverlay)}
-            title={showEntityOverlay ? 'Hide Entity Groupings' : 'Show Entity Groupings'}
-            active={showEntityOverlay}
-            variant="ghost"
-          />
+          <Tooltip content={showEntityOverlay ? 'Hide entity groupings' : 'Show entity groupings'}>
+            <div>
+              <IconButton
+                icon={<Layers size={16} />}
+                onClick={() => setShowEntityOverlay(!showEntityOverlay)}
+                active={showEntityOverlay}
+                variant="ghost"
+              />
+            </div>
+          </Tooltip>
         )
       )}
 
@@ -138,6 +146,7 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             background: isDark ? '#21262d' : '#f3f4f6',
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
+            outline: 'none',
             cursor: 'pointer',
             fontSize: '14px',
             fontWeight: 500,
@@ -156,12 +165,15 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
           <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
       ) : (
-        <IconButton
-          icon={isDark ? <Sun size={16} /> : <Moon size={16} />}
-          onClick={() => setColorMode(isDark ? 'light' : 'dark')}
-          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          variant="ghost"
-        />
+        <Tooltip content={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <div>
+            <IconButton
+              icon={isDark ? <Sun size={16} /> : <Moon size={16} />}
+              onClick={() => setColorMode(isDark ? 'light' : 'dark')}
+              variant="ghost"
+            />
+          </div>
+        </Tooltip>
       )}
     </div>
   );

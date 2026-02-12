@@ -147,7 +147,7 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
         actions={<ActionsMenu />}
       />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
         <FormField label="Name">
           <TextInput
             value={entity.name}

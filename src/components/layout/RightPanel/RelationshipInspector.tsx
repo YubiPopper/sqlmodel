@@ -117,7 +117,7 @@ export const RelationshipInspector: React.FC<RelationshipInspectorProps> = ({ re
         actions={<ActionsMenu />}
       />
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
         <FormField label="Label">
           <TextInput
             value={relationship.label || ''}

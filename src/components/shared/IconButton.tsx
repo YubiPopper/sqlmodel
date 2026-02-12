@@ -79,6 +79,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
         ...sizeStyles[size],
         ...getVariantStyles(),
         borderRadius: '6px',
+        outline: 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

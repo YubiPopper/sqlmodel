@@ -321,6 +321,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
                   : (isDark ? '#21262d' : '#d1d5db')
               }`,
               borderRadius: '6px',
+              outline: 'none',
               color: (selectedEntityInGroup || selectedTableInGroup)
                 ? (isDark ? '#e6edf3' : '#374151')
                 : (isDark ? '#6e7681' : '#9ca3af'),
@@ -359,6 +360,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
           background: 'transparent',
           border: 'none',
           borderRadius: '6px',
+          outline: 'none',
           color: isDark ? '#8b949e' : '#6b7280',
           cursor: 'pointer',
           transition: 'all 0.15s ease',
@@ -401,6 +403,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
           background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%)',
           border: `1px solid ${isDark ? '#9333ea' : '#c084fc'}`,
           borderRadius: '6px',
+          outline: 'none',
           color: '#9333ea',
           fontSize: '13px',
           fontWeight: 600,
@@ -450,6 +453,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
               : (isDark ? '#21262d' : '#d1d5db')
           }`,
           borderRadius: '6px',
+          outline: 'none',
           color: (selectedEntityInGroup || selectedTableInGroup)
             ? (isDark ? '#e6edf3' : '#374151')
             : (isDark ? '#6e7681' : '#9ca3af'),

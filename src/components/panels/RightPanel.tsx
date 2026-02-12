@@ -73,6 +73,8 @@ export const RightPanel = () => {
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
       }}>
         <div>
           Select an entity or relationship to edit properties.
@@ -133,8 +135,10 @@ export const RightPanel = () => {
         flexDirection: 'column', 
         gap: '15px',
         overflowY: 'auto',
+        overflowX: 'hidden',
         maxHeight: '100vh',
-        color: colorMode === 'dark' ? '#e6edf3' : 'inherit'
+        color: colorMode === 'dark' ? '#e6edf3' : 'inherit',
+        boxSizing: 'border-box',
       }}>
         <h3 style={{ margin: 0, color: colorMode === 'dark' ? '#e6edf3' : 'inherit' }}>Edit Entity</h3>
         
@@ -212,8 +216,10 @@ export const RightPanel = () => {
           flexDirection: 'column', 
           gap: '15px',
           overflowY: 'auto',
+          overflowX: 'hidden',
           maxHeight: '100vh',
-          color: colorMode === 'dark' ? '#e6edf3' : 'inherit'
+          color: colorMode === 'dark' ? '#e6edf3' : 'inherit',
+          boxSizing: 'border-box',
         }}>
           <h3 style={{ margin: 0, color: colorMode === 'dark' ? '#e6edf3' : 'inherit' }}>Edit Relationship</h3>
           <div style={{ 
@@ -386,8 +392,10 @@ export const RightPanel = () => {
         flexDirection: 'column', 
         gap: '15px',
         overflowY: 'auto',
+        overflowX: 'hidden',
         maxHeight: '100vh',
-        color: colorMode === 'dark' ? '#e6edf3' : 'inherit'
+        color: colorMode === 'dark' ? '#e6edf3' : 'inherit',
+        boxSizing: 'border-box',
       }}>
         <h3 style={{ margin: 0, color: colorMode === 'dark' ? '#e6edf3' : 'inherit' }}>Edit Entity Group</h3>
         
@@ -613,7 +621,9 @@ export const RightPanel = () => {
       background: colorMode === 'dark' ? '#161b22' : '#fafafa', 
       borderLeft: colorMode === 'dark' ? '1px solid #30363d' : '1px solid #ddd', 
       padding: '20px',
-      color: colorMode === 'dark' ? '#8b949e' : 'inherit'
+      color: colorMode === 'dark' ? '#8b949e' : 'inherit',
+      overflowX: 'hidden',
+      boxSizing: 'border-box',
     }}>
       Unknown selection
     </div>

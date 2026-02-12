@@ -94,9 +94,8 @@ export const Dropdown: React.FC<DropdownProps> = ({
               position: 'absolute',
               top: 'calc(100% + 4px)',
               [align]: 0,
-              minWidth: '220px',
               width: 'max-content',
-              maxWidth: '280px',
+              maxWidth: '180px',
               background: isDark ? '#21262d' : '#ffffff',
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               borderRadius: '8px',
@@ -135,6 +134,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
                     background: 'transparent',
                     border: 'none',
                     borderRadius: '4px',
+                    outline: 'none',
                     cursor: item.disabled ? 'not-allowed' : 'pointer',
                     opacity: item.disabled ? 0.5 : 1,
                     color: isDark ? '#e6edf3' : '#374151',
@@ -188,6 +188,7 @@ interface DropdownButtonProps {
   fullWidth?: boolean;
   compact?: boolean;
   title?: string;
+  variant?: 'default' | 'ghost';
   onOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -198,6 +199,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   fullWidth = false,
   compact = false,
   title,
+  variant = 'default',
   onOpenChange,
 }) => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -219,11 +221,14 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap,
-            padding,
-            background: isDark ? '#21262d' : '#f3f4f6',
-            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            padding: variant === 'ghost' ? '8px' : padding,
+            background: variant === 'ghost' ? 'transparent' : (isDark ? '#21262d' : '#f3f4f6'),
+            border: variant === 'ghost' ? 'none' : `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             borderRadius: '6px',
-            color: isDark ? '#e6edf3' : '#374151',
+            outline: 'none',
+            color: variant === 'ghost' 
+              ? (isDark ? '#9ca3af' : '#6b7280')
+              : (isDark ? '#e6edf3' : '#374151'),
             fontSize,
             fontWeight: 500,
             cursor: 'pointer',
@@ -231,10 +236,20 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
             width: fullWidth ? '100%' : 'auto',
             textAlign: 'left',
           }}
+          onMouseEnter={(e) => {
+            if (variant === 'ghost') {
+              e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (variant === 'ghost') {
+              e.currentTarget.style.background = 'transparent';
+            }
+          }}
         >
           {icon && <span style={{ display: 'flex' }}>{icon}</span>}
-          <span style={{ flex: 1 }}>{label}</span>
-          <ChevronDown size={iconSize} />
+          {label && <span style={{ flex: 1 }}>{label}</span>}
+          {variant !== 'ghost' && <ChevronDown size={iconSize} />}
         </button>
       }
     />
