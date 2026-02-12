@@ -628,7 +628,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           )}
         </div>
         <button
-          className="nodrag nopan"
+          className="nodrag nopan ai-button"
           onClick={(e) => {
             e.stopPropagation();
             setShowAIDialog(true);

@@ -1,9 +1,10 @@
 import { useReactFlow } from 'reactflow';
 import { useState, useEffect, useRef } from 'react';
-import { Minus, Plus, Maximize2, Grid3x3 } from 'lucide-react';
+import { Minus, Plus, Maximize2, Grid3x3, Camera } from 'lucide-react';
 import { useModelStore } from '../store/useModelStore';
 import { LayoutAlgorithmDialog } from './ui/LayoutAlgorithmDialog';
 import { Tooltip } from './shared/Tooltip';
+import { toPng } from 'html-to-image';
 
 export const CanvasControls = () => {
   const { setViewport, fitView, getZoom, getViewport } = useReactFlow();
@@ -14,6 +15,7 @@ export const CanvasControls = () => {
   
   const [displayZoom, setDisplayZoom] = useState(Math.round(getZoom() * 100));
   const [isLayoutDialogOpen, setIsLayoutDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const debounceTimer = useRef<number | null>(null);
 
   // Update display zoom with debounce
@@ -39,6 +41,74 @@ export const CanvasControls = () => {
     const viewport = getViewport();
     const newZoom = Math.max(0.1, Math.min(4, viewport.zoom + delta));
     setViewport({ ...viewport, zoom: newZoom });
+  };
+
+  const exportToPng = async () => {
+    setIsExporting(true);
+    try {
+      const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
+      if (!reactFlowElement) {
+        throw new Error('React Flow element not found');
+      }
+
+      // Get current viewport to restore later
+      const currentViewport = getViewport();
+      
+      // Fit view before export for best results
+      fitView({ padding: 0.1, duration: 0 });
+      
+      // Wait a bit for the fitView to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Create watermark element
+      const watermark = document.createElement('div');
+      watermark.className = 'export-watermark';
+      watermark.textContent = 'sqlmodel.org';
+      watermark.style.cssText = `
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: ${colorMode === 'dark' ? 'rgba(148, 163, 184, 0.6)' : 'rgba(100, 116, 139, 0.6)'};
+        font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        z-index: 9999;
+        pointer-events: none;
+      `;
+      reactFlowElement.appendChild(watermark);
+
+      const dataUrl = await toPng(reactFlowElement, {
+        backgroundColor: colorMode === 'dark' ? '#0a0c10' : '#f8fafc',
+        pixelRatio: 2, // Higher quality
+        filter: (node) => {
+          // Exclude controls, UI elements, and AI buttons
+          if (node.classList) {
+            return !node.classList.contains('react-flow__controls') &&
+                   !node.classList.contains('react-flow__minimap') &&
+                   !node.classList.contains('react-flow__attribution') &&
+                   !node.classList.contains('ai-button'); // Hide AI buttons in table headers
+          }
+          return true;
+        },
+      });
+
+      // Remove watermark
+      reactFlowElement.removeChild(watermark);
+
+      // Create download link
+      const link = document.createElement('a');
+      link.download = `sqlmodel-diagram-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      // Restore viewport
+      setViewport(currentViewport);
+    } catch (error) {
+      console.error('Failed to export PNG:', error);
+      alert('Failed to export diagram. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const containerStyle = {
@@ -174,6 +244,24 @@ export const CanvasControls = () => {
             className="canvas-control-button"
           >
             <Grid3x3 size={14} />
+          </button>
+        </Tooltip>
+
+        {/* Separator */}
+        <div style={separatorStyle} />
+
+        {/* Export PNG */}
+        <Tooltip content="Export as PNG" placement="top">
+          <button
+            onClick={exportToPng}
+            disabled={isExporting}
+            className="canvas-control-button"
+            style={{ 
+              opacity: isExporting ? 0.5 : 1,
+              cursor: isExporting ? 'wait' : 'pointer',
+            }}
+          >
+            <Camera size={14} />
           </button>
         </Tooltip>
 
