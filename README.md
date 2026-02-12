@@ -33,7 +33,7 @@ SQLModel is a **free, open-source data modeling tool** that helps you design dat
 |---------|---------|
 | **Dual-Layer Modeling** | Design at the conceptual level (entities & relationships) then refine to physical tables with columns, types, and foreign keys |
 | **AI-Powered Generation** | Describe your system in plain English and let AI generate complete data models — understands OLTP vs Analytics/Star Schema patterns |
-| **Privacy-First** | Everything runs in your browser. No servers, no accounts, no data collection. Your models are yours. |
+| **Privacy-First** | Works entirely offline in your browser. Optional cloud save for sharing diagrams with your team. Your data, your control. |
 | **Export Ready** | Generate SQL DDL scripts for PostgreSQL, MySQL, and more. Export diagrams as images. |
 | **Modern UX** | Built with React Flow for smooth pan, zoom, and drag interactions. Dark/light mode. Keyboard shortcuts. |
 
