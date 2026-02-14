@@ -109,6 +109,8 @@ interface ModelState {
   setSelected: (id: string | null) => void;
   navigateToNodeCallback: ((nodeId: string) => void) | null;
   setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
+  fitViewCallback: (() => void) | null;
+  setFitViewCallback: (callback: (() => void) | null) => void;
   setEditingGroupId: (id: string | null) => void;
   toggleEntityMultiSelect: (entityId: string) => void;
   toggleTableMultiSelect: (tableId: string) => void;
@@ -197,6 +199,7 @@ export const useModelStore = create<ModelState>()(
       selectedId: null,
       multiSelectedEntityIds: [],
       navigateToNodeCallback: null,
+      fitViewCallback: null,
       multiSelectedTableIds: [],
       editingGroupId: null,
       hiddenEntityIds: new Set(),
@@ -765,6 +768,8 @@ export const useModelStore = create<ModelState>()(
       
       setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
       
+      setFitViewCallback: (callback) => set({ fitViewCallback: callback }),
+      
       setEditingGroupId: (id) => set({ editingGroupId: id }),
       
       toggleEntityMultiSelect: (entityId) => {
@@ -1073,6 +1078,12 @@ export const useModelStore = create<ModelState>()(
             set({ tableLayouts: newTableLayouts });
           }
         }
+        
+        // Fit view after layout completes
+        const { fitViewCallback } = get();
+        if (fitViewCallback) {
+          setTimeout(() => fitViewCallback(), 50);
+        }
       },
 
       // === Persistence ===
@@ -1121,6 +1132,12 @@ export const useModelStore = create<ModelState>()(
           set({ viewMode: 'physical' });
           get().autoLayout();
           set({ viewMode: data.viewMode || 'conceptual' });
+        } else {
+          // If layouts exist, still fit to view
+          const { fitViewCallback } = get();
+          if (fitViewCallback) {
+            setTimeout(() => fitViewCallback(), 50);
+          }
         }
       },
 
@@ -1804,6 +1821,7 @@ export const useModelStore = create<ModelState>()(
           showSnowflakeDialog, 
           showAISettingsDialog,
           navigateToNodeCallback,
+          fitViewCallback,
           ...persistedState 
         } = state;
         

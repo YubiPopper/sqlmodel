@@ -128,6 +128,15 @@ const CanvasInner = () => {
     return () => setNavigateToNodeCallback(null);
   }, [reactFlowInstance, setNavigateToNodeCallback]);
 
+  // Register fitView callback for auto-fit after loading/importing
+  useEffect(() => {
+    const fitView = () => {
+      reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+    };
+    useModelStore.getState().setFitViewCallback(fitView);
+    return () => useModelStore.getState().setFitViewCallback(null);
+  }, [reactFlowInstance]);
+
   // Ensure hiddenEntityIds and hiddenTableIds are Sets (fallback for localStorage migration)
   const safeHiddenEntityIds = hiddenEntityIds instanceof Set ? hiddenEntityIds : new Set(hiddenEntityIds || []);
   const safeHiddenTableIds = hiddenTableIds instanceof Set ? hiddenTableIds : new Set(hiddenTableIds || []);
