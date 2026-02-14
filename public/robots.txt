@@ -1,0 +1,21 @@
+# robots.txt for SQLModel
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /*.json$
+
+# Crawl-delay for all bots
+Crawl-delay: 0
+
+# Sitemaps
+Sitemap: https://sqlmodel.com/sitemap.xml
+
+# Allow specific bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /

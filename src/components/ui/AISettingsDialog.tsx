@@ -29,6 +29,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
   const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1');
   const [customUrl, setCustomUrl] = useState('');
   const [model, setModel] = useState('gpt-4o');
+  const [generatePhysical, setGeneratePhysical] = useState(true);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
@@ -61,24 +62,29 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
         }
         
         setModel(settings.model || 'gpt-4o-mini');
+        setGeneratePhysical(settings.generatePhysical !== false); // Default to true
       } else {
         // No custom settings - leave fields empty (env default will be used in backend)
         setApiKey('');
         setBaseUrl('https://api.openai.com/v1');
         setCustomUrl('');
         setModel('gpt-4o-mini');
+        setGeneratePhysical(true);
       }
     }
   }, [isOpen]);
 
   const handleSave = () => {
-    // Only save if user has entered a custom API key
-    if (apiKey) {
-      const settings: AIServiceConfig = {
-        apiKey,
-        baseUrl: baseUrl === 'custom' ? customUrl : baseUrl,
-        model,
-      };
+    // Save settings (including generatePhysical preference)
+    const settings: AIServiceConfig = {
+      apiKey: apiKey || '',
+      baseUrl: baseUrl === 'custom' ? customUrl : baseUrl,
+      model,
+      generatePhysical,
+    };
+    
+    // Only save to localStorage if there's an API key or existing settings
+    if (apiKey || localStorage.getItem('sqlmodel-ai-settings')) {
       saveAISettings(settings);
     }
     onClose();
@@ -90,6 +96,7 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
     setBaseUrl('https://api.openai.com/v1');
     setCustomUrl('');
     setModel('gpt-4o-mini');
+    setGeneratePhysical(true);
     setTestResult(null);
     setTestMessage('');
   };
@@ -432,6 +439,79 @@ export const AISettingsDialog: React.FC<AISettingsDialogProps> = ({ isOpen, onCl
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Generation Mode Toggle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{
+              fontSize: '14px',
+              fontWeight: 500,
+              color: isDark ? '#e6edf3' : '#374151',
+            }}>
+              Generation Mode
+            </label>
+            <div
+              onClick={() => setGeneratePhysical(!generatePhysical)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                background: isDark ? '#0d1117' : 'white',
+                border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = isDark ? '#161b22' : '#f9fafb';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = isDark ? '#0d1117' : 'white';
+              }}
+            >
+              <div style={{
+                width: '44px',
+                height: '24px',
+                borderRadius: '12px',
+                background: generatePhysical 
+                  ? '#3b82f6' 
+                  : isDark ? '#30363d' : '#d1d5db',
+                position: 'relative',
+                transition: 'background 0.2s ease',
+                flexShrink: 0,
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '2px',
+                  left: generatePhysical ? '22px' : '2px',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  transition: 'left 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: isDark ? '#e6edf3' : '#1f2937',
+                  marginBottom: '2px',
+                }}>
+                  {generatePhysical ? 'Conceptual + Physical Tables' : 'Conceptual Only'}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: isDark ? '#8b949e' : '#6b7280',
+                }}>
+                  {generatePhysical 
+                    ? 'Generate entities, relationships, and database tables with columns'
+                    : 'Generate only entities and relationships (no table definitions)'}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Test Result */}

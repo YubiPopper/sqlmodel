@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { Entity, Relationship, PhysicalTable, ForeignKey, Attribute } from '../model/schemas';
+import type { Entity, Relationship, PhysicalTable, ForeignKey, Attribute, EntityGroup } from '../model/schemas';
 
 // Types for AI responses
 export interface AIGeneratedModel {
@@ -12,6 +12,7 @@ export interface AIGeneratedModel {
   relationships: Relationship[];
   tables: PhysicalTable[];
   foreignKeys: ForeignKey[];
+  groups?: EntityGroup[];
 }
 
 export interface AIEnhancementSuggestion {
@@ -24,6 +25,7 @@ export interface AIServiceConfig {
   apiKey: string;
   baseUrl?: string;
   model?: string;
+  generatePhysical?: boolean; // If true, generate both conceptual and physical models
 }
 
 // Local storage key for API settings
@@ -37,6 +39,7 @@ const getDefaultConfig = (): AIServiceConfig | null => {
       apiKey,
       baseUrl: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
+      generatePhysical: true, // Default to generating both conceptual and physical
     };
   }
   return null;
@@ -68,6 +71,17 @@ export const clearAISettings = (): void => {
 
 // System prompt for data modeling
 const SYSTEM_PROMPT = `You are an expert data architect and database designer. Your role is to help users design conceptual and physical data models.
+
+WHEN ANALYZING IMAGES:
+- Look for ERD diagrams, database schemas, whiteboard drawings, or hand-drawn sketches
+- Identify entities/tables (usually boxes or rectangles)
+- Detect relationships (usually lines/arrows connecting entities)
+- Read entity/table names and attribute/column names
+- Identify cardinality markers (1, *, 0..1, 1..*, etc.)
+- Recognize primary keys (often underlined or marked with PK)
+- Detect foreign keys (often marked with FK or shown as relationships)
+- Look for groupings or modules (boxes around multiple entities)
+- Pay attention to any labels, annotations, or notes
 
 IMPORTANT: First analyze the user's request to determine the type of data model needed:
 
@@ -118,11 +132,81 @@ export type ProgressCallback = (stage: string, detail?: string) => void;
 export const generateDataModel = async (
   description: string,
   config: AIServiceConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  imageData?: string
 ): Promise<AIGeneratedModel> => {
   onProgress?.('Analyzing request...', 'Determining model type (OLTP vs Analytics)');
   
-  const prompt = `Generate a complete data model for the following system:
+  let prompt = '';
+  
+  if (imageData) {
+    // Enhanced prompt for image analysis
+    // If description contains focus instructions (from preview confirmation), use those first
+    const hasFilterInstructions = description && (description.includes('ONLY the following sections') || description.includes('FOCUS ON'));
+    
+    prompt = `I've attached an image of a database schema/ERD diagram. Please analyze it carefully and generate a complete data model.
+
+${description || 'Extract the entire schema from the image.'}
+
+${hasFilterInstructions ? '\n=== IMAGE ANALYSIS GUIDELINES ===' : ''}\n\nANALYZE THE IMAGE FOR:
+1. **Entities/Tables**: Look for boxes, rectangles, or labeled sections representing entities
+   - Extract the entity/table name from each box
+   - Note any descriptions or annotations
+   
+2. **Attributes/Columns**: Inside each entity/table box, look for:
+   - Column/attribute names (often listed vertically)
+   - Data types (varchar, int, date, etc.)
+   - Primary keys (often underlined, bold, or marked with PK)
+   - Foreign keys (often marked with FK or shown with asterisks)
+   - Nullable indicators (NULL, NOT NULL, or question marks)
+   
+3. **Relationships**: Look for lines/arrows connecting entities
+   - Follow the lines to determine which entities are connected
+   - Read any labels on the lines (e.g., "has many", "belongs to")
+   - Identify cardinality markers (crow's foot notation, 1, *, N, 0..1, 1..*)
+   
+4. **Groups/Modules**: Look for larger boxes or dashed borders grouping multiple entities
+   - Extract group names if labeled
+   - Note which entities belong to each group
+   - If specific sections are requested above, create groups matching those sections
+
+5. **Notation Style**: Detect if it's:
+   - Chen notation (diamonds for relationships)
+   - Crow's foot notation (lines with symbols at ends)
+   - UML class diagram style
+   - Simple boxes and arrows
+
+RESPOND WITH: A JSON object containing:
+- entities: Array of all entities found in the diagram
+- relationships: Array of all connections between entities${config.generatePhysical !== false ? '\n- tables: Array of physical tables with full column definitions (if shown in image)\n- foreignKeys: Array of foreign key relationships' : ''}
+- groups: Array of entity groups (if entities are visually grouped in the image)
+
+For each entity: { name, description }
+For each relationship: { fromEntityId (use entity name), toEntityId (use entity name), label, fromCardinality, toCardinality }${config.generatePhysical !== false ? '\nFor each table: { name, entityId (use entity name), attributes: [{ name, dataType, isPrimaryKey, isNullable, isForeignKey }] }\nFor each foreignKey: { fromTableId (use table name), toTableId (use table name), fromAttributeId (use column name), toAttributeId (use column name), fromCardinality, toCardinality }' : ''}
+For each group: { name, entityIds: [array of entity names that belong to this group] }
+
+CRITICAL GROUPING RULES:
+- If specific sections were requested at the top of this prompt, create groups matching those sections EXACTLY
+- Otherwise, if entities are inside dashed/dotted boxes, rectangles, or containers → create a group for them
+- If entities have the same label/heading above them → group them together
+- If entities are visually close together with shared context → group them
+- Look for section labels like "Core", "Admin", "Reporting", etc. → those are group names
+- Each group MUST have entityIds array with the names of entities inside it
+- If NO visual grouping exists, return empty groups array []
+
+IMPORTANT: 
+- Extract ALL entities/tables visible in the image
+- Extract ALL relationships/connections shown
+- Use the actual names from the image, not generic names
+- Preserve the cardinality markers exactly as shown
+- If column details are visible, include them in tables.attributes
+- If the diagram is very large (50+ entities), prioritize the most important entities and relationships
+- Keep your response concise to avoid truncation
+
+Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
+  } else {
+    // Text-only prompt (existing logic)
+    prompt = `Generate a complete data model for the following system:
 
 ${description}
 
@@ -132,20 +216,17 @@ Then generate the appropriate model structure.
 Respond with a JSON object containing:
 - modelType: "oltp" | "star_schema" | "hybrid" (indicate what you detected)
 - entities: Array of conceptual entities with id (uuid), name, description
-- relationships: Array of relationships with id, fromEntityId, toEntityId, label, fromCardinality, toCardinality
-- tables: Array of physical tables with id, entityId (matching entity), name (snake_case), attributes
-- foreignKeys: Array of foreign keys with id, fromTableId, toTableId, fromAttributeId, toAttributeId, fromCardinality, toCardinality
+- relationships: Array of relationships with id, fromEntityId, toEntityId, label, fromCardinality, toCardinality${config.generatePhysical !== false ? '\n- tables: Array of physical tables with id, entityId (matching entity), name (snake_case), attributes\n- foreignKeys: Array of foreign keys with id, fromTableId, toTableId, fromAttributeId, toAttributeId, fromCardinality, toCardinality' : ''}
+${config.generatePhysical !== false ? '\nEach table attribute should have: id, name, dataType, isPrimaryKey, isNullable, isForeignKey' : ''}
 
-Each table attribute should have: id, name, dataType, isPrimaryKey, isNullable, isForeignKey
-
-For OLTP: Generate 3-8 normalized entities with proper relationships.
-For Star Schema: Generate 1-3 fact tables and 3-6 dimension tables.
+For OLTP: Generate 3-8 normalized entities with proper relationships.${config.generatePhysical !== false ? '\nFor Star Schema: Generate 1-3 fact tables and 3-6 dimension tables.' : ''}
 For Hybrid: Mix of operational entities and analytical structures.
 
 IMPORTANT: Respond ONLY with the JSON object, no markdown code blocks or explanations.`;
+  }
 
-  onProgress?.('Calling AI...', 'Generating conceptual entities');
-  const response = await callAI(prompt, config);
+  onProgress?.('Calling AI...', imageData ? 'Analyzing image and extracting schema' : 'Generating conceptual entities');
+  const response = await callAI(prompt, config, imageData);
   
   onProgress?.('Parsing response...', 'Building entity structures');
   const result = parseModelResponse(response);
@@ -164,7 +245,8 @@ export const enhanceModel = async (
   },
   enhancementRequest: string,
   config: AIServiceConfig,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  imageData?: string
 ): Promise<AIGeneratedModel> => {
   onProgress?.('Analyzing current model...', `Found ${currentModel.entities.length} entities, ${currentModel.tables.length} tables`);
   
@@ -184,7 +266,62 @@ export const enhanceModel = async (
     };
   });
 
-  const prompt = `You are enhancing an existing data model. Generate NEW entities, relationships, tables with FULL column definitions, and foreign keys.
+  let prompt = '';
+  
+  if (imageData) {
+    // Enhanced prompt for image-based enhancement
+    prompt = `I've attached an image showing additional entities or changes to add to my existing data model.
+
+=== CURRENT MODEL ===
+
+ENTITIES:
+${JSON.stringify(currentModel.entities.map(e => ({ id: e.id, name: e.name, description: e.description })), null, 2)}
+
+RELATIONSHIPS:
+${JSON.stringify(currentModel.relationships.map(r => ({
+  from: currentModel.entities.find(e => e.id === r.fromEntityId)?.name,
+  to: currentModel.entities.find(e => e.id === r.toEntityId)?.name,
+  label: r.label,
+  cardinality: `${r.fromCardinality} to ${r.toCardinality}`
+})), null, 2)}
+
+TABLES (with columns):
+${JSON.stringify(tableDetails, null, 2)}
+
+=== IMAGE CONTENT ===
+${enhancementRequest || 'Analyze the image to identify new entities, relationships, or tables to add.'}
+
+ANALYZE THE IMAGE FOR:
+1. **NEW Entities/Tables**: Look for entities NOT already in the current model
+2. **NEW Relationships**: Look for connections between entities (new or to existing ones)
+3. **NEW Attributes/Columns**: Additional columns to add to existing or new tables
+4. **Groups**: Any groupings or modules containing entities
+
+RESPOND WITH: A JSON object containing ONLY NEW elements to add:
+{
+  "entities": [ /* Only NEW entities from image,,
+  "groups": [ /* Only NEW entity groups with entityIds as entity names */ ]
+}
+
+For NEW entities: use entity names from the image
+For relationships: use entity NAMES (not IDs) for fromEntityId/toEntityId - both new and existing names work
+For tables: include entityId as entity NAME, and MUST include full attributes array
+For foreignKeys: use table NAMES (not IDs) and column NAMES (not IDs)
+For groups: { name, entityIds: [array of entity names] } - can include both new and existing entity names
+For relationships: use entity NAMES (not IDs) for fromEntityId/toEntityId - both new and existing names work
+For tables: include entityId as entity NAME, and MUST include full attributes array
+For foreignKeys: use table NAMES (not IDs) and column NAMES (not IDs)
+
+CRITICAL:
+- DO NOT duplicate existing entities/tables
+- DO NOT return empty attributes arrays - every new table needs columns
+- Use actual names from the image
+- Link new elements to existing ones by using their names
+
+Respond ONLY with valid JSON, no markdown or explanations.`;
+  } else {
+    // Text-only enhancement prompt (existing logic)
+    prompt = `You are enhancing an existing data model. Generate NEW entities, relationships, tables with FULL column definitions, and foreign keys.
 
 === CURRENT MODEL ===
 
@@ -296,9 +433,10 @@ CRITICAL REQUIREMENTS:
 - DO NOT return tables without attributes - this will cause the model to fail
 
 Respond ONLY with valid JSON, no markdown or explanations.`;
+  }
 
-  onProgress?.('Calling AI...', 'Generating enhancements');
-  const response = await callAI(prompt, config);
+  onProgress?.('Calling AI...', imageData ? 'Analyzing image and identifying new elements' : 'Generating enhancements');
+  const response = await callAI(prompt, config, imageData);
   
   onProgress?.('Parsing response...', 'Merging with existing model');
   const result = parseEnhancementResponse(response, currentModel);
@@ -390,9 +528,33 @@ IMPORTANT: Respond ONLY with the JSON array, no markdown code blocks or explanat
 };
 
 // Call the AI API
-async function callAI(prompt: string, config: AIServiceConfig): Promise<string> {
+export async function callAI(prompt: string, config: AIServiceConfig, imageData?: string): Promise<string> {
   const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-  const model = config.model || 'gpt-4o-mini';
+  let model = config.model || 'gpt-4o-mini';
+  
+  // Use vision model if image is provided and current model doesn't support vision
+  if (imageData && !model.includes('gpt-4o')) {
+    model = 'gpt-4o-mini'; // Ensure we use a vision-capable model
+  }
+
+  // Build user message content
+  let userContent: any;
+  if (imageData) {
+    // Vision API format with image
+    userContent = [
+      { type: 'text', text: prompt },
+      { 
+        type: 'image_url', 
+        image_url: { 
+          url: imageData,
+          detail: 'high' // Use high detail for better schema detection
+        } 
+      },
+    ];
+  } else {
+    // Text-only format
+    userContent = prompt;
+  }
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -404,10 +566,10 @@ async function callAI(prompt: string, config: AIServiceConfig): Promise<string> 
       model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: prompt },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 16000, // Increased to handle large models with many entities/tables
     }),
   });
 
@@ -428,6 +590,13 @@ function parseModelResponse(response: string): AIGeneratedModel {
     
     console.log('[AI] Raw response length:', response.length);
     console.log('[AI] Raw response (first 500 chars):', response.slice(0, 500));
+    console.log('[AI] Raw response (last 500 chars):', response.slice(-500));
+    
+    // Check if response appears to be truncated
+    if (!response.trim().endsWith('}') && !response.trim().endsWith(']')) {
+      console.error('[AI] Response appears truncated - does not end with } or ]');
+      throw new Error('AI response was truncated. The model is too complex - try simplifying your request or breaking it into smaller parts.');
+    }
     
     if (cleaned.startsWith('```json')) {
       cleaned = cleaned.slice(7);
@@ -439,7 +608,14 @@ function parseModelResponse(response: string): AIGeneratedModel {
     }
     cleaned = cleaned.trim();
 
-    const parsed = JSON.parse(cleaned);
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (jsonError) {
+      console.error('[AI] JSON parse error:', jsonError);
+      console.error('[AI] Attempted to parse:', cleaned.slice(0, 1000));
+      throw new Error(`Invalid JSON response from AI: ${jsonError instanceof Error ? jsonError.message : 'Unknown error'}. The response may be too large or malformed.`);
+    }
     
     console.log('[AI] Raw parsed tables:', JSON.stringify(parsed.tables?.map((t: any) => ({ 
       name: t.name, 
@@ -549,11 +725,32 @@ function parseModelResponse(response: string): AIGeneratedModel {
       }
     });
 
-    return { entities, relationships, tables, foreignKeys };
+    // Parse entity groups if present in the response
+    const groups = (parsed.groups || []).map((g: any) => ({
+      id: uuidv4(),
+      name: g.name || 'Unnamed Group',
+      entityIds: (g.entityIds || []).map((eid: string) => entityIdMap.get(eid) || eid),
+      borderStyle: g.borderStyle || 'dashed',
+      borderColor: g.borderColor,
+      backgroundColor: g.backgroundColor,
+      borderWidth: g.borderWidth || 2,
+    }));
+
+    return { entities, relationships, tables, foreignKeys, groups };
   } catch (error) {
     console.error('Failed to parse AI response:', error);
     console.error('Raw response:', response);
-    throw new Error('Failed to parse AI response. Please try again.');
+    
+    // Provide helpful error message
+    if (error instanceof Error) {
+      if (error.message.includes('truncated')) {
+        throw error; // Already has good message
+      } else if (error.message.includes('JSON')) {
+        throw new Error('Failed to parse AI response. The diagram may be too complex. Try:\n- Breaking the diagram into smaller sections\n- Using text description instead of image\n- Simplifying the diagram before uploading');
+      }
+    }
+    
+    throw new Error('Failed to parse AI response. Please try again or use a simpler description.');
   }
 }
 

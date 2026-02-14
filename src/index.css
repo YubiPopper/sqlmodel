@@ -164,8 +164,8 @@ button:active {
     display: none !important;
   }
   
-  /* Make touch targets larger on mobile */
-  button {
+  /* Make touch targets larger on mobile - but not close buttons */
+  button:not([title="Close"]):not([title*="Remove"]) {
     min-height: 44px;
     padding: 0.6em 1em;
   }

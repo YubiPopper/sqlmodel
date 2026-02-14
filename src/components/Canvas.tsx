@@ -27,6 +27,7 @@ import { AISettingsDialog } from './ui/AISettingsDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
 import { Plus, Trash2, Copy, ArrowDownUp, Group, Pencil, Code } from 'lucide-react';
 
+// Define nodeTypes and edgeTypes outside component to prevent React Flow warnings
 const nodeTypes = {
   entity: EntityNode,
   table: TableNode,
@@ -393,19 +394,43 @@ const CanvasInner = () => {
           const layout = tableLayouts[table.id];
           if (!layout) return; // Skip tables without layout
           
-          const tableWidth = 240;
+          // Calculate table width dynamically based on name length
+          // Base width is 240px, but table expands for longer names
+          // Monospace font at 15px/600 weight is ~9.5px per character, plus padding, icons, and margins
+          const nameWidth = table.name.length * 11; // Increased for accurate width matching
+          const tableWidth = Math.max(240, nameWidth);
+          
           // Calculate table height based on display mode
+          // Table has 2px border on all sides (4px total height)
+          // Header is 44px (12px padding + text) + 1px bottom border
+          // Each row is 40px (10px padding top + 10px padding bottom + ~20px text)
+          // "No columns defined" message is 48px (16px top + 16px bottom + text)
           let tableHeight;
           if (tableFieldsDisplay === 'name') {
             // Header only - just title bar
-            tableHeight = 44;
+            // 4px (borders) + 44px (header) + 1px (header border) = 49px
+            tableHeight = 49;
           } else if (tableFieldsDisplay === 'keys') {
             // Header + key fields only
             const keyCount = table.attributes.filter(a => a.isPrimaryKey || a.isForeignKey).length;
-            tableHeight = 44 + (keyCount * 32) + 20;
+            if (keyCount === 0) {
+              // No keys to show - shows "No columns defined" message
+              // 4px (borders) + 44px (header) + 1px (header border) + 48px (message) = 97px
+              tableHeight = 97;
+            } else {
+              // 4px (borders) + 44px (header) + 1px (header border) + rows
+              tableHeight = 49 + (keyCount * 40);
+            }
           } else {
             // All fields
-            tableHeight = 44 + (table.attributes.length * 32) + 20;
+            if (table.attributes.length === 0) {
+              // No attributes - shows "No columns defined" message
+              // 4px (borders) + 44px (header) + 1px (header border) + 48px (message) = 97px
+              tableHeight = 97;
+            } else {
+              // 4px (borders) + 44px (header) + 1px (header border) + rows
+              tableHeight = 49 + (table.attributes.length * 40);
+            }
           }
           
           minX = Math.min(minX, layout.x);
@@ -438,20 +463,20 @@ const CanvasInner = () => {
           };
         }
 
-        const padding = 30; // Padding around tables
-        const headerPadding = 50; // Extra space at top for entity label
+        const padding = 30; // Left, right, and bottom padding
+        const topPadding = 40; // Slightly more padding at top for entity label
 
         return {
           id: `${entity.id}-group`,
           type: 'entityGroup',
-          position: { x: minX - padding, y: minY - headerPadding },
+          position: { x: minX - padding, y: minY - topPadding },
           data: {
             entityId: entity.id,
             entityName: entity.name,
             entityDescription: entity.description,
             entityColor: entity.color,
             width: maxX - minX + padding * 2,
-            height: maxY - minY + padding + headerPadding + 16,
+            height: maxY - minY + topPadding + padding,
             isDropTarget: dragHoverEntityGroupId === entity.id,
           },
           zIndex: -1,
@@ -666,9 +691,6 @@ const CanvasInner = () => {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     changes.forEach(change => {
-      if ('id' in change) {
-        console.log('[Canvas] onNodesChange - change:', change.type, 'id:', change.id, 'dragging:', (change as any).dragging);
-      }
       if (change.type === 'position' && change.position) {
         // Check if this is an entity group node
         const isEntityGroup = change.id.endsWith('-group');
@@ -832,7 +854,6 @@ const CanvasInner = () => {
       const entityX = node.position.x + 110; // Entity center
       const entityY = node.position.y + 60;
 
-      console.log('[Canvas] onNodeDrag - entity:', node.id, 'position:', entityX, entityY);
       const hoveredGroup = entityGroups.find(group => {
       // Skip if entity is already in this group
       if (group.entityIds.includes(node.id)) return false;
@@ -881,7 +902,6 @@ const CanvasInner = () => {
              entityY >= groupY && entityY <= groupY + groupHeight;
     });
 
-    console.log('[Canvas] Hover state changing to:', hoveredGroup?.id || null);
     setDragHoverGroupId(hoveredGroup?.id || null);
     return;
   }
@@ -935,7 +955,6 @@ const CanvasInner = () => {
              tableY >= groupY && tableY <= groupY + groupHeight;
     })?.id;
 
-    console.log('[Canvas] Table drag over entity group:', hoveredEntityId || null);
     setDragHoverEntityGroupId(hoveredEntityId || null);
     return;
   }
@@ -950,7 +969,6 @@ const CanvasInner = () => {
     if (viewMode === 'conceptual' && dragHoverGroupId) {
       const entity = entities.find(e => e.id === node.id);
       if (entity) {
-        console.log('[Canvas] Drop detected - adding entity:', entity.id, 'to group:', dragHoverGroupId);
         addEntityToGroup(dragHoverGroupId, entity.id);
       }
     }
@@ -959,7 +977,6 @@ const CanvasInner = () => {
     if (viewMode === 'physical' && showEntityOverlay && dragHoverEntityGroupId) {
       const table = tables.find(t => t.id === node.id);
       if (table) {
-        console.log('[Canvas] Drop detected - assigning table:', table.id, 'to entity:', dragHoverEntityGroupId);
         updateTable(table.id, { entityId: dragHoverEntityGroupId });
       }
     }

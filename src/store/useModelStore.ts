@@ -349,10 +349,7 @@ export const useModelStore = create<ModelState>()(
       },
 
       addEntityToGroup: (groupId, entityId) => {
-        console.log('[Store] addEntityToGroup called - groupId:', groupId, 'entityId:', entityId);
         set((state) => {
-          const group = state.entityGroups.find(g => g.id === groupId);
-          console.log('[Store] Group found:', !!group, 'Already includes entity:', group?.entityIds.includes(entityId));
           return {
             entityGroups: state.entityGroups.map((g) =>
               g.id === groupId && !g.entityIds.includes(entityId)
