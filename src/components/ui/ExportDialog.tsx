@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import { X, Copy, Check, Download, ChevronDown } from 'lucide-react';
@@ -267,31 +267,29 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
   };
   
   const [exportDialect, setExportDialect] = useState<ExportDialect>(getSavedDialect());
-  const [ddlText, setDDLText] = useState('');
   const [copied, setCopied] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isDark = colorMode === 'dark';
+  
+  // Read tables/FKs from store so DDL regenerates when model changes
+  const tables = useModelStore(state => state.tables);
+  const foreignKeys = useModelStore(state => state.foreignKeys);
 
   // Re-read saved format from localStorage whenever dialog opens
   useEffect(() => {
     if (isOpen) {
-      const saved = localStorage.getItem('sqlmodel-preferred-format');
-      console.log('[ExportDialog] Reading from localStorage:', saved);
       const savedDialect = getSavedDialect();
-      console.log('[ExportDialog] Mapped to dialect:', savedDialect);
       setExportDialect(savedDialect);
     }
   }, [isOpen]);
 
-  // Generate DDL when dialog opens or dialect changes
-  useEffect(() => {
-    if (isOpen) {
-      // Rails uses PostgreSQL dialect for DDL generation
-      const dialectForGeneration = exportDialect === 'rails' ? 'postgresql' : exportDialect;
-      setDDLText(generateFullDDL(dialectForGeneration));
-    }
-  }, [isOpen, exportDialect]);
+  // Generate DDL reactively whenever dialect, tables, or foreign keys change
+  const ddlText = useMemo(() => {
+    if (!isOpen) return '';
+    const dialectForGeneration = exportDialect === 'rails' ? 'postgresql' : exportDialect;
+    return generateFullDDL(dialectForGeneration);
+  }, [isOpen, exportDialect, tables, foreignKeys]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
