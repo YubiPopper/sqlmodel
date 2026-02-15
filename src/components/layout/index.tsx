@@ -8,7 +8,6 @@ import { StarRepoDialog } from '../ui/StarRepoDialog';
 import { ExampleDialog } from '../ui/ExampleDialog';
 import { AIDialog } from '../ui/AIDialog';
 import { AISettingsDialog } from '../ui/AISettingsDialog';
-import { SnowflakeDialog } from '../ui/SnowflakeDialog';
 import { AddTableDialog } from '../ui/AddTableDialog';
 
 export const AppLayout: React.FC = () => {
@@ -27,8 +26,6 @@ export const AppLayout: React.FC = () => {
   const setShowAIDialog = useModelStore(state => state.setShowAIDialog);
   const showAISettingsDialog = useModelStore(state => state.showAISettingsDialog);
   const setShowAISettingsDialog = useModelStore(state => state.setShowAISettingsDialog);
-  const showSnowflakeDialog = useModelStore(state => state.showSnowflakeDialog);
-  const setShowSnowflakeDialog = useModelStore(state => state.setShowSnowflakeDialog);
   const showAddTableDialog = useModelStore(state => state.showAddTableDialog);
   const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
   
@@ -140,10 +137,6 @@ export const AppLayout: React.FC = () => {
       <AISettingsDialog
         isOpen={showAISettingsDialog}
         onClose={() => setShowAISettingsDialog(false)}
-      />
-      <SnowflakeDialog
-        isOpen={showSnowflakeDialog}
-        onClose={() => setShowSnowflakeDialog(false)}
       />
       <AddTableDialog
         isOpen={showAddTableDialog}

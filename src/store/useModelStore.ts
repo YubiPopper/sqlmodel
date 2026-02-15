@@ -142,8 +142,6 @@ interface ModelState {
   setShowAIDialog: (show: boolean) => void;
   showExampleDialog: boolean;
   setShowExampleDialog: (show: boolean) => void;
-  showSnowflakeDialog: boolean;
-  setShowSnowflakeDialog: (show: boolean) => void;
   showAISettingsDialog: boolean;
   setShowAISettingsDialog: (show: boolean) => void;
   
@@ -228,8 +226,6 @@ export const useModelStore = create<ModelState>()(
       setShowAIDialog: (show) => set({ showAIDialog: show }),
       showExampleDialog: false,
       setShowExampleDialog: (show) => set({ showExampleDialog: show }),
-      showSnowflakeDialog: false,
-      setShowSnowflakeDialog: (show) => set({ showSnowflakeDialog: show }),
       showAISettingsDialog: false,
       setShowAISettingsDialog: (show) => set({ showAISettingsDialog: show }),
 
@@ -915,13 +911,16 @@ export const useModelStore = create<ModelState>()(
             break;
           case 'left-right':
           default:
-            // Left-right layout (default)
+            // Left-right layout (default) - optimized layered algorithm
+            // Inspired by ELK.js layered algorithm: network-simplex for optimal
+            // rank assignment, generous edge-to-node spacing between layers
             graphOptions = {
               rankdir: 'LR',
-              nodesep: 110,
-              ranksep: 160,
-              marginx: 130,
-              marginy: 130,
+              nodesep: 60,       // Vertical spacing between nodes in same rank
+              ranksep: 200,      // Horizontal spacing between layers (generous for FK lines)
+              marginx: 80,
+              marginy: 80,
+              ranker: 'network-simplex', // Best crossing minimization, edge-aware ordering
             };
             break;
         }
@@ -1044,6 +1043,51 @@ export const useModelStore = create<ModelState>()(
                 tableY += tableHeight + 24; // Move to next table position with spacing
               });
             });
+
+            // Also layout orphan tables (no entityId) that aren't part of any entity group
+            const orphanTables = tables.filter(t => !t.entityId);
+            if (orphanTables.length > 0) {
+              const orphanGraph = new dagre.graphlib.Graph();
+              orphanGraph.setDefaultEdgeLabel(() => ({}));
+              orphanGraph.setGraph(graphOptions);
+
+              orphanTables.forEach((table) => {
+                const width = 280;
+                const height = Math.max(44 + (table.attributes.length * 32) + 20, 120);
+                orphanGraph.setNode(table.id, { width, height });
+              });
+
+              foreignKeys.forEach((fk) => {
+                const fromOrphan = orphanTables.some(t => t.id === fk.fromTableId);
+                const toOrphan = orphanTables.some(t => t.id === fk.toTableId);
+                if (fromOrphan || toOrphan) {
+                  // Only add edge if at least one side is an orphan and both nodes exist in the graph
+                  if (orphanGraph.hasNode(fk.fromTableId) && orphanGraph.hasNode(fk.toTableId)) {
+                    orphanGraph.setEdge(fk.fromTableId, fk.toTableId);
+                  }
+                }
+              });
+
+              dagre.layout(orphanGraph);
+
+              // Offset orphan positions so they don't overlap with entity groups
+              // Find the max X extent of entity-grouped tables
+              let maxEntityX = 0;
+              Object.values(newTableLayouts).forEach(layout => {
+                maxEntityX = Math.max(maxEntityX, layout.x + 300);
+              });
+              const orphanOffsetX = maxEntityX > 0 ? maxEntityX + 100 : 0;
+
+              orphanTables.forEach((table) => {
+                const nodeWithPosition = orphanGraph.node(table.id);
+                if (nodeWithPosition) {
+                  newTableLayouts[table.id] = {
+                    x: nodeWithPosition.x - nodeWithPosition.width / 2 + orphanOffsetX,
+                    y: nodeWithPosition.y - nodeWithPosition.height / 2,
+                  };
+                }
+              });
+            }
 
             set({ tableLayouts: newTableLayouts });
           } else {
@@ -1268,7 +1312,7 @@ export const useModelStore = create<ModelState>()(
             toAttributeId: borrowerPKId,
             fromCardinality: '0..*',
             toCardinality: '1',
-            edgeType: 'smoothstep',
+            edgeType: 'curved',
           },
           {
             id: uuidv4(),
@@ -1278,7 +1322,7 @@ export const useModelStore = create<ModelState>()(
             toAttributeId: bookPKId,
             fromCardinality: '0..*',
             toCardinality: '1',
-            edgeType: 'smoothstep',
+            edgeType: 'curved',
           },
         ];
 
@@ -1407,10 +1451,10 @@ export const useModelStore = create<ModelState>()(
         ];
 
         const foreignKeys: ForeignKey[] = [
-          { id: uuidv4(), fromTableId: orderTableId, toTableId: customerTableId, fromAttributeId: orderCustomerFKId, toAttributeId: customerPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: orderTableId, fromAttributeId: orderItemOrderFKId, toAttributeId: orderPKId, fromCardinality: '1..*', toCardinality: '1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: productTableId, fromAttributeId: orderItemProductFKId, toAttributeId: productPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: paymentTableId, toTableId: orderTableId, fromAttributeId: paymentOrderFKId, toAttributeId: orderPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: orderTableId, toTableId: customerTableId, fromAttributeId: orderCustomerFKId, toAttributeId: customerPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: orderTableId, fromAttributeId: orderItemOrderFKId, toAttributeId: orderPKId, fromCardinality: '1..*', toCardinality: '1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: orderItemTableId, toTableId: productTableId, fromAttributeId: orderItemProductFKId, toAttributeId: productPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: paymentTableId, toTableId: orderTableId, fromAttributeId: paymentOrderFKId, toAttributeId: orderPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
         ];
 
         set({
@@ -1519,9 +1563,9 @@ export const useModelStore = create<ModelState>()(
         ];
 
         const foreignKeys: ForeignKey[] = [
-          { id: uuidv4(), fromTableId: postTableId, toTableId: authorTableId, fromAttributeId: postAuthorFKId, toAttributeId: authorPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: postTableId, toTableId: categoryTableId, fromAttributeId: postCategoryFKId, toAttributeId: categoryPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: commentTableId, toTableId: postTableId, fromAttributeId: commentPostFKId, toAttributeId: postPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: postTableId, toTableId: authorTableId, fromAttributeId: postAuthorFKId, toAttributeId: authorPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: postTableId, toTableId: categoryTableId, fromAttributeId: postCategoryFKId, toAttributeId: categoryPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: commentTableId, toTableId: postTableId, fromAttributeId: commentPostFKId, toAttributeId: postPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
         ];
 
         set({
@@ -1632,10 +1676,10 @@ export const useModelStore = create<ModelState>()(
         ];
 
         const foreignKeys: ForeignKey[] = [
-          { id: uuidv4(), fromTableId: taskTableId, toTableId: projectTableId, fromAttributeId: taskProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: taskTableId, toTableId: memberTableId, fromAttributeId: taskAssigneeFKId, toAttributeId: memberPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: taskTableId, toTableId: milestoneTableId, fromAttributeId: taskMilestoneFKId, toAttributeId: milestonePKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'smoothstep' },
-          { id: uuidv4(), fromTableId: milestoneTableId, toTableId: projectTableId, fromAttributeId: milestoneProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'smoothstep' },
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: projectTableId, fromAttributeId: taskProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: memberTableId, fromAttributeId: taskAssigneeFKId, toAttributeId: memberPKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: taskTableId, toTableId: milestoneTableId, fromAttributeId: taskMilestoneFKId, toAttributeId: milestonePKId, fromCardinality: '0..*', toCardinality: '0..1', edgeType: 'curved' },
+          { id: uuidv4(), fromTableId: milestoneTableId, toTableId: projectTableId, fromAttributeId: milestoneProjectFKId, toAttributeId: projectPKId, fromCardinality: '0..*', toCardinality: '1', edgeType: 'curved' },
         ];
 
         set({
@@ -1818,7 +1862,6 @@ export const useModelStore = create<ModelState>()(
           showAddTableDialog, 
           showAIDialog, 
           showExampleDialog, 
-          showSnowflakeDialog, 
           showAISettingsDialog,
           navigateToNodeCallback,
           fitViewCallback,
@@ -1844,7 +1887,6 @@ export const useModelStore = create<ModelState>()(
           state.showAddTableDialog = false;
           state.showAIDialog = false;
           state.showExampleDialog = false;
-          state.showSnowflakeDialog = false;
           state.showAISettingsDialog = false;
         }
       },

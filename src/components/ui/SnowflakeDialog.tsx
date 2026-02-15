@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import { X, Copy, Check } from 'lucide-react';
+import { parseSnowflakeDDL } from '../../services/parsers/snowflakeDDLParser';
+import { importParsedSchema } from '../../services/parsers/importSchema';
 
 interface SnowflakeDialogProps {
   isOpen: boolean;
@@ -43,93 +45,17 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
     }
 
     try {
-      const { tables } = parseSnowflakeDDL(ddlText);
+      const result = parseSnowflakeDDL(ddlText);
       
       // Check if parsing found any tables
-      if (tables.length === 0) {
+      if (result.tables.length === 0) {
         alert('No tables found in DDL');
         return;
       }
 
-      // Get store actions
-      const state = useModelStore.getState();
-      const addTable = state.addTable;
-      const addTableAttribute = state.addTableAttribute;
-      const updateTableAttribute = state.updateTableAttribute;
-      const addForeignKey = state.addForeignKey;
-      const updateTable = state.updateTable;
+      const { tableCount, fkCount } = importParsedSchema(result);
       
-      // Track table IDs for foreign key creation
-      const tableIdMap = new Map<string, string>();
-      
-      // First pass: Create all tables and their attributes
-      tables.forEach(tableData => {
-        const tableId = addTable(undefined);
-        tableIdMap.set(tableData.name.toLowerCase(), tableId);
-        
-        // Update table with name, database, and schema
-        updateTable(tableId, { 
-          name: tableData.name,
-          database: tableData.database,
-          schema: tableData.schema,
-        });
-        
-        // Get fresh state after table creation
-        const freshState = useModelStore.getState();
-        const currentTable = freshState.tables.find(t => t.id === tableId);
-        
-        if (!currentTable) {
-          return;
-        }
-        
-        // Add attributes
-        tableData.columns.forEach((col) => {
-          addTableAttribute(tableId);
-          
-          // Get fresh state after each attribute add
-          const stateAfterAdd = useModelStore.getState();
-          const tableAfterAdd = stateAfterAdd.tables.find(t => t.id === tableId);
-          
-          if (!tableAfterAdd) {
-            return;
-          }
-          
-          const newAttr = tableAfterAdd.attributes[tableAfterAdd.attributes.length - 1];
-          if (newAttr) {
-            updateTableAttribute(tableId, newAttr.id, {
-              name: col.name,
-              dataType: col.dataType,
-              isPrimaryKey: col.isPrimaryKey,
-              isNullable: col.isNullable,
-            });
-          }
-        });
-      });
-      
-      // Second pass: Create foreign keys
-      tables.forEach(tableData => {
-        const fromTableId = tableIdMap.get(tableData.name.toLowerCase());
-        if (!fromTableId) return;
-        
-        tableData.foreignKeys.forEach(fk => {
-          const toTableId = tableIdMap.get(fk.referencedTable.toLowerCase());
-          if (!toTableId) return;
-          
-          const fromTable = state.tables.find(t => t.id === fromTableId);
-          const toTable = state.tables.find(t => t.id === toTableId);
-          if (!fromTable || !toTable) return;
-          
-          const fromAttr = fromTable.attributes.find(a => a.name.toLowerCase() === fk.column.toLowerCase());
-          const toAttr = toTable.attributes.find(a => a.name.toLowerCase() === fk.referencedColumn.toLowerCase());
-          
-          if (fromAttr && toAttr) {
-            addForeignKey(fromTableId, toTableId, fromAttr.id, toAttr.id);
-          }
-        });
-      });
-      
-      // Apply auto-layout to organize the imported tables
-      state.autoLayout();
+      console.log(`Snowflake import: ${tableCount} tables, ${fkCount} foreign keys`);
       
       setDdlText('');
       onClose();
@@ -137,153 +63,6 @@ export const SnowflakeDialog: React.FC<SnowflakeDialogProps> = ({ isOpen, onClos
       console.error('Error parsing DDL:', error);
       alert(`Error parsing DDL: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
-
-  interface ParsedColumn {
-    name: string;
-    dataType: string;
-    isPrimaryKey: boolean;
-    isNullable: boolean;
-  }
-
-  interface ParsedForeignKey {
-    column: string;
-    referencedTable: string;
-    referencedColumn: string;
-  }
-
-  interface ParsedTable {
-    name: string;
-    database?: string;
-    schema?: string;
-    columns: ParsedColumn[];
-    foreignKeys: ParsedForeignKey[];
-  }
-
-  const parseSnowflakeDDL = (ddl: string): { tables: ParsedTable[], diagnostics: string } => {
-    const tables: ParsedTable[] = [];
-    let diagnosticsLog = '';
-    
-    // Normalize line endings and remove extra whitespace
-    const normalizedDDL = ddl.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    
-    // Find CREATE TABLE statements with a simpler approach
-    const tableRegex = /CREATE\s+(?:OR\s+REPLACE\s+)?(?:TRANSIENT\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.]+)\s*\(/gi;
-    const matches = [...normalizedDDL.matchAll(tableRegex)];
-    
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-      const fullTableName = match[1];
-      
-      // Parse fully qualified name: DATABASE.SCHEMA.TABLE or SCHEMA.TABLE or TABLE
-      const nameParts = fullTableName.split('.');
-      let tableName: string;
-      let schemaName: string | undefined;
-      let databaseName: string | undefined;
-      
-      if (nameParts.length === 3) {
-        // DATABASE.SCHEMA.TABLE
-        databaseName = nameParts[0];
-        schemaName = nameParts[1];
-        tableName = nameParts[2];
-      } else if (nameParts.length === 2) {
-        // SCHEMA.TABLE (or DATABASE.TABLE, but typically SCHEMA.TABLE)
-        schemaName = nameParts[0];
-        tableName = nameParts[1];
-      } else {
-        // Just TABLE
-        tableName = nameParts[0];
-      }
-      
-      // Find the table body between ( and );
-      const startIdx = match.index! + match[0].length;
-      let endIdx = normalizedDDL.indexOf(');', startIdx);
-      
-      if (endIdx === -1) continue;
-      
-      const tableBody = normalizedDDL.substring(startIdx, endIdx).trim();
-      
-      const columns: ParsedColumn[] = [];
-      const foreignKeys: ParsedForeignKey[] = [];
-      const primaryKeyColumns = new Set<string>();
-      
-      // Extract primary key constraint
-      const pkMatch = tableBody.match(/(?:CONSTRAINT\s+\w+\s+)?PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-      if (pkMatch) {
-        const pkCols = pkMatch[1].split(',').map(c => c.trim().toLowerCase());
-        pkCols.forEach(col => primaryKeyColumns.add(col));
-      }
-      
-      // Extract foreign key constraints
-      const fkMatches = [...tableBody.matchAll(/(?:CONSTRAINT\s+\w+\s+)?FOREIGN\s+KEY\s*\(([^)]+)\)\s*REFERENCES\s+([^\s(]+)\s*\(([^)]+)\)/gi)];
-      for (const fkMatch of fkMatches) {
-        foreignKeys.push({
-          column: fkMatch[1].trim(),
-          referencedTable: fkMatch[2].split('.').pop() || fkMatch[2],
-          referencedColumn: fkMatch[3].trim(),
-        });
-      }
-      
-      // Parse columns - split by line breaks
-      const lines = tableBody.split('\n').map(l => l.trim()).filter(l => l);
-      
-      diagnosticsLog += `\n=== Table: ${tableName} ===\n`;
-      diagnosticsLog += `Table body length: ${tableBody.length}\n`;
-      diagnosticsLog += `Lines found: ${lines.length}\n`;
-      
-      for (const line of lines) {
-        // Remove trailing comma
-        const cleanLine = line.replace(/,$/, '').trim();
-        
-        diagnosticsLog += `\nLine: "${cleanLine}"\n`;
-        
-        // Skip constraints
-        if (/^(PRIMARY\s+KEY|FOREIGN\s+KEY|CONSTRAINT|UNIQUE|CHECK)/i.test(cleanLine)) {
-          diagnosticsLog += '  -> Skipped (constraint)\n';
-          continue;
-        }
-        
-        // Parse: COLUMN_NAME TYPE [constraints]
-        // Split by whitespace to get column name and type
-        const parts = cleanLine.split(/\s+/);
-        diagnosticsLog += `  -> Parts: [${parts.join(', ')}]\n`;
-        
-        if (parts.length < 2) {
-          diagnosticsLog += '  -> Skipped (too few parts)\n';
-          continue;
-        }
-        
-        const colName = parts[0];
-        const dataType = parts[1];
-        const rest = cleanLine.substring(colName.length + dataType.length).toLowerCase();
-        
-        const isNullable = !rest.includes('not null');
-        const isPrimaryKey = primaryKeyColumns.has(colName.toLowerCase());
-        
-        diagnosticsLog += `  -> ✓ Column: ${colName}, Type: ${dataType}\n`;
-        
-        columns.push({
-          name: colName,
-          dataType,
-          isPrimaryKey,
-          isNullable,
-        });
-      }
-      
-      diagnosticsLog += `\nTotal columns: ${columns.length}\n`;
-      
-      if (columns.length > 0) {
-        tables.push({
-          name: tableName,
-          database: databaseName,
-          schema: schemaName,
-          columns,
-          foreignKeys,
-        });
-      }
-    }
-    
-    return { tables, diagnostics: diagnosticsLog };
   };
 
   const handleCancel = () => {

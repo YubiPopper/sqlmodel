@@ -17,7 +17,63 @@ import { DropdownButton } from '../../shared/Dropdown';
 import { Tooltip } from '../../shared/Tooltip';
 import type { DropdownItem } from '../../shared/Dropdown';
 import type { ConceptualData, PhysicalData } from '../../../model/schemas';
-import { FullDDLDialog } from '../../ui/FullDDLDialog';
+import { SchemaDialog } from '../../ui/SchemaDialog';
+import { ImportDialog } from '../../ui/ImportDialog';
+import { ExportDialog } from '../../ui/ExportDialog';
+import { 
+  railsConfig, 
+  snowflakeConfig, 
+  postgresConfig, 
+  prismaConfig 
+} from '../../ui/importFormatConfigs';
+
+// Snowflake Icon Component
+const SnowflakeIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/snowflake.svg" 
+    alt="Snowflake" 
+    style={{ width: size, height: size, objectFit: 'contain' }} 
+  />
+);
+
+// Rails Icon Component
+const RailsIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/rubyonrails.png" 
+    alt="Ruby on Rails" 
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain' 
+    }} 
+  />
+);
+
+// PostgreSQL Icon Component
+const PostgresIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/postgresql.svg" 
+    alt="PostgreSQL" 
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain' 
+    }} 
+  />
+);
+
+// Prisma Icon Component
+const PrismaIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/prisma.svg" 
+    alt="Prisma" 
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain' 
+    }} 
+  />
+);
 
 interface NavbarActionsProps {
   onActionComplete?: () => void;
@@ -26,7 +82,9 @@ interface NavbarActionsProps {
 
 export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, isMobile = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showFullDDLDialog, setShowFullDDLDialog] = useState(false);
+  const [schemaDialogState, setSchemaDialogState] = useState<{ isOpen: boolean; mode: 'import' | 'export' }>({ isOpen: false, mode: 'export' });
+  const [importDialogState, setImportDialogState] = useState<{ isOpen: boolean; initialFormat?: string }>({ isOpen: false });
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
@@ -34,7 +92,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   // Dialog states from store (persisted across component unmounts)
   const setShowExampleDialog = useModelStore(state => state.setShowExampleDialog);
   const setShowAIDialog = useModelStore(state => state.setShowAIDialog);
-  const setShowSnowflakeDialog = useModelStore(state => state.setShowSnowflakeDialog);
   const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
   
   const addEntity = useModelStore(state => state.addEntity);
@@ -94,7 +151,11 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   };
 
   const handleExportDDL = () => {
-    setShowFullDDLDialog(true);
+    setExportDialogOpen(true);
+  };
+
+  const handleImportSchema = () => {
+    setSchemaDialogState({ isOpen: true, mode: 'import' });
   };
 
   const handleLoadClick = () => {
@@ -160,8 +221,13 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const importItems: DropdownItem[] = [
     { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Import Model', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
-    { label: 'From Snowflake', icon: <Upload size={14} />, onClick: () => { setShowSnowflakeDialog(true); onActionComplete?.(); } },
+    { label: 'Import Model (JSON)', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
+    { label: 'Import Schema (SQL)', icon: <Upload size={14} />, onClick: () => { handleImportSchema(); onActionComplete?.(); } },
+    { label: '', divider: true, onClick: () => {} },
+    { label: 'From Snowflake', icon: <SnowflakeIcon size={14} />, onClick: () => { setImportDialogState({ isOpen: true, initialFormat: 'snowflake' }); onActionComplete?.(); } },
+    { label: 'From Rails', icon: <RailsIcon size={14} />, onClick: () => { setImportDialogState({ isOpen: true, initialFormat: 'rails' }); onActionComplete?.(); } },
+    { label: 'From PostgreSQL', icon: <PostgresIcon size={14} />, onClick: () => { setImportDialogState({ isOpen: true, initialFormat: 'postgres' }); onActionComplete?.(); } },
+    { label: 'From Prisma', icon: <PrismaIcon size={14} />, onClick: () => { setImportDialogState({ isOpen: true, initialFormat: 'prisma' }); onActionComplete?.(); } },
     { label: '', divider: true, onClick: () => {} },
     { label: 'Templates', icon: <Layers size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
   ];
@@ -191,9 +257,25 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
 
   return (
     <>
-      <FullDDLDialog 
-        isOpen={showFullDDLDialog}
-        onClose={() => setShowFullDDLDialog(false)}
+      {/* Keep SchemaDialog for now (legacy import mode if needed) */}
+      <SchemaDialog 
+        isOpen={schemaDialogState.isOpen}
+        onClose={() => setSchemaDialogState({ ...schemaDialogState, isOpen: false })}
+        mode={schemaDialogState.mode}
+      />
+      
+      {/* Import Dialog with Format Switching */}
+      <ImportDialog
+        isOpen={importDialogState.isOpen}
+        onClose={() => setImportDialogState({ isOpen: false })}
+        configs={[snowflakeConfig, railsConfig, postgresConfig, prismaConfig]}
+        initialFormat={importDialogState.initialFormat}
+      />
+      
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
       />
       
       {isMobile ? (
