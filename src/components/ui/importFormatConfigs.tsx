@@ -3,6 +3,8 @@ import { parseRailsSchema } from '../../services/parsers/railsParser';
 import { parsePostgresqlDDL } from '../../services/parsers/postgresParser';
 import { parsePrismaSchema } from '../../services/parsers/prismaParser';
 import { parseSnowflakeDDL } from '../../services/parsers/snowflakeDDLParser';
+import { parseMySQLDDL } from '../../services/parsers/mysqlParser';
+import { parseOracleDDL } from '../../services/parsers/oracleParser';
 
 export const railsConfig: ImportFormatConfig = {
   id: 'rails',
@@ -120,6 +122,70 @@ export const prismaConfig: ImportFormatConfig = {
         id: 'prisma-location',
         title: 'Default Prisma Schema Location',
         code: 'prisma/schema.prisma',
+      },
+    ],
+  },
+};
+
+export const mysqlConfig: ImportFormatConfig = {
+  id: 'mysql',
+  formatName: 'MySQL',
+  placeholder: 'Paste your MySQL DDL here...',
+  fileAccept: '.sql',
+  parseFunction: parseMySQLDDL,
+  instructions: {
+    description: (
+      <div style={{ fontSize: '13px', color: '#8b949e', lineHeight: '1.6' }}>
+        <p style={{ margin: '0 0 12px 0' }}>
+          To export your MySQL schema, use <code>mysqldump</code> with the <code>--no-data</code> flag:
+        </p>
+        <p style={{ margin: '12px 0', fontSize: '12px', color: '#6b7280' }}>
+          Replace <code>&lt;database_name&gt;</code> with your actual database name. This will export just the table structure without data.
+        </p>
+      </div>
+    ),
+    codeBlocks: [
+      {
+        id: 'mysql-export',
+        title: 'Export MySQL Schema',
+        code: 'mysqldump --no-data <database_name> > schema.sql',
+      },
+      {
+        id: 'mysql-tables',
+        title: 'Export Specific Tables',
+        code: 'mysqldump --no-data <database_name> <table1> <table2> > schema.sql',
+      },
+    ],
+  },
+};
+
+export const oracleConfig: ImportFormatConfig = {
+  id: 'oracle',
+  formatName: 'Oracle',
+  placeholder: 'Paste your Oracle DDL here...',
+  fileAccept: '.sql',
+  parseFunction: parseOracleDDL,
+  instructions: {
+    description: (
+      <div style={{ fontSize: '13px', color: '#8b949e', lineHeight: '1.6' }}>
+        <p style={{ margin: '0 0 12px 0' }}>
+          To export Oracle DDL, use SQL Developer or <code>DBMS_METADATA.GET_DDL</code>:
+        </p>
+        <p style={{ margin: '12px 0', fontSize: '12px', color: '#6b7280' }}>
+          Replace <code>&lt;table_name&gt;</code> and <code>&lt;owner&gt;</code> with your actual values.
+        </p>
+      </div>
+    ),
+    codeBlocks: [
+      {
+        id: 'oracle-table',
+        title: 'Export Single Table',
+        code: `SELECT DBMS_METADATA.GET_DDL('TABLE', '<table_name>', '<owner>') FROM DUAL;`,
+      },
+      {
+        id: 'oracle-schema',
+        title: 'Export All Tables in Schema',
+        code: `SELECT DBMS_METADATA.GET_DDL('TABLE', table_name, owner)\nFROM all_tables\nWHERE owner = '<owner>';`,
       },
     ],
   },

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import { X, Copy, Check, Download, ChevronDown } from 'lucide-react';
 
-type ExportDialect = 'postgresql' | 'mysql' | 'snowflake' | 'sqlserver' | 'sqlite' | 'rails';
+type ExportDialect = 'postgresql' | 'mysql' | 'snowflake' | 'sqlserver' | 'sqlite' | 'rails' | 'oracle';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ const EXPORT_DIALECT_LABELS: Record<ExportDialect, string> = {
   sqlserver: 'SQL Server',
   sqlite: 'SQLite',
   rails: 'Rails Schema',
+  oracle: 'Oracle',
 };
 
 // ── Quoting helpers per dialect ──
@@ -93,6 +94,22 @@ const mapDataType = (dataType: string, dialect: ExportDialect): string => {
       if (dt === 'serial') return 'INTEGER';
       if (dt === 'bigserial') return 'INTEGER';
       if (dt === 'date') return 'TEXT';
+      return dt.toUpperCase();
+    }
+    case 'oracle': {
+      if (dt === 'uuid') return 'VARCHAR2(36)';
+      if (dt === 'varchar') return 'VARCHAR2(255)';
+      if (dt === 'text') return 'CLOB';
+      if (dt === 'boolean') return 'NUMBER(1)';
+      if (dt === 'timestamp') return 'TIMESTAMP';
+      if (dt === 'serial') return 'NUMBER GENERATED ALWAYS AS IDENTITY';
+      if (dt === 'bigserial') return 'NUMBER GENERATED ALWAYS AS IDENTITY';
+      if (dt === 'int') return 'NUMBER(10)';
+      if (dt === 'bigint') return 'NUMBER(19)';
+      if (dt === 'decimal') return 'NUMBER';
+      if (dt === 'date') return 'DATE';
+      if (dt === 'float') return 'BINARY_FLOAT';
+      if (dt === 'double') return 'BINARY_DOUBLE';
       return dt.toUpperCase();
     }
     default:
@@ -228,6 +245,8 @@ const getDialectFromFormat = (formatId: string | null): ExportDialect => {
     'snowflake': 'snowflake',
     'rails': 'rails',
     'prisma': 'postgresql',
+    'mysql': 'mysql',
+    'oracle': 'oracle',
   };
   
   return formatMap[formatId] || 'postgresql';
@@ -501,7 +520,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
                             'postgresql': 'postgres',
                             'snowflake': 'snowflake',
                             'rails': 'rails',
-                            'mysql': 'postgres',
+                            'mysql': 'mysql',
+                            'oracle': 'oracle',
                             'sqlserver': 'postgres',
                             'sqlite': 'postgres',
                           };

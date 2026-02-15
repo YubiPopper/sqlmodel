@@ -33,4 +33,4 @@ export interface ParsedSchema {
   diagnostics: string;
 }
 
-export type SupportedFormat = 'rails' | 'postgres' | 'prisma' | 'snowflake';
+export type SupportedFormat = 'rails' | 'postgres' | 'prisma' | 'snowflake' | 'mysql' | 'oracle';

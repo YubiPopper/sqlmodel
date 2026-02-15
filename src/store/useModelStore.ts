@@ -17,6 +17,7 @@ import type {
   EntityGroup,
   TableGroup
 } from '../model/schemas';
+import { clearSchemaUrl } from '../hooks/schemaUrlState';
 
 interface ModelState {
   // Authentication
@@ -1151,6 +1152,9 @@ export const useModelStore = create<ModelState>()(
       },
 
       loadModelFromJSON: (data) => {
+        // Clear any /p/ or ?url= import URL since we're loading a new model
+        clearSchemaUrl();
+        
         // Load model from JSON file format (conceptual + physical structure)
         const hasLayouts = data.nodeLayouts || data.tableLayouts;
         
@@ -1186,6 +1190,9 @@ export const useModelStore = create<ModelState>()(
       },
 
       clearModel: () => {
+        // Clear any /p/ or ?url= import URL since we're clearing the model
+        clearSchemaUrl();
+        
         set({
           entities: [],
           relationships: [],

@@ -11,11 +11,16 @@ import { useModelStore } from '../../store/useModelStore';
 import type { ParsedSchema } from './types';
 import type { PhysicalTable, ForeignKey, Attribute } from '../../model/schemas';
 
-export const importParsedSchema = (result: ParsedSchema): { success: boolean; tableCount: number; fkCount: number } => {
+export const importParsedSchema = (result: ParsedSchema, options?: { clearFirst?: boolean }): { success: boolean; tableCount: number; fkCount: number } => {
   const { tables: parsedTables } = result;
 
   if (parsedTables.length === 0) {
     return { success: false, tableCount: 0, fkCount: 0 };
+  }
+
+  // Clear existing model if requested (e.g. URL import starts fresh)
+  if (options?.clearFirst) {
+    useModelStore.getState().clearModel();
   }
 
   // Build all data as plain objects with pre-generated UUIDs (like loadExample does)

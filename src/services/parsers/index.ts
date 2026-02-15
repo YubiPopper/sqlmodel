@@ -25,6 +25,14 @@ export async function parse(content: string, format: SupportedFormat): Promise<P
       const { parseSnowflakeDDL } = await import('./snowflakeDDLParser');
       return parseSnowflakeDDL(content);
     }
+    case 'mysql': {
+      const { parseMySQLDDL } = await import('./mysqlParser');
+      return parseMySQLDDL(content);
+    }
+    case 'oracle': {
+      const { parseOracleDDL } = await import('./oracleParser');
+      return parseOracleDDL(content);
+    }
     default:
       return { tables: [], diagnostics: `Unknown format: ${format}` };
   }

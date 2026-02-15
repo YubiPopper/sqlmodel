@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { 
-  FileDown, 
   FilePlus,
   Layers,
   Plus,
@@ -10,7 +9,8 @@ import {
   PanelLeft,
   Download,
   Upload,
-  Sparkles
+  Sparkles,
+  Link2
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { DropdownButton } from '../../shared/Dropdown';
@@ -20,11 +20,14 @@ import type { ConceptualData, PhysicalData } from '../../../model/schemas';
 import { SchemaDialog } from '../../ui/SchemaDialog';
 import { ImportDialog } from '../../ui/ImportDialog';
 import { ExportDialog } from '../../ui/ExportDialog';
+import { ImportUrlDialog } from '../../ui/ImportUrlDialog';
 import { 
   railsConfig, 
   snowflakeConfig, 
   postgresConfig, 
-  prismaConfig 
+  prismaConfig,
+  mysqlConfig,
+  oracleConfig
 } from '../../ui/importFormatConfigs';
 
 // Snowflake Icon Component
@@ -75,6 +78,42 @@ const PrismaIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
   />
 );
 
+// MySQL Icon Component
+const MySQLIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/mysql.webp" 
+    alt="MySQL" 
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain' 
+    }} 
+  />
+);
+
+// Oracle Icon Component
+const OracleIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <img 
+    src="/assets/icons/oracle.svg" 
+    alt="Oracle" 
+    style={{ 
+      width: size, 
+      height: size, 
+      objectFit: 'contain' 
+    }} 
+  />
+);
+
+// Colorful Database Icon Component for Export SQL
+const DatabaseIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <ellipse cx="12" cy="6" rx="8" ry="3" fill="#3b82f6" fillOpacity="0.2" stroke="#3b82f6" strokeWidth="1.5"/>
+    <path d="M4 6v6c0 1.657 3.582 3 8 3s8-1.343 8-3V6" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M4 12v6c0 1.657 3.582 3 8 3s8-1.343 8-3v-6" stroke="#a855f7" strokeWidth="1.5" strokeLinecap="round"/>
+    <ellipse cx="12" cy="6" rx="8" ry="3" fill="none" stroke="#3b82f6" strokeWidth="1.5"/>
+  </svg>
+);
+
 interface NavbarActionsProps {
   onActionComplete?: () => void;
   isMobile?: boolean;
@@ -84,6 +123,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [schemaDialogState, setSchemaDialogState] = useState<{ isOpen: boolean; mode: 'import' | 'export' }>({ isOpen: false, mode: 'export' });
   const [importDialogState, setImportDialogState] = useState<{ isOpen: boolean; initialFormat?: string }>({ isOpen: false });
+  const [importUrlDialogOpen, setImportUrlDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [importDropdownOpen, setImportDropdownOpen] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -221,20 +261,23 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const importItems: DropdownItem[] = [
     { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Import Model (JSON)', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
-    { label: 'Import Schema (SQL)', icon: <Upload size={14} />, onClick: () => { handleImportSchema(); onActionComplete?.(); } },
+    { label: 'Import Model', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
+    { label: 'Import Schema', icon: <Upload size={14} />, onClick: () => { handleImportSchema(); onActionComplete?.(); } },
+    { label: 'Import from URL', icon: <Link2 size={14} />, onClick: () => { setImportUrlDialogOpen(true); onActionComplete?.(); } },
     { label: '', divider: true, onClick: () => {} },
     { label: 'From Snowflake', icon: <SnowflakeIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'snowflake'); setImportDialogState({ isOpen: true, initialFormat: 'snowflake' }); onActionComplete?.(); } },
     { label: 'From Rails', icon: <RailsIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'rails'); setImportDialogState({ isOpen: true, initialFormat: 'rails' }); onActionComplete?.(); } },
     { label: 'From PostgreSQL', icon: <PostgresIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'postgres'); setImportDialogState({ isOpen: true, initialFormat: 'postgres' }); onActionComplete?.(); } },
+    { label: 'From MySQL', icon: <MySQLIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'mysql'); setImportDialogState({ isOpen: true, initialFormat: 'mysql' }); onActionComplete?.(); } },
+    { label: 'From Oracle', icon: <OracleIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'oracle'); setImportDialogState({ isOpen: true, initialFormat: 'oracle' }); onActionComplete?.(); } },
     { label: 'From Prisma', icon: <PrismaIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'prisma'); setImportDialogState({ isOpen: true, initialFormat: 'prisma' }); onActionComplete?.(); } },
     { label: '', divider: true, onClick: () => {} },
     { label: 'Templates', icon: <Layers size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
   ];
 
   const exportItems: DropdownItem[] = [
-    { label: 'Export Model (JSON)', icon: <Download size={14} />, onClick: () => { handleSave(); onActionComplete?.(); }, shortcut: '⌘S' },
-    { label: 'Export SQL DDL', icon: <FileDown size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
+    { label: 'Export Model', icon: <Download size={14} />, onClick: () => { handleSave(); onActionComplete?.(); }, shortcut: '⌘S' },
+    { label: 'Export SQL', icon: <DatabaseIcon size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
   ];
 
   const insertItems: DropdownItem[] = viewMode === 'conceptual'
@@ -268,8 +311,14 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       <ImportDialog
         isOpen={importDialogState.isOpen}
         onClose={() => setImportDialogState({ isOpen: false })}
-        configs={[snowflakeConfig, railsConfig, postgresConfig, prismaConfig]}
+        configs={[snowflakeConfig, railsConfig, postgresConfig, mysqlConfig, oracleConfig, prismaConfig]}
         initialFormat={importDialogState.initialFormat}
+      />
+      
+      {/* Import from URL Dialog */}
+      <ImportUrlDialog
+        isOpen={importUrlDialogOpen}
+        onClose={() => setImportUrlDialogOpen(false)}
       />
       
       {/* Export Dialog */}
