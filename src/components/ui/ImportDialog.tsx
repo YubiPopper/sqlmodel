@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
@@ -33,13 +33,40 @@ interface ImportDialogProps {
 
 export const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, configs, initialFormat }) => {
   const colorMode = useModelStore(state => state.colorMode);
-  const [selectedFormat, setSelectedFormat] = useState(initialFormat || configs[0]?.id || 'snowflake');
+  
+  // Read saved format from localStorage or use initialFormat/default
+  const getSavedFormat = () => {
+    try {
+      const saved = localStorage.getItem('sqlmodel-preferred-format');
+      if (saved && configs.some(c => c.id === saved)) return saved;
+    } catch (e) {
+      console.warn('Failed to read preferred format from localStorage:', e);
+    }
+    return initialFormat || configs[0]?.id || 'snowflake';
+  };
+  
+  const [selectedFormat, setSelectedFormat] = useState(getSavedFormat());
   const [schemaText, setSchemaText] = useState('');
   const [showInstructions, setShowInstructions] = useState(true);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [formatDropdownOpen, setFormatDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isDark = colorMode === 'dark';
+  
+  // Re-read saved format from localStorage whenever dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const saved = localStorage.getItem('sqlmodel-preferred-format');
+        console.log('[ImportDialog] Dialog opened, reading localStorage:', saved);
+        if (saved && configs.some(c => c.id === saved)) {
+          setSelectedFormat(saved);
+        }
+      } catch (e) {
+        console.warn('Failed to read preferred format from localStorage:', e);
+      }
+    }
+  }, [isOpen, configs]);
   
   const config = configs.find(c => c.id === selectedFormat) || configs[0];
 
@@ -209,6 +236,12 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({ isOpen, onClose, con
                       key={cfg.id}
                       onClick={() => {
                         setSelectedFormat(cfg.id);
+                        try {
+                          localStorage.setItem('sqlmodel-preferred-format', cfg.id);
+                          console.log('[ImportDialog] Saved format to localStorage:', cfg.id);
+                        } catch (e) {
+                          console.warn('Failed to save preferred format:', e);
+                        }
                         setFormatDropdownOpen(false);
                         setSchemaText('');
                       }}

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import { X, Copy, Check, Download, ChevronDown } from 'lucide-react';
 
-type ExportDialect = 'postgresql' | 'mysql' | 'snowflake' | 'sqlserver' | 'sqlite';
+type ExportDialect = 'postgresql' | 'mysql' | 'snowflake' | 'sqlserver' | 'sqlite' | 'rails';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ const EXPORT_DIALECT_LABELS: Record<ExportDialect, string> = {
   snowflake: 'Snowflake',
   sqlserver: 'SQL Server',
   sqlite: 'SQLite',
+  rails: 'Rails Schema',
 };
 
 // ── Quoting helpers per dialect ──
@@ -218,19 +219,58 @@ const generateFullDDL = (dialect: ExportDialect): string => {
   return lines.join('\n');
 };
 
+// Helper function to map import format IDs to export dialect IDs
+const getDialectFromFormat = (formatId: string | null): ExportDialect => {
+  if (!formatId) return 'postgresql';
+  
+  const formatMap: Record<string, ExportDialect> = {
+    'postgres': 'postgresql',
+    'snowflake': 'snowflake',
+    'rails': 'rails',
+    'prisma': 'postgresql',
+  };
+  
+  return formatMap[formatId] || 'postgresql';
+};
+
 export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) => {
   const colorMode = useModelStore(state => state.colorMode);
-  const [exportDialect, setExportDialect] = useState<ExportDialect>('postgresql');
+  
+  // Read saved format from localStorage or use default
+  const getSavedDialect = (): ExportDialect => {
+    try {
+      const saved = localStorage.getItem('sqlmodel-preferred-format');
+      return getDialectFromFormat(saved);
+    } catch (e) {
+      console.warn('Failed to read preferred format from localStorage:', e);
+      return 'postgresql';
+    }
+  };
+  
+  const [exportDialect, setExportDialect] = useState<ExportDialect>(getSavedDialect());
   const [ddlText, setDDLText] = useState('');
   const [copied, setCopied] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isDark = colorMode === 'dark';
 
+  // Re-read saved format from localStorage whenever dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      const saved = localStorage.getItem('sqlmodel-preferred-format');
+      console.log('[ExportDialog] Reading from localStorage:', saved);
+      const savedDialect = getSavedDialect();
+      console.log('[ExportDialog] Mapped to dialect:', savedDialect);
+      setExportDialect(savedDialect);
+    }
+  }, [isOpen]);
+
   // Generate DDL when dialog opens or dialect changes
   useEffect(() => {
     if (isOpen) {
-      setDDLText(generateFullDDL(exportDialect));
+      // Rails uses PostgreSQL dialect for DDL generation
+      const dialectForGeneration = exportDialect === 'rails' ? 'postgresql' : exportDialect;
+      setDDLText(generateFullDDL(dialectForGeneration));
     }
   }, [isOpen, exportDialect]);
 
@@ -454,6 +494,21 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose }) =
                       onClick={() => {
                         setExportDialect(dialect);
                         setDropdownOpen(false);
+                        
+                        // Save to localStorage - map export dialect back to import format
+                        try {
+                          const dialectToFormatMap: Record<ExportDialect, string> = {
+                            'postgresql': 'postgres',
+                            'snowflake': 'snowflake',
+                            'rails': 'rails',
+                            'mysql': 'postgres',
+                            'sqlserver': 'postgres',
+                            'sqlite': 'postgres',
+                          };
+                          localStorage.setItem('sqlmodel-preferred-format', dialectToFormatMap[dialect]);
+                        } catch (e) {
+                          console.warn('Failed to save preferred format:', e);
+                        }
                       }}
                       style={{
                         display: 'block',
