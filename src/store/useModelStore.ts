@@ -211,7 +211,7 @@ export const useModelStore = create<ModelState>()(
       tableFieldsDisplay: 'all',
       physicalHierarchyMode: 'entity',
       layoutAlgorithm: 'left-right',
-      showEntityDescriptions: true,
+      showEntityDescriptions: false,
       showRelationshipLabels: true,
       entityCardSize: 'compact',
       relationshipLabelSize: 'large',
@@ -1895,6 +1895,11 @@ export const useModelStore = create<ModelState>()(
           state.showAIDialog = false;
           state.showExampleDialog = false;
           state.showAISettingsDialog = false;
+          // Migration: Set new default for showEntityDescriptions if not explicitly set by user
+          // This ensures users with old localStorage get the new default (false)
+          if (state.showEntityDescriptions === undefined || state.showEntityDescriptions === true) {
+            state.showEntityDescriptions = false;
+          }
         }
       },
     }
