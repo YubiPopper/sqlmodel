@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useRef, useMemo } from 'react';
 import { Handle, Position, type NodeProps } from 'reactflow';
 import type { PhysicalTable } from '../../model/schemas';
 import { useModelStore } from '../../store/useModelStore';
@@ -16,11 +16,11 @@ const getTableColorStyles = (color: string | undefined, isDark: boolean) => {
   const colorMap: Record<string, { background: string; border: string; borderSelected: string; headerBg: string; headerText: string; headerBorder: string }> = {
     default: {
       background: isDark ? '#0d1117' : '#ffffff',
-      border: isDark ? '#22c55e' : '#86efac',
+      border: isDark ? '#30363d' : '#d1d5db',
       borderSelected: isDark ? '#22c55e' : '#16a34a',
-      headerBg: isDark ? '#161b22' : '#f0fdf4',
-      headerText: isDark ? '#e6edf3' : '#166534',
-      headerBorder: isDark ? '#30363d' : '#bbf7d0',
+      headerBg: isDark ? '#161b22' : '#f8fafc',
+      headerText: isDark ? '#e6edf3' : '#1f2937',
+      headerBorder: isDark ? '#30363d' : '#e5e7eb',
     },
     bronze: {
       background: 'linear-gradient(135deg, #8b5a3c 0%, #6d4c41 100%)',
@@ -134,6 +134,7 @@ const getTableColorStyles = (color: string | undefined, isDark: boolean) => {
 
 const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const [hoverSide, setHoverSide] = useState<HoverSide>(null);
+  const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(data.name);
   const [showAIDialog, setShowAIDialog] = useState(false);
@@ -151,9 +152,34 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const toggleTableMultiSelect = useModelStore(state => state.toggleTableMultiSelect);
   const setSelected = useModelStore(state => state.setSelected);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
+  const selectedId = useModelStore(state => state.selectedId);
+
+  // Memoize color styles to avoid recomputing on every render
+  const isDark = colorMode === 'dark';
+  const colors = useMemo(() => getTableColorStyles(data.color, isDark), [data.color, isDark]);
 
   // Check if this table is multi-selected
   const isMultiSelected = multiSelectedTableIds.includes(data.id);
+
+  // Compute highlight state locally - only this component re-renders when its highlight changes
+  const isActiveHighlighted = useMemo(() => {
+    if (isMultiSelected) return true;
+    return selectedId === data.id;
+  }, [selectedId, data.id, isMultiSelected]);
+
+  const isHighlighted = useModelStore(useCallback((state) => {
+    if (isActiveHighlighted) return false;
+    const activeId = state.selectedId;
+    if (!activeId) return false;
+    // Check if the active selection is a table
+    const isActiveTable = state.tables.some(t => t.id === activeId);
+    if (!isActiveTable) return false;
+    // Check 1-hop FK connection
+    return state.foreignKeys.some(fk =>
+      (fk.fromTableId === activeId && fk.toTableId === data.id) ||
+      (fk.toTableId === activeId && fk.fromTableId === data.id)
+    );
+  }, [data.id, isActiveHighlighted]));
 
   const handleCreateLinkedTable = useCallback((side: HoverSide) => {
     if (!side) return;
@@ -534,6 +560,8 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       <div
         className={clsx('table-node', selected && 'selected')}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         onMouseDown={(e) => {
           // Prevent React Flow from handling shift-click
           if (e.shiftKey) {
@@ -541,22 +569,34 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           }
         }}
         style={{
-          background: getTableColorStyles(data.color, colorMode === 'dark').background,
-          border: colorMode === 'dark' 
-            ? (isMultiSelected ? '2px solid #22c55e' : selected ? `2px solid ${getTableColorStyles(data.color, true).borderSelected}` : `2px solid ${getTableColorStyles(data.color, true).border}`) 
-            : (isMultiSelected ? '2px solid #22c55e' : selected ? `2px solid ${getTableColorStyles(data.color, false).borderSelected}` : `2px solid ${getTableColorStyles(data.color, false).border}`),
+          background: colors.background,
+          border: (() => {
+            if (isMultiSelected) return '2px solid #22c55e';
+            if (isActiveHighlighted) return `2px solid ${colors.borderSelected}`;
+            if (isHovered || isHighlighted) return `1.5px solid ${colors.borderSelected}`;
+            return `1.5px solid ${colors.border}`;
+          })(),
           borderRadius: '8px',
           minWidth: '240px',
-          boxShadow: (selected || isMultiSelected)
-            ? (colorMode === 'dark' 
-                ? '0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.2)' 
-                : '0 0 20px rgba(22, 163, 74, 0.3), 0 4px 12px rgba(0,0,0,0.1)')
-            : (colorMode === 'dark' 
-                ? '0 0 15px rgba(34, 197, 94, 0.25), 0 4px 12px rgba(0,0,0,0.4)' 
-                : '0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)'),
+          boxShadow: (() => {
+            if (isActiveHighlighted || isMultiSelected) {
+              return isDark
+                ? '0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.15)'
+                : '0 0 20px rgba(22, 163, 74, 0.3), 0 4px 12px rgba(0,0,0,0.1)';
+            }
+            if (isHovered || isHighlighted) {
+              return isDark
+                ? '0 0 20px rgba(34, 197, 94, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4)'
+                : '0 0 15px rgba(22, 163, 74, 0.2), 0 4px 12px rgba(0,0,0,0.1)';
+            }
+            return isDark
+              ? '0 0 20px rgba(0, 0, 0, 0.4)'
+              : '0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)';
+          })(),
           overflow: 'hidden',
           fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
           position: 'relative',
+          transition: 'border-color 300ms ease, border-width 300ms ease, box-shadow 300ms ease',
         }}
       >
       {/* Multi-selection indicator badge */}
@@ -578,12 +618,12 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
       <div
         onDoubleClick={handleDoubleClick}
         style={{
-          background: getTableColorStyles(data.color, colorMode === 'dark').headerBg,
-          color: getTableColorStyles(data.color, colorMode === 'dark').headerText,
-          padding: '12px 14px',
+          background: colors.headerBg,
+          color: colors.headerText,
+          padding: '8px 14px',
           fontWeight: 600,
           fontSize: '15px',
-          borderBottom: `1px solid ${getTableColorStyles(data.color, colorMode === 'dark').headerBorder}`,
+          borderBottom: `1px solid ${colors.headerBorder}`,
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
@@ -593,7 +633,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
         <Table2 size={16} style={{ 
           color: data.color && data.color !== 'default' 
             ? '#ffffff' 
-            : (colorMode === 'dark' ? '#22c55e' : '#16a34a'), 
+            : (colorMode === 'dark' ? '#8b949e' : '#6b7280'), 
           flexShrink: 0 
         }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
@@ -609,10 +649,10 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
               style={{
                 fontSize: '15px',
                 fontWeight: 600,
-                color: getTableColorStyles(data.color, colorMode === 'dark').headerText,
+                color: colors.headerText,
                 border: data.color && data.color !== 'default' 
                   ? '2px solid rgba(255,255,255,0.5)' 
-                  : (colorMode === 'dark' ? '2px solid #22c55e' : '2px solid #16a34a'),
+                  : (colorMode === 'dark' ? '2px solid #3b82f6' : '2px solid #3b82f6'),
                 borderRadius: '4px',
                 padding: '4px 8px',
                 outline: 'none',
@@ -711,19 +751,19 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                 background: attr.isPrimaryKey 
                   ? (data.color && data.color !== 'default' 
                       ? 'rgba(255, 255, 255, 0.1)' 
-                      : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)'))
+                      : (colorMode === 'dark' ? 'rgba(227, 180, 34, 0.12)' : 'rgba(202, 138, 4, 0.08)'))
                   : 'transparent',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = data.color && data.color !== 'default' 
                   ? 'rgba(255, 255, 255, 0.08)' 
-                  : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.08)');
+                  : (colorMode === 'dark' ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.08)');
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = attr.isPrimaryKey 
                   ? (data.color && data.color !== 'default' 
                       ? 'rgba(255, 255, 255, 0.1)' 
-                      : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.1)'))
+                      : (colorMode === 'dark' ? 'rgba(227, 180, 34, 0.12)' : 'rgba(202, 138, 4, 0.08)'))
                   : 'transparent';
               }}
             >
@@ -732,14 +772,14 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                   <Key size={14} style={{ 
                     color: data.color && data.color !== 'default' 
                       ? '#ffffff' 
-                      : (colorMode === 'dark' ? '#22c55e' : '#16a34a') 
+                      : (colorMode === 'dark' ? '#e6b422' : '#ca8a04') 
                   }} />
                 )}
                 {attr.isForeignKey && !attr.isPrimaryKey && (
                   <Link2 size={14} style={{ 
                     color: data.color && data.color !== 'default' 
                       ? '#ffffff' 
-                      : (colorMode === 'dark' ? '#22c55e' : '#16a34a') 
+                      : (colorMode === 'dark' ? '#60a5fa' : '#3b82f6') 
                   }} />
                 )}
                 {!attr.isPrimaryKey && !attr.isForeignKey && (

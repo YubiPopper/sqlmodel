@@ -113,18 +113,27 @@ npm run preview
 - Use **AI → Generate Tables** to auto-create tables from your conceptual model
 - Or manually add tables with columns, primary keys, and data types
 
-### 4. Create Foreign Keys
+### 4. Import Existing Schemas
+
+Import database schemas from various sources:
+- **From URL**: Paste any GitHub/GitLab schema URL (Rails schema.rb, SQL files, Prisma, etc.)
+  - GitHub blob URLs are automatically converted to raw URLs
+  - Example: `github.com/user/repo/blob/main/db/schema.rb` works directly
+- **From File**: Upload local SQL, Rails, or Prisma schema files
+- **Shareable Import Links**: Use `?url=` query params to share auto-importing diagrams
+
+### 5. Create Foreign Keys
 
 - In Physical View, drag from a column to another table's column
 - Configure cardinality and relationship type in the inspector
 
-### 5. Export Your Work
+### 6. Export Your Work
 
 - **Save JSON**: Export your complete model for backup or sharing
 - **Export SQL**: Generate CREATE TABLE statements
 - **Export Image**: Save your diagram as PNG
 
-### 6. AI-Powered Modeling
+### 7. AI-Powered Modeling
 
 Click the **AI** button (✨) to:
 - **Generate New Model**: Describe your system and AI creates entities, relationships, and tables

@@ -161,6 +161,7 @@ export const LeftSidebar: React.FC = () => {
           </div>
         </Tooltip>
         )}
+
       </div>
 
       {/* Search */}

@@ -4,7 +4,7 @@ import { useModelStore } from '../../store/useModelStore';
 import { X, Link2, Loader2, Check, Copy, AlertCircle } from 'lucide-react';
 import { parse } from '../../services/parsers';
 import { importParsedSchema } from '../../services/parsers/importSchema';
-import { buildShareableUrl } from '../../hooks/useUrlImport';
+import { buildShareableUrl, convertGitHubUrlToRaw } from '../../hooks/useUrlImport';
 import { SESSION_KEY } from '../../hooks/schemaUrlState';
 import type { SupportedFormat } from '../../services/parsers/types';
 
@@ -89,7 +89,9 @@ export const ImportUrlDialog: React.FC<ImportUrlDialogProps> = ({ isOpen, onClos
     setMessage(`Fetching schema from URL…`);
 
     try {
-      const response = await fetch(trimmedUrl);
+      // Convert GitHub blob URLs to raw URLs automatically
+      const fetchUrl = convertGitHubUrlToRaw(trimmedUrl);
+      const response = await fetch(fetchUrl);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -119,6 +121,8 @@ export const ImportUrlDialog: React.FC<ImportUrlDialogProps> = ({ isOpen, onClos
             sessionStorage.setItem(SESSION_KEY, trimmedUrl);
             // Switch to physical view to show imported tables
             useModelStore.getState().setViewMode('physical');
+            // Close dialog after successful import
+            setTimeout(() => onClose(), 500);
             return;
           }
         } catch (err) {
@@ -229,7 +233,7 @@ export const ImportUrlDialog: React.FC<ImportUrlDialogProps> = ({ isOpen, onClos
             color: isDark ? '#8b949e' : '#6b7280',
             lineHeight: '1.6',
           }}>
-            Paste a URL to a raw SQL, Rails schema, or Prisma file. GitHub raw links, GitLab raw links, or any publicly accessible file URL will work.
+            Paste a URL to a raw SQL, Rails schema, or Prisma file. GitHub/GitLab file URLs (blob or raw), or any publicly accessible file URL will work.
           </p>
 
           {/* URL Input */}
@@ -251,7 +255,7 @@ export const ImportUrlDialog: React.FC<ImportUrlDialogProps> = ({ isOpen, onClos
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="https://raw.githubusercontent.com/user/repo/main/schema.sql"
+              placeholder="https://github.com/user/repo/blob/main/schema.sql"
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -340,7 +344,7 @@ export const ImportUrlDialog: React.FC<ImportUrlDialogProps> = ({ isOpen, onClos
             color: isDark ? '#6e7681' : '#9ca3af',
             lineHeight: '1.5',
           }}>
-            <strong>Tip:</strong> On GitHub, click "Raw" on any file to get a direct link. You can also share this import as a URL:{' '}
+            <strong>Tip:</strong> You can paste GitHub file URLs directly (blob or raw) - they'll be converted automatically. Share imports as:{' '}
             <code style={{
               fontSize: '11px',
               background: isDark ? '#21262d' : '#f3f4f6',

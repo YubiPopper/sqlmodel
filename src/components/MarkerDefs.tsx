@@ -1,59 +1,68 @@
 export const MarkerDefs = () => (
   <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }}>
     <defs>
-      {/* 1 (Mandatory One) - Vertical Bar with Circle */}
+      {/* Particle effects for animated edges */}
+      <radialGradient id="particle-gradient">
+        <stop offset="0%" stopColor="#4ade80" stopOpacity="1" />
+        <stop offset="50%" stopColor="#22c55e" stopOpacity="0.8" />
+        <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
+      </radialGradient>
+      <filter id="particle-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+
+      {/* 1 (Mandatory One) - Squat wide filled triangle + bar */}
       <marker
         id="marker-1"
-        markerWidth="24"
-        markerHeight="20"
-        refX="20"
-        refY="10"
+        markerWidth="18"
+        markerHeight="22"
+        refX="16"
+        refY="11"
         orient="auto"
       >
-        <circle cx="18" cy="10" r="5" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <line x1="10" y1="4" x2="10" y2="16" stroke="#22c55e" strokeWidth="2" />
-        <text x="6" y="0" fontSize="10" fill="#22c55e" fontWeight="bold">1</text>
+        <polygon points="11,0 16,11 11,22" fill="#22c55e" stroke="none" />
+        <line x1="9" y1="2" x2="9" y2="20" stroke="#22c55e" strokeWidth="2" />
       </marker>
 
-      {/* 0..1 (Optional One) - Circle + Bar */}
+      {/* 0..1 (Optional One) - Squat wide filled triangle + circle */}
       <marker
         id="marker-0..1"
-        markerWidth="24"
-        markerHeight="20"
+        markerWidth="22"
+        markerHeight="22"
         refX="20"
-        refY="10"
+        refY="11"
         orient="auto"
       >
-        <circle cx="18" cy="10" r="5" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <line x1="10" y1="4" x2="10" y2="16" stroke="#22c55e" strokeWidth="2" />
+        <polygon points="15,0 20,11 15,22" fill="#22c55e" stroke="none" />
+        <circle cx="7" cy="11" r="5" stroke="#22c55e" strokeWidth="1.5" fill="none" />
       </marker>
 
-      {/* 1..* (Mandatory Many) - Circle with crow's foot */}
+      {/* 1..* (Mandatory Many) - Squat wide filled triangle + double bar */}
       <marker
         id="marker-1..*"
-        markerWidth="28"
-        markerHeight="24"
-        refX="24"
-        refY="12"
+        markerWidth="20"
+        markerHeight="22"
+        refX="18"
+        refY="11"
         orient="auto"
       >
-        <circle cx="22" cy="12" r="5" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <path d="M14,12 L6,5 M14,12 L6,19 M14,12 L6,12" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <text x="4" y="0" fontSize="10" fill="#22c55e" fontWeight="bold">n</text>
+        <polygon points="13,0 18,11 13,22" fill="#22c55e" stroke="none" />
+        <line x1="10" y1="2" x2="10" y2="20" stroke="#22c55e" strokeWidth="2" />
+        <line x1="7" y1="2" x2="7" y2="20" stroke="#22c55e" strokeWidth="2" />
       </marker>
 
-      {/* 0..* (Optional Many) - Circle + Crow's foot */}
+      {/* 0..* (Optional Many) - Squat wide filled triangle + circle */}
       <marker
         id="marker-0..*"
-        markerWidth="28"
-        markerHeight="24"
-        refX="24"
-        refY="12"
+        markerWidth="22"
+        markerHeight="22"
+        refX="20"
+        refY="11"
         orient="auto"
       >
-        <circle cx="22" cy="12" r="5" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <path d="M14,12 L6,5 M14,12 L6,19 M14,12 L6,12" stroke="#22c55e" strokeWidth="2" fill="none" />
-        <text x="4" y="0" fontSize="10" fill="#22c55e" fontWeight="bold">n</text>
+        <polygon points="15,0 20,11 15,22" fill="#22c55e" stroke="none" />
+        <circle cx="7" cy="11" r="5" stroke="#22c55e" strokeWidth="1.5" fill="none" />
       </marker>
 
     </defs>

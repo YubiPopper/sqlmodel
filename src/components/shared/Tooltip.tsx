@@ -6,7 +6,7 @@ interface TooltipProps {
   content: string;
   children: React.ReactElement;
   disabled?: boolean;
-  placement?: 'top' | 'bottom';
+  placement?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = false, placement = 'bottom' }) => {
@@ -23,15 +23,28 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = 
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const tooltipRect = tooltipRef.current.getBoundingClientRect();
     
-    // Center horizontally
-    const left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
+    let top, left;
     
-    // Position based on placement prop
-    let top;
-    if (placement === 'top') {
-      top = triggerRect.top - tooltipRect.height - 8;
+    if (placement === 'top' || placement === 'bottom') {
+      // Center horizontally
+      left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2);
+      
+      // Position based on placement prop
+      if (placement === 'top') {
+        top = triggerRect.top - tooltipRect.height - 8;
+      } else {
+        top = triggerRect.bottom + 8;
+      }
     } else {
-      top = triggerRect.bottom + 8;
+      // Center vertically
+      top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2);
+      
+      // Position based on placement prop
+      if (placement === 'left') {
+        left = triggerRect.left - tooltipRect.width - 8;
+      } else {
+        left = triggerRect.right + 8;
+      }
     }
 
     setPosition({ top, left });

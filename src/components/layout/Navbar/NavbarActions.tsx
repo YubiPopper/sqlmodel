@@ -4,8 +4,6 @@ import {
   Layers,
   Plus,
   Group,
-  PanelLeftClose,
-  PanelLeft,
   Download,
   Upload,
   Sparkles,
@@ -140,8 +138,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
-  const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
-  const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
 
   const isDark = colorMode === 'dark';
 
@@ -291,39 +287,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       {isMobile ? (
         // Mobile Layout - Buttons render directly into parent grid
         <>
-          {/* Sidebar Toggle */}
-          <button
-            onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              minHeight: '48px',
-              height: '48px',
-              boxSizing: 'border-box',
-              background: isDark ? '#21262d' : '#f3f4f6',
-              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              color: isDark ? '#e6edf3' : '#374151',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
-            }}
-          >
-            {leftSidebarCollapsed ? <PanelLeft size={18} style={{ flexShrink: 0 }} /> : <PanelLeftClose size={18} style={{ flexShrink: 0 }} />}
-            <span>{leftSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}</span>
-          </button>
-
           {/* Import Menu - Mobile */}
           <DropdownButton label="Import" items={importItems} icon={<Upload size={16} />} fullWidth={true} compact={true} />
 
@@ -381,37 +344,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         accept=".json"
         onChange={handleFileChange}
       />
-
-      {/* Sidebar Toggle */}
-      <Tooltip content={leftSidebarCollapsed ? 'Show left sidebar with entity/table list' : 'Hide left sidebar'}>
-        <button
-          onClick={() => { toggleLeftSidebar(); onActionComplete?.(); }}
-          style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '6px',
-          background: 'transparent',
-          border: 'none',
-          borderRadius: '6px',
-          outline: 'none',
-          color: isDark ? '#8b949e' : '#6b7280',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-          flexShrink: 0,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
-          e.currentTarget.style.color = isDark ? '#e6edf3' : '#374151';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
-        }}
-      >
-        {leftSidebarCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
-      </button>
-      </Tooltip>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
         <Tooltip content="Import models and templates" disabled={importDropdownOpen}>

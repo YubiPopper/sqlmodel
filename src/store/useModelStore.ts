@@ -215,7 +215,7 @@ export const useModelStore = create<ModelState>()(
       showRelationshipLabels: true,
       entityCardSize: 'compact',
       relationshipLabelSize: 'large',
-      leftSidebarCollapsed: false,
+      leftSidebarCollapsed: true,
       rightPanelMobileOpen: false,
       currentDiagramId: null,
       setCurrentDiagramId: (id) => set({ currentDiagramId: id }),
@@ -835,7 +835,15 @@ export const useModelStore = create<ModelState>()(
       
       setShowEntityOverlay: (show) => set({ showEntityOverlay: show }),
       
-      setTableFieldsDisplay: (mode) => set({ tableFieldsDisplay: mode }),
+      setTableFieldsDisplay: (mode) => {
+        set({ tableFieldsDisplay: mode });
+        // Auto-layout when switching display modes in physical view
+        // Called synchronously — Zustand's set() is sync so get() already
+        // reflects the new value, and this avoids a flicker from delayed re-layout
+        if (get().viewMode === 'physical') {
+          get().autoLayout();
+        }
+      },
       
       setPhysicalHierarchyMode: (mode) => set({ physicalHierarchyMode: mode }),
       
@@ -889,39 +897,38 @@ export const useModelStore = create<ModelState>()(
         
         switch (layoutAlgorithm) {
           case 'snowflake':
-            // Radial/snowflake layout - TB direction optimized for star schemas
+            // Snowflake/star layout - custom radial placement (dagre used as fallback for conceptual)
             graphOptions = {
               rankdir: 'TB',
               nodesep: 140,
               ranksep: 180,
-              marginx: 120,
-              marginy: 120,
-              ranker: 'network-simplex', // Better for centered/radial layouts
+              marginx: 80,
+              marginy: 80,
+              ranker: 'network-simplex',
             };
             break;
           case 'compact':
-            // Compact layout - TB with minimal spacing and tight clustering
+            // Compact grid layout - custom grid packing (dagre used as fallback for conceptual)
             graphOptions = {
               rankdir: 'TB',
-              nodesep: 50,
+              nodesep: 60,
               ranksep: 80,
               marginx: 40,
               marginy: 40,
-              ranker: 'tight-tree', // Minimizes edge length
+              ranker: 'tight-tree',
             };
             break;
           case 'left-right':
           default:
-            // Left-right layout (default) - optimized layered algorithm
-            // Inspired by ELK.js layered algorithm: network-simplex for optimal
-            // rank assignment, generous edge-to-node spacing between layers
+            // Left-right layout (default) - zero spacing, top-aligned
             graphOptions = {
               rankdir: 'LR',
-              nodesep: 60,       // Vertical spacing between nodes in same rank
+              align: 'UL',       // Align nodes to top-left (Upper-Left) within their rank
+              nodesep: 0,        // No vertical spacing between nodes
               ranksep: 200,      // Horizontal spacing between layers (generous for FK lines)
-              marginx: 80,
-              marginy: 80,
-              ranker: 'network-simplex', // Best crossing minimization, edge-aware ordering
+              marginx: 0,
+              marginy: 0,
+              ranker: 'network-simplex',
             };
             break;
         }
@@ -1095,12 +1102,40 @@ export const useModelStore = create<ModelState>()(
             // Standard table layout without entity grouping
             dagreGraph.setGraph(graphOptions);
 
+            const { tableFieldsDisplay } = get();
             tables.forEach((table) => {
               const width = 280;
-              const attrCount = table.attributes.length;
-              // More accurate height: header + (attributes * row_height) + padding
-              const height = 44 + (attrCount * 32) + 20;
-              dagreGraph.setNode(table.id, { width, height: Math.max(height, 120) });
+              
+              // Calculate height based on display mode
+              // Measured from actual rendered DOM:
+              //   Outer border: 2px * 2 = 4px
+              //   Header: padding 8px*2 + content ~22px + borderBottom 1px = 39px
+              //   Each row: padding 10px*2 + content ~21px = 41px + 1px border between rows
+              //   "No columns" message: padding 16px*2 + content ~18px = 50px
+              let height;
+              if (tableFieldsDisplay === 'name') {
+                // Header only (body not rendered): 4px border + 39px header = 43px
+                height = 43;
+              } else if (tableFieldsDisplay === 'keys') {
+                const keyCount = table.attributes.filter(a => a.isPrimaryKey || a.isForeignKey).length;
+                if (keyCount === 0) {
+                  // 4px border + 39px header + 50px "No columns" = 93px
+                  height = 93;
+                } else {
+                  // 4 + 39 + (keyCount-1)*42 + 41 = 42 + 42*keyCount
+                  height = 42 + 42 * keyCount;
+                }
+              } else {
+                // All fields
+                if (table.attributes.length === 0) {
+                  height = 93;
+                } else {
+                  // 4 + 39 + (N-1)*42 + 41 = 42 + 42*N
+                  height = 42 + 42 * table.attributes.length;
+                }
+              }
+              
+              dagreGraph.setNode(table.id, { width, height: Math.max(height, 43) });
             });
 
             foreignKeys.forEach((fk) => {
@@ -1110,15 +1145,183 @@ export const useModelStore = create<ModelState>()(
             dagre.layout(dagreGraph);
 
             const newTableLayouts: Record<string, Omit<NodeLayout, 'entityId' | 'tableId'>> = {};
-            tables.forEach((table) => {
-              const nodeWithPosition = dagreGraph.node(table.id);
-              if (nodeWithPosition) {
-                newTableLayouts[table.id] = {
-                  x: nodeWithPosition.x - nodeWithPosition.width / 2,
-                  y: nodeWithPosition.y - nodeWithPosition.height / 2,
-                };
+            
+            // Only apply global top alignment and tight packing for left-right layout
+            if (layoutAlgorithm === 'left-right') {
+              // Group tables by their X position (rank/column)
+              const tablesByColumn: Map<number, Array<{ id: string; node: any; table: PhysicalTable }>> = new Map();
+              
+              tables.forEach((table) => {
+                const nodeWithPosition = dagreGraph.node(table.id);
+                if (nodeWithPosition) {
+                  const xPos = Math.round(nodeWithPosition.x); // Round to group nearby X positions
+                  if (!tablesByColumn.has(xPos)) {
+                    tablesByColumn.set(xPos, []);
+                  }
+                  tablesByColumn.get(xPos)!.push({ id: table.id, node: nodeWithPosition, table });
+                }
+              });
+              
+              // Find global minimum Y (for top alignment)
+              let globalMinY = 0;
+              
+              // For each column, stack tables with consistent spacing starting from globalMinY
+              // Gap varies by display mode: more breathing room when fields are visible
+              const TABLE_GAP = tableFieldsDisplay === 'name' ? 20 : 60;
+              
+              tablesByColumn.forEach((columnTables) => {
+                // Sort tables in this column by their original Y position
+                columnTables.sort((a, b) => a.node.y - b.node.y);
+                
+                let currentY = globalMinY;
+                columnTables.forEach(({ id, node }) => {
+                  newTableLayouts[id] = {
+                    x: node.x - node.width / 2,
+                    y: currentY,
+                  };
+                  
+                  // Use dagre's calculated height (which matches the height we gave it)
+                  // This ensures consistency since both dagre and stacking use the same value
+                  currentY += node.height + TABLE_GAP;
+                });
+              });
+            } else if (layoutAlgorithm === 'snowflake') {
+              // ── Snowflake / Star Schema Layout ──
+              // Place the most-connected table at center, then radiate outward in rings.
+              // This produces a true star/snowflake shape ideal for data warehouse schemas.
+
+              // Build adjacency map and count connections per table
+              const adjacency: Record<string, Set<string>> = {};
+              tables.forEach(t => { adjacency[t.id] = new Set(); });
+              foreignKeys.forEach(fk => {
+                if (adjacency[fk.fromTableId]) adjacency[fk.fromTableId].add(fk.toTableId);
+                if (adjacency[fk.toTableId]) adjacency[fk.toTableId].add(fk.fromTableId);
+              });
+
+              // Find the fact table (most connections) as center
+              let centerTableId = tables[0]?.id;
+              let maxConnections = 0;
+              tables.forEach(t => {
+                const count = adjacency[t.id]?.size || 0;
+                if (count > maxConnections) {
+                  maxConnections = count;
+                  centerTableId = t.id;
+                }
+              });
+
+              // BFS from center to assign rings (distance from center)
+              const visited = new Set<string>();
+              const rings: string[][] = [];
+              if (centerTableId) {
+                const queue: Array<{ id: string; depth: number }> = [{ id: centerTableId, depth: 0 }];
+                visited.add(centerTableId);
+
+                while (queue.length > 0) {
+                  const { id, depth } = queue.shift()!;
+                  if (!rings[depth]) rings[depth] = [];
+                  rings[depth].push(id);
+
+                  const neighbors = adjacency[id] || new Set();
+                  neighbors.forEach(nId => {
+                    if (!visited.has(nId)) {
+                      visited.add(nId);
+                      queue.push({ id: nId, depth: depth + 1 });
+                    }
+                  });
+                }
               }
-            });
+
+              // Add any unconnected tables as an outer ring
+              const unvisited = tables.filter(t => !visited.has(t.id));
+              if (unvisited.length > 0) {
+                rings.push(unvisited.map(t => t.id));
+              }
+
+              // Helper: get node height
+              const getNodeHeight = (tableId: string) => {
+                const node = dagreGraph.node(tableId);
+                return node ? node.height : 120;
+              };
+
+              // Place ring 0 (center) at origin
+              // Place subsequent rings in a circle around center
+              const RING_SPACING = 380; // Distance between concentric rings
+
+              rings.forEach((ring, ringIndex) => {
+                if (ringIndex === 0) {
+                  // Center table(s)
+                  ring.forEach((id, i) => {
+                    const h = getNodeHeight(id);
+                    newTableLayouts[id] = { x: i * 320, y: -h / 2 };
+                  });
+                } else {
+                  const radius = RING_SPACING * ringIndex;
+                  const count = ring.length;
+                  // Spread tables evenly around the circle
+                  // Start from top (-π/2) for visual balance
+                  ring.forEach((id, i) => {
+                    const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+                    const h = getNodeHeight(id);
+                    newTableLayouts[id] = {
+                      x: Math.round(radius * Math.cos(angle) - 140),
+                      y: Math.round(radius * Math.sin(angle) - h / 2),
+                    };
+                  });
+                }
+              });
+            } else {
+              // ── Compact Grid Layout ──
+              // Topological sort tables, then pack into a tight grid.
+              // Minimises whitespace while keeping related tables nearby.
+
+              // Build in-degree map for topological sort
+              const inDegree: Record<string, number> = {};
+              const adjList: Record<string, string[]> = {};
+              tables.forEach(t => { inDegree[t.id] = 0; adjList[t.id] = []; });
+              foreignKeys.forEach(fk => {
+                // FK goes from child → parent; layout parent first
+                if (adjList[fk.toTableId] && inDegree[fk.fromTableId] !== undefined) {
+                  adjList[fk.toTableId].push(fk.fromTableId);
+                  inDegree[fk.fromTableId]++;
+                }
+              });
+
+              // Kahn's algorithm
+              const sorted: string[] = [];
+              const queue = tables.filter(t => inDegree[t.id] === 0).map(t => t.id);
+              while (queue.length > 0) {
+                const id = queue.shift()!;
+                sorted.push(id);
+                (adjList[id] || []).forEach(nId => {
+                  inDegree[nId]--;
+                  if (inDegree[nId] === 0) queue.push(nId);
+                });
+              }
+              // Append any remaining (cycles)
+              tables.forEach(t => { if (!sorted.includes(t.id)) sorted.push(t.id); });
+
+              // Determine grid dimensions – aim for roughly square
+              const cols = Math.max(1, Math.ceil(Math.sqrt(sorted.length)));
+              const COL_WIDTH = 320;  // Horizontal pitch
+              const ROW_GAP = 40;     // Vertical gap between rows
+
+              // Pack into columns, tracking per-column Y cursor
+              const colCursors: number[] = new Array(cols).fill(0);
+
+              sorted.forEach((id, idx) => {
+                const col = idx % cols;
+                const h = (() => {
+                  const node = dagreGraph.node(id);
+                  return node ? node.height : 120;
+                })();
+
+                newTableLayouts[id] = {
+                  x: col * COL_WIDTH,
+                  y: colCursors[col],
+                };
+                colCursors[col] += h + ROW_GAP;
+              });
+            }
 
             set({ tableLayouts: newTableLayouts });
           }

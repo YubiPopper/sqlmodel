@@ -2,10 +2,13 @@ import { useCallback, useMemo, useEffect, useState } from 'react';
 import ReactFlow, { 
   Background, 
   ConnectionMode,
+  PanOnScrollMode,
   ReactFlowProvider,
   SimpleBezierEdge,
   useReactFlow,
+  applyNodeChanges,
 } from 'reactflow';
+import AnimatedEdge from './edges/AnimatedEdge';
 import type { 
   Connection, 
   Edge, 
@@ -37,6 +40,7 @@ const nodeTypes = {
 
 const edgeTypes = {
   curved: SimpleBezierEdge,
+  animated: AnimatedEdge,
 };
 
 const CanvasInner = () => {
@@ -63,6 +67,7 @@ const CanvasInner = () => {
 
   const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null);
   const [dragHoverEntityGroupId, setDragHoverEntityGroupId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<typeof tables[0] | undefined>(undefined);
   const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
@@ -141,97 +146,82 @@ const CanvasInner = () => {
   const safeHiddenEntityIds = hiddenEntityIds instanceof Set ? hiddenEntityIds : new Set(hiddenEntityIds || []);
   const safeHiddenTableIds = hiddenTableIds instanceof Set ? hiddenTableIds : new Set(hiddenTableIds || []);
 
-  // Compute all transitively connected entity IDs (for conceptual view)
+  // Compute directly connected entity IDs (1-hop only, matching Liam ERD behavior)
   const connectedEntityIds = useMemo(() => {
-    if (!selectedId) return new Set<string>();
+    const activeId = selectedId || hoveredNodeId;
+    if (!activeId) return new Set<string>();
     
-    // Check if selectedId is an entity
-    const isEntity = entities.some(e => e.id === selectedId);
-    // Check if selectedId is an entity group
-    const isGroup = entityGroups.some(g => g.id === selectedId);
+    // Check if activeId is an entity
+    const isEntity = entities.some(e => e.id === activeId);
+    // Check if activeId is an entity group
+    const isGroup = entityGroups.some(g => g.id === activeId);
     
     if (!isEntity && !isGroup) return new Set<string>();
     
     const connected = new Set<string>();
-    const queue: string[] = [];
+    const sourceIds: string[] = [];
     
     if (isEntity) {
-      queue.push(selectedId);
+      sourceIds.push(activeId);
+      connected.add(activeId);
     } else if (isGroup) {
-      // Add all entities in this group to the queue
-      const group = entityGroups.find(g => g.id === selectedId);
+      const group = entityGroups.find(g => g.id === activeId);
       if (group) {
-        group.entityIds.forEach(entityId => queue.push(entityId));
+        group.entityIds.forEach(entityId => {
+          sourceIds.push(entityId);
+          connected.add(entityId);
+        });
       }
     }
     
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (connected.has(current)) continue;
-      connected.add(current);
-      
-      // Find all entities connected via relationships (both directions)
+    // Only add directly connected entities (1-hop)
+    sourceIds.forEach(sourceId => {
       relationships.forEach(rel => {
-        if (rel.fromEntityId === current && !connected.has(rel.toEntityId)) {
-          queue.push(rel.toEntityId);
-        }
-        if (rel.toEntityId === current && !connected.has(rel.fromEntityId)) {
-          queue.push(rel.fromEntityId);
-        }
+        if (rel.fromEntityId === sourceId) connected.add(rel.toEntityId);
+        if (rel.toEntityId === sourceId) connected.add(rel.fromEntityId);
       });
-    }
+    });
     
     return connected;
-  }, [selectedId, entities, relationships, entityGroups]);
+  }, [selectedId, hoveredNodeId, entities, relationships, entityGroups]);
 
-  // Snapping helper function
-  const snapToGrid = useCallback((x: number, y: number, snapSize: number = 20) => {
-    return {
-      x: Math.round(x / snapSize) * snapSize,
-      y: Math.round(y / snapSize) * snapSize,
-    };
-  }, []);
 
-  // Compute all transitively connected table IDs (downstream from selected table or entity)
+  // Compute directly connected table IDs (1-hop only, matching Liam ERD behavior)
   const connectedTableIds = useMemo(() => {
-    if (!selectedId) return new Set<string>();
+    const activeId = selectedId || hoveredNodeId;
+    if (!activeId) return new Set<string>();
     
-    // Check if selectedId is a table
-    const isTable = tables.some(t => t.id === selectedId);
-    // Check if selectedId is an entity (in physical view with overlay)
-    const isEntity = viewMode === 'physical' && showEntityOverlay && entities.some(e => e.id === selectedId);
+    // Check if activeId is a table
+    const isTable = tables.some(t => t.id === activeId);
+    // Check if activeId is an entity (in physical view with overlay)
+    const isEntity = viewMode === 'physical' && showEntityOverlay && entities.some(e => e.id === activeId);
     
     if (!isTable && !isEntity) return new Set<string>();
     
     const connected = new Set<string>();
-    const queue: string[] = [];
+    const sourceTableIds: string[] = [];
     
     if (isTable) {
-      queue.push(selectedId);
+      sourceTableIds.push(activeId);
+      connected.add(activeId);
     } else if (isEntity) {
-      // Add all tables belonging to this entity to the queue
-      const entityTables = tables.filter(t => t.entityId === selectedId);
-      entityTables.forEach(t => queue.push(t.id));
-    }
-    
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (connected.has(current)) continue;
-      connected.add(current);
-      
-      // Find all tables connected via FK (both directions)
-      foreignKeys.forEach(fk => {
-        if (fk.fromTableId === current && !connected.has(fk.toTableId)) {
-          queue.push(fk.toTableId);
-        }
-        if (fk.toTableId === current && !connected.has(fk.fromTableId)) {
-          queue.push(fk.fromTableId);
-        }
+      const entityTables = tables.filter(t => t.entityId === activeId);
+      entityTables.forEach(t => {
+        sourceTableIds.push(t.id);
+        connected.add(t.id);
       });
     }
     
+    // Only add directly connected tables (1-hop)
+    sourceTableIds.forEach(sourceId => {
+      foreignKeys.forEach(fk => {
+        if (fk.fromTableId === sourceId) connected.add(fk.toTableId);
+        if (fk.toTableId === sourceId) connected.add(fk.fromTableId);
+      });
+    });
+    
     return connected;
-  }, [selectedId, tables, foreignKeys, viewMode, showEntityOverlay, entities]);
+  }, [selectedId, hoveredNodeId, tables, foreignKeys, viewMode, showEntityOverlay, entities]);
 
   // Build nodes based on view mode
   const nodes: Node[] = useMemo(() => {
@@ -501,6 +491,13 @@ const CanvasInner = () => {
     }
   }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize]);
 
+  // Local display nodes - mirrors store nodes but gets fast position updates during drag
+  // This avoids the Zustand → useMemo → all nodes rebuild cycle on every drag pixel
+  const [displayNodes, setDisplayNodes] = useState<Node[]>(nodes);
+  useEffect(() => {
+    setDisplayNodes(nodes);
+  }, [nodes]);
+
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
     if (viewMode === 'conceptual') {
@@ -564,11 +561,11 @@ const CanvasInner = () => {
           markerStart: `url(#marker-${r.fromCardinality})`,
           selected: isEdgeSelected,
           className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
-          data: r,
+          data: { ...r, isHighlighted: isConnectedToSelected || isEdgeSelected },
           interactionWidth: 20,
           style: {
             stroke: (isEdgeSelected || isConnectedToSelected) ? '#4ade80' : defaultColor,
-            strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 2.5 : 2,
+            strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 1.5 : 1,
           },
           labelStyle: {
             fontSize: relationshipLabelSize === 'small' ? '10px' : relationshipLabelSize === 'large' ? '14px' : '12px',
@@ -666,18 +663,17 @@ const CanvasInner = () => {
           target: fk.toTableId,
           sourceHandle,
           targetHandle,
-          type: fk.edgeType || 'curved',
-          pathOptions: fk.edgeType === 'smoothstep' ? { borderRadius: 120 } : undefined,
+          type: 'animated',
           markerEnd: `url(#marker-${fk.toCardinality})`,
           markerStart: `url(#marker-${fk.fromCardinality})`,
           selected: isEdgeSelected,
           className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
-          data: fk,
+          data: { ...fk, isHighlighted: isConnectedToSelected || isEdgeSelected, edgeType: fk.edgeType || 'curved' },
           interactionWidth: 20,
           zIndex: 10, // Put edges on top of tables
           style: {
             stroke: (isEdgeSelected || isConnectedToSelected) ? '#4ade80' : defaultColor,
-            strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 2.5 : 2,
+            strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 1.5 : 1,
           },
           labelStyle: {
             fontSize: '16px',
@@ -696,109 +692,68 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
+  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
+    // Apply ALL changes (position, select, etc.) to local display nodes immediately
+    // This gives React Flow smooth visual updates without Zustand overhead
+    setDisplayNodes(nds => applyNodeChanges(changes, nds));
+
     changes.forEach(change => {
       if (change.type === 'position' && change.position) {
-        // Check if this is an entity group node
+        const isDragEnd = change.dragging === false;
+        
         const isEntityGroup = change.id.endsWith('-group');
         const isConceptualGroup = entityGroups.some(g => g.id === change.id);
         
         if (isConceptualGroup) {
-          // For conceptual groups, move all entities within the group
           const group = entityGroups.find(g => g.id === change.id);
           if (group) {
             if (group.entityIds.length > 0) {
-              // Group has entities - move all entities, don't update group position
+              // Group drag: must update store continuously so group bounds recalculate
               const currentGroupNode = nodes.find(n => n.id === change.id);
               if (currentGroupNode) {
                 const deltaX = change.position.x - currentGroupNode.position.x;
                 const deltaY = change.position.y - currentGroupNode.position.y;
-                
-                // Apply delta to all entities in this group
                 group.entityIds.forEach(entityId => {
                   const currentLayout = nodeLayouts[entityId];
                   if (currentLayout) {
-                    const newX = currentLayout.x + deltaX;
-                    const newY = currentLayout.y + deltaY;
-                    
-                    if (change.dragging === false) {
-                      const snapped = snapToGrid(newX, newY);
-                      setNodePosition(entityId, snapped.x, snapped.y);
-                    } else {
-                      setNodePosition(entityId, newX, newY);
-                    }
+                    setNodePosition(entityId, currentLayout.x + deltaX, currentLayout.y + deltaY);
                   }
                 });
               }
-              // IMPORTANT: Don't update the group's position - it recalculates from entities
               return;
-            } else {
-              // Empty group - store its own position in nodeLayouts
-              // Store the position directly as React Flow provides it (already the visual position)
-              if (change.dragging === false) {
-                const snapped = snapToGrid(change.position.x, change.position.y);
-                setNodePosition(change.id, snapped.x, snapped.y);
-              } else {
-                setNodePosition(change.id, change.position.x, change.position.y);
-              }
+            } else if (isDragEnd) {
+              setNodePosition(change.id, change.position.x, change.position.y);
             }
           }
           return;
         } else if (isEntityGroup) {
-          // For entity groups, we need to move all tables within the group
           const entityId = change.id.replace('-group', '');
           const entityTables = tables.filter(t => t.entityId === entityId);
           
           if (entityTables.length > 0) {
-            // Calculate the delta from current position
+            // Group drag: must update store continuously
             const currentGroupNode = nodes.find(n => n.id === change.id);
             if (currentGroupNode) {
               const deltaX = change.position.x - currentGroupNode.position.x;
               const deltaY = change.position.y - currentGroupNode.position.y;
-              
-              // Apply delta to all tables in this entity
               entityTables.forEach(table => {
                 const currentLayout = tableLayouts[table.id];
                 if (currentLayout) {
-                  const newX = currentLayout.x + deltaX;
-                  const newY = currentLayout.y + deltaY;
-                  
-                  if (change.dragging === false) {
-                    const snapped = snapToGrid(newX, newY);
-                    setTablePosition(table.id, snapped.x, snapped.y);
-                  } else {
-                    setTablePosition(table.id, newX, newY);
-                  }
+                  setTablePosition(table.id, currentLayout.x + deltaX, currentLayout.y + deltaY);
                 }
               });
             }
-          } else {
-            // Empty entity group - store position in nodeLayouts using entity ID
-            if (change.dragging === false) {
-              const snapped = snapToGrid(change.position.x, change.position.y);
-              setNodePosition(entityId, snapped.x, snapped.y);
-            } else {
-              setNodePosition(entityId, change.position.x, change.position.y);
-            }
+          } else if (isDragEnd) {
+            setNodePosition(entityId, change.position.x, change.position.y);
           }
-        } else {
-          // Apply snapping when dragging is complete
-          if (change.dragging === false) {
-            const snapped = snapToGrid(change.position.x, change.position.y);
-            if (viewMode === 'conceptual') {
-              setNodePosition(change.id, snapped.x, snapped.y);
-            } else {
-              setTablePosition(change.id, snapped.x, snapped.y);
-            }
-          } else if (change.dragging === true || change.dragging === undefined) {
-            // Allow free movement while dragging
-            if (viewMode === 'conceptual') {
-              setNodePosition(change.id, change.position.x, change.position.y);
-            } else {
-              setTablePosition(change.id, change.position.x, change.position.y);
-            }
+        } else if (isDragEnd) {
+          // Individual node/table - only persist on drag end
+          if (viewMode === 'conceptual') {
+            setNodePosition(change.id, change.position.x, change.position.y);
+          } else {
+            setTablePosition(change.id, change.position.x, change.position.y);
           }
         }
       }
@@ -831,7 +786,7 @@ const CanvasInner = () => {
         }
       }
     });
-  }, [setNodePosition, setTablePosition, setSelected, selectedId, viewMode, snapToGrid, tables, nodes, tableLayouts, entityGroups, entities, addEntityToGroup, dragHoverGroupId, multiSelectedEntityIds, nodeLayouts]);
+  }, [setNodePosition, setTablePosition, setSelected, selectedId, viewMode, tables, nodes, tableLayouts, entityGroups, entities, addEntityToGroup, dragHoverGroupId, multiSelectedEntityIds, nodeLayouts]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
       changes.forEach(change => {
@@ -1408,7 +1363,7 @@ const CanvasInner = () => {
   return (
     <div style={{ width: '100%', height: '100%', background: canvasBackground }}>
       <ReactFlow
-        nodes={nodes}
+        nodes={displayNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -1417,6 +1372,14 @@ const CanvasInner = () => {
         onConnect={onConnect}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
+        onNodeMouseEnter={useCallback((_: any, node: any) => {
+          // For entity groups, extract the entity ID
+          const id = node.id.endsWith('-group') ? node.id.replace('-group', '') : node.id;
+          setHoveredNodeId(id);
+        }, [])}
+        onNodeMouseLeave={useCallback(() => {
+          setHoveredNodeId(null);
+        }, [])}
         onMoveEnd={onMoveEnd}
         onPaneClick={onPaneClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
@@ -1439,8 +1402,13 @@ const CanvasInner = () => {
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={4}
-        snapToGrid={true}
-        snapGrid={[20, 20]}
+        panOnScroll={true}
+        panOnScrollSpeed={1.5}
+        panOnScrollMode={PanOnScrollMode.Free}
+        zoomOnScroll={false}
+        zoomOnPinch={true}
+        snapToGrid={false}
+        snapGrid={[1, 1]}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} color={gridColor} size={1} />

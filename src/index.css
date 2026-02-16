@@ -76,10 +76,6 @@ button:active {
   background: #bbb; 
 }
 
-.entity-node.selected {
-  outline: 2px solid #2196f3;
-}
-
 /* Allow clicks to pass through group node wrappers to entities underneath */
 .react-flow__node.group-node-passthrough {
   pointer-events: none !important;
@@ -148,13 +144,13 @@ button:active {
 
 /* Interactive edge hover effect */
 .react-flow__edge path:hover {
-  stroke-width: 3.5 !important;
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.6));
+  stroke-width: 2 !important;
+  filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.4));
   cursor: context-menu;
 }
 
 .react-flow__edge.selected path {
-  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.8));
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6));
 }
 
 /* Mobile Responsive Styles */

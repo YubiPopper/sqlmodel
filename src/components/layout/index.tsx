@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import { Navbar } from './Navbar';
 import { LeftSidebar } from './Sidebar';
 import { RightPanel } from './RightPanel';
 import Canvas from '../Canvas';
+import { Tooltip } from '../shared/Tooltip';
 import { StarRepoDialog } from '../ui/StarRepoDialog';
 import { ExampleDialog } from '../ui/ExampleDialog';
 import { AIDialog } from '../ui/AIDialog';
@@ -14,7 +16,7 @@ import { useUrlImport } from '../../hooks/useUrlImport';
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
-  const setLeftSidebarCollapsed = useModelStore(state => state.setLeftSidebarCollapsed);
+  const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
@@ -85,30 +87,8 @@ export const AppLayout: React.FC = () => {
     loadInitialData();
   }, [urlImport.status]); // Re-run when URL import status changes
 
-  // Force sidebar state based on screen size on mount
-  useEffect(() => {
-    const isMobile = window.innerWidth <= 768;
-    // On mobile, always collapse; on desktop, always expand
-    setLeftSidebarCollapsed(isMobile);
-  }, []); // Only run once on mount
-
-  // Handle resize events to toggle sidebar
-  useEffect(() => {
-    let wasMobile = window.innerWidth <= 768;
-    
-    const handleResize = () => {
-      const isMobile = window.innerWidth <= 768;
-      
-      // Only update if crossing the mobile/desktop boundary
-      if (wasMobile !== isMobile) {
-        setLeftSidebarCollapsed(isMobile);
-        wasMobile = isMobile;
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [setLeftSidebarCollapsed]);
+  // Sidebar is hidden by default (leftSidebarCollapsed: true in store)
+  // User toggles it manually via the navbar sidebar icon
 
   return (
     <div style={{
@@ -127,10 +107,46 @@ export const AppLayout: React.FC = () => {
         display: 'flex',
         flex: 1,
         overflow: 'hidden',
+        position: 'relative',
       }}>
         {/* Left Sidebar - Model Tree */}
         {!leftSidebarCollapsed && <LeftSidebar />}
         
+        {/* Sidebar toggle - always visible outside the sidebar */}
+        <Tooltip content={leftSidebarCollapsed ? 'Open sidebar' : 'Close sidebar'} placement="right">
+          <button
+            onClick={toggleLeftSidebar}
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: leftSidebarCollapsed ? '12px' : '292px',
+              zIndex: 10,
+              padding: '7px',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: isDark ? '#8b949e' : '#6b7280',
+              transition: 'left 0.15s ease, background 0.15s ease, color 0.15s ease',
+              minHeight: 'unset',
+              outline: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? 'rgba(110, 118, 129, 0.15)' : 'rgba(0, 0, 0, 0.06)';
+              e.currentTarget.style.color = isDark ? '#e6edf3' : '#1f2937';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+            }}
+          >
+            {leftSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </Tooltip>
+
         {/* Center - Canvas */}
         <main style={{
           flex: 1,

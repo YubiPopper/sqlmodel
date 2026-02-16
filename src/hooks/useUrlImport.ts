@@ -23,6 +23,42 @@ import type { SupportedFormat } from '../services/parsers/types';
 
 export { clearSchemaUrl } from './schemaUrlState';
 
+/**
+ * Convert GitHub/GitLab blob URLs to raw content URLs.
+ * 
+ * Examples:
+ *   github.com/user/repo/blob/main/file.sql → raw.githubusercontent.com/user/repo/main/file.sql
+ *   github.com/user/repo/blob/e2f085e2b2c/db/schema.rb → raw.githubusercontent.com/user/repo/e2f085e2b2c/db/schema.rb
+ *   gitlab.com/user/repo/-/blob/main/file.sql → gitlab.com/user/repo/-/raw/main/file.sql
+ */
+export function convertGitHubUrlToRaw(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    
+    // GitHub: convert blob URLs to raw.githubusercontent.com
+    if (urlObj.hostname === 'github.com') {
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      // Path format: /owner/repo/blob/branch-or-commit/path/to/file
+      if (pathParts.length >= 4 && pathParts[2] === 'blob') {
+        const owner = pathParts[0];
+        const repo = pathParts[1];
+        const refAndPath = pathParts.slice(3).join('/');
+        return `https://raw.githubusercontent.com/${owner}/${repo}/${refAndPath}`;
+      }
+    }
+    
+    // GitLab: convert /-/blob/ to /-/raw/
+    if (urlObj.hostname.includes('gitlab')) {
+      return url.replace('/-/blob/', '/-/raw/');
+    }
+    
+    // Return unchanged if not a recognized pattern
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export type UrlImportStatus = 'idle' | 'loading' | 'success' | 'error';
 
 export interface UrlImportState {
@@ -106,11 +142,13 @@ export function useUrlImport(): UrlImportState {
     let cancelled = false;
 
     const doImport = async () => {
+      // Convert GitHub blob URLs to raw URLs
+      const fetchUrl = convertGitHubUrlToRaw(schemaUrl);
       setState({ status: 'loading', message: `Fetching ${schemaUrl}…`, url: schemaUrl });
 
       try {
         // Fetch the remote file
-        const response = await fetch(schemaUrl);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
