@@ -261,7 +261,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
           }}
         >
           {icon && <span style={{ display: 'flex' }}>{icon}</span>}
-          {label && <span style={{ flex: 1 }}>{label}</span>}
+          {label && <span className="navbar-button-text" style={{ flex: 1 }}>{label}</span>}
           {variant !== 'ghost' && <ChevronDown size={iconSize} />}
         </button>
       }

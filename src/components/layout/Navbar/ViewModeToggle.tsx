@@ -66,7 +66,7 @@ export const ViewModeToggle: React.FC = () => {
       }}>
         <Box size={14} strokeWidth={2.5} />
         {!isPhysical && (
-          <span style={{ 
+          <span className="view-mode-text" style={{ 
             whiteSpace: 'nowrap',
             textShadow: '0 1px 2px rgba(0,0,0,0.2)',
           }}>
@@ -99,7 +99,7 @@ export const ViewModeToggle: React.FC = () => {
       }}>
         <Table size={14} strokeWidth={2.5} />
         {isPhysical && (
-          <span style={{ 
+          <span className="view-mode-text" style={{ 
             whiteSpace: 'nowrap',
             textShadow: '0 1px 2px rgba(0,0,0,0.2)',
           }}>

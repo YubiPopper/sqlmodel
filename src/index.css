@@ -158,7 +158,21 @@ button:active {
 }
 
 /* Mobile Responsive Styles */
-@media (max-width: 768px) {
+/* Hide view mode text (Conceptual/Physical) between 831px and 905px */
+@media (min-width: 831px) and (max-width: 905px) {
+  .view-mode-text {
+    display: none !important;
+  }
+}
+
+/* Hide navbar button text between 831px and 1015px (but show in mobile view below 830px) */
+@media (min-width: 831px) and (max-width: 1015px) {
+  .navbar-button-text {
+    display: none !important;
+  }
+}
+
+@media (max-width: 830px) {
   /* Hide text on small mobile screens */
   .navbar-brand-text {
     display: none !important;
@@ -178,7 +192,7 @@ button:active {
   }
 }
 
-@media (min-width: 480px) and (max-width: 768px) {
+@media (min-width: 480px) and (max-width: 830px) {
   /* Show brand text on tablets */
   .navbar-brand-text {
     display: block !important;
