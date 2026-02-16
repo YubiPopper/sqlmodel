@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Github } from 'lucide-react';
+import { Sun, Moon, Github, BookOpen } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { IconButton } from '../../shared/IconButton';
 import { Tooltip } from '../../shared/Tooltip';
@@ -19,6 +19,43 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
     <>
       {isMobile ? (
         <>
+          {/* Documentation Link */}
+          <a
+            href="https://docs.sqlmodel.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              padding: '12px 14px',
+              minHeight: '48px',
+              height: '48px',
+              boxSizing: 'border-box',
+              background: isDark ? '#21262d' : '#f3f4f6',
+              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+              borderRadius: '8px',
+              outline: 'none',
+              textDecoration: 'none',
+              color: isDark ? '#e6edf3' : '#1f2937',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              width: '100%',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+            }}
+          >
+            <BookOpen size={18} style={{ flexShrink: 0 }} />
+            <span>Documentation</span>
+          </a>
+
           {/* GitHub Link */}
           <a
             href="https://github.com/sqlmodel/sqlmodel"
@@ -100,6 +137,30 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
           borderLeft: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
           marginLeft: '8px',
         }}>
+          {/* Documentation Link */}
+          <Tooltip content="View documentation">
+            <div>
+              <a
+                href="https://docs.sqlmodel.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textDecoration: 'none',
+                  color: isDark ? '#e6edf3' : '#1f2937',
+                }}
+              >
+                <IconButton
+                  icon={<BookOpen size={16} />}
+                  onClick={() => {}}
+                  variant="ghost"
+                />
+              </a>
+            </div>
+          </Tooltip>
+
           {/* GitHub Link */}
           <Tooltip content="View source code on GitHub">
             <div>
