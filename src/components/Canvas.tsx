@@ -473,7 +473,7 @@ const CanvasInner = () => {
         }
 
         const padding = 30; // Left, right, and bottom padding
-        const topPadding = 40; // Slightly more padding at top for entity label
+        const topPadding = 60; // More padding at top for entity label and drag handle
 
         return {
           id: `${entity.id}-group`,
@@ -1112,8 +1112,9 @@ const CanvasInner = () => {
 
     if (type === 'table' && targetId) {
       const table = tables.find(t => t.id === targetId);
+      const isInEntityGroup = table?.entityId !== undefined;
       
-      return [
+      const menuItems: ContextMenuItem[] = [
         { label: 'Edit Table', icon: <Pencil size={14} />, onClick: () => setSelected(targetId) },
         { label: 'Export SQL', icon: <Code size={14} />, onClick: () => {
           handleCloseContextMenu();
@@ -1138,6 +1139,19 @@ const CanvasInner = () => {
             }
           }
         }},
+      ];
+      
+      // Add "Remove from Entity Group" option if table is in an entity group
+      if (isInEntityGroup) {
+        menuItems.push(
+          { label: '', divider: true, onClick: () => {} },
+          { label: 'Remove from Entity Group', icon: <Group size={14} />, onClick: () => {
+            updateTable(targetId, { entityId: undefined });
+          }}
+        );
+      }
+      
+      menuItems.push(
         { label: '', divider: true, onClick: () => {} },
         { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => {
           setDeleteDialog({
@@ -1147,7 +1161,9 @@ const CanvasInner = () => {
             name: table?.name,
           });
         }, danger: true, shortcut: '⌫' },
-      ];  
+      );
+      
+      return menuItems;  
     }
 
     if (type === 'foreignKey' && targetId) {

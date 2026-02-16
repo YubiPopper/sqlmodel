@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Layers, Github } from 'lucide-react';
+import { Sun, Moon, Github } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { IconButton } from '../../shared/IconButton';
 import { Tooltip } from '../../shared/Tooltip';
@@ -12,9 +12,6 @@ interface GlobalSettingsProps {
 export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false, onActionComplete }) => {
   const colorMode = useModelStore(state => state.colorMode);
   const setColorMode = useModelStore(state => state.setColorMode);
-  const viewMode = useModelStore(state => state.viewMode);
-  const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
-  const setShowEntityOverlay = useModelStore(state => state.setShowEntityOverlay);
 
   const isDark = colorMode === 'dark';
 
@@ -58,46 +55,6 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             <Github size={18} style={{ flexShrink: 0 }} />
             <span>View on GitHub</span>
           </a>
-
-        {/* Entity Overlay Toggle - Only in Physical view */}
-        {viewMode === 'physical' && (
-          <button
-            onClick={() => { setShowEntityOverlay(!showEntityOverlay); onActionComplete?.(); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              minHeight: '48px',
-              height: '48px',
-              boxSizing: 'border-box',
-              background: showEntityOverlay 
-                ? (isDark ? '#30363d' : '#e5e7eb')
-                : (isDark ? '#21262d' : '#f3f4f6'),
-              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              outline: 'none',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: isDark ? '#e6edf3' : '#1f2937',
-              transition: 'all 0.15s ease',
-              width: '100%',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.background = showEntityOverlay 
-                ? (isDark ? '#30363d' : '#e5e7eb')
-                : (isDark ? '#21262d' : '#f3f4f6');
-            }}
-          >
-            <Layers size={18} style={{ flexShrink: 0 }} />
-            <span>{showEntityOverlay ? 'Hide Entity Groupings' : 'Show Entity Groupings'}</span>
-          </button>
-        )}
 
         {/* Theme Toggle */}
         <button
@@ -167,19 +124,6 @@ export const GlobalSettings: React.FC<GlobalSettingsProps> = ({ isMobile = false
             </div>
           </Tooltip>
 
-          {/* Entity Overlay Toggle - Only in Physical view */}
-          {viewMode === 'physical' && (
-            <Tooltip content={showEntityOverlay ? 'Hide entity groupings' : 'Show entity groupings'}>
-              <div>
-                <IconButton
-                  icon={<Layers size={16} />}
-                  onClick={() => setShowEntityOverlay(!showEntityOverlay)}
-                  active={showEntityOverlay}
-                  variant="ghost"
-                />
-              </div>
-            </Tooltip>
-          )}
           {/* Theme Toggle */}
           <Tooltip content={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
             <div>

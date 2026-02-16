@@ -610,6 +610,30 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     );
   };
 
+  const renderHoverZone = (side: HoverSide) => {
+    // Only show hover zones when entity is selected to avoid blocking group selection
+    if (!selected) return null;
+    
+    const zoneStyles: Record<string, React.CSSProperties> = {
+      top: { top: '-24px', left: '25%', right: '25%', height: '28px', cursor: 'default' },
+      bottom: { bottom: '-24px', left: '25%', right: '25%', height: '28px', cursor: 'default' },
+      left: { left: '-24px', top: '25%', bottom: '25%', width: '28px', cursor: 'default' },
+      right: { right: '-24px', top: '25%', bottom: '25%', width: '28px', cursor: 'default' },
+    };
+    
+    return (
+      <div
+        className="nodrag"
+        style={{
+          position: 'absolute',
+          ...zoneStyles[side!],
+          zIndex: 5,
+        }}
+        onMouseEnter={() => handleSideHover(side, true)}
+        onMouseLeave={() => handleSideHover(side, false)}
+      />
+    );
+  };
 
   const renderResizeHandle = (corner: string) => {
     if (!selected) return null;

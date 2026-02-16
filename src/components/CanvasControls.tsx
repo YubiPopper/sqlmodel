@@ -1,6 +1,6 @@
 import { useReactFlow } from 'reactflow';
 import { useState, useEffect, useRef } from 'react';
-import { Minus, Plus, Maximize2, Grid3x3, Camera } from 'lucide-react';
+import { Minus, Plus, Maximize2, Grid3x3, Camera, Layers } from 'lucide-react';
 import { useModelStore } from '../store/useModelStore';
 import { LayoutAlgorithmDialog } from './ui/LayoutAlgorithmDialog';
 import { Tooltip } from './shared/Tooltip';
@@ -12,6 +12,8 @@ export const CanvasControls = () => {
   const viewMode = useModelStore(state => state.viewMode);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
   const setTableFieldsDisplay = useModelStore(state => state.setTableFieldsDisplay);
+  const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
+  const setShowEntityOverlay = useModelStore(state => state.setShowEntityOverlay);
   
   const [displayZoom, setDisplayZoom] = useState(Math.round(getZoom() * 100));
   const [isLayoutDialogOpen, setIsLayoutDialogOpen] = useState(false);
@@ -86,6 +88,7 @@ export const CanvasControls = () => {
             return !node.classList.contains('react-flow__controls') &&
                    !node.classList.contains('react-flow__minimap') &&
                    !node.classList.contains('react-flow__attribution') &&
+                   !node.classList.contains('canvas-controls') &&
                    !node.classList.contains('ai-button'); // Hide AI buttons in table headers
           }
           return true;
@@ -177,6 +180,7 @@ export const CanvasControls = () => {
         `}
       </style>
       <div
+        className="canvas-controls"
         style={{
           position: 'absolute',
           bottom: '24px',
@@ -264,6 +268,29 @@ export const CanvasControls = () => {
             <Camera size={14} />
           </button>
         </Tooltip>
+
+        {/* Entity Overlay Toggle - Only in Physical View */}
+        {viewMode === 'physical' && (
+          <>
+            {/* Separator */}
+            <div style={separatorStyle} />
+
+            {/* Entity Overlay Toggle */}
+            <Tooltip content={showEntityOverlay ? 'Hide Entity Groupings' : 'Show Entity Groupings'} placement="top">
+              <button
+                onClick={() => setShowEntityOverlay(!showEntityOverlay)}
+                className="canvas-control-button"
+                style={{ 
+                  backgroundColor: showEntityOverlay 
+                    ? (colorMode === 'dark' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.15)')
+                    : undefined,
+                }}
+              >
+                <Layers size={14} />
+              </button>
+            </Tooltip>
+          </>
+        )}
 
         {/* Show All Fields - Only in Physical View */}
         {viewMode === 'physical' && (

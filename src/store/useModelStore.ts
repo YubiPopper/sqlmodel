@@ -205,7 +205,7 @@ export const useModelStore = create<ModelState>()(
       hiddenTableIds: new Set(),
       emptyDatabases: new Set(),
       emptySchemas: new Set(),
-      viewMode: 'conceptual',
+      viewMode: 'physical',
       colorMode: 'dark',
       showEntityOverlay: false,
       tableFieldsDisplay: 'all',
@@ -1034,7 +1034,7 @@ export const useModelStore = create<ModelState>()(
               const entityTables = tables.filter(t => t.entityId === entity.id);
               
               // Position tables within entity bounds with better spacing
-              let tableY = entityY + 80; // Start below header with more room
+              let tableY = entityY + 100; // Start below header with more room for drag handle
               entityTables.forEach((table) => {
                 const tableHeight = 44 + (table.attributes.length * 32) + 20;
                 newTableLayouts[table.id] = {

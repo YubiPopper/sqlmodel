@@ -135,13 +135,20 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   
   const addEntity = useModelStore(state => state.addEntity);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
+  const updateTable = useModelStore(state => state.updateTable);
   const clearModel = useModelStore(state => state.clearModel);
   const loadModel = useModelStore(state => state.loadModel);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
+  const selectedId = useModelStore(state => state.selectedId);
+  const tables = useModelStore(state => state.tables);
+  const entityGroups = useModelStore(state => state.entityGroups);
+  const removeEntityFromGroup = useModelStore(state => state.removeEntityFromGroup);
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
   const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
+  const showEntityOverlay = useModelStore(state => state.showEntityOverlay);
+  const setShowEntityOverlay = useModelStore(state => state.setShowEntityOverlay);
 
   const isDark = colorMode === 'dark';
 
