@@ -240,30 +240,33 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     const canvasElement = event.currentTarget.closest('.react-flow');
     if (!canvasElement) return;
     
-    const dragZone = event.currentTarget as HTMLElement;
-    const entityElement = dragZone.closest('[data-entity-id]') as HTMLElement;
+    // Find the entity element via nodeRef (handles are outside [data-entity-id])
+    const entityElement = nodeRef.current?.querySelector('[data-entity-id]') as HTMLElement;
     if (!entityElement) return;
     
     const entityRect = entityElement.getBoundingClientRect();
     const canvasRect = canvasElement.getBoundingClientRect();
     
-    // Determine which side we're dragging from based on drag zone position
-    const dragZoneRect = dragZone.getBoundingClientRect();
+    // Determine which side we're dragging from based on handle position
+    const handleRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const centerX = entityRect.left + entityRect.width / 2 - canvasRect.left;
     const centerY = entityRect.top + entityRect.height / 2 - canvasRect.top;
     
     let dynamicStartSide: 'top' | 'right' | 'bottom' | 'left';
     let endX = 0, endY = 0;
     
-    // Determine which side based on drag zone position relative to entity
-    if (dragZoneRect.top < entityRect.top + 5) {
-      dynamicStartSide = 'top';
-    } else if (dragZoneRect.right > entityRect.right - 5) {
-      dynamicStartSide = 'right';
-    } else if (dragZoneRect.bottom > entityRect.bottom - 5) {
-      dynamicStartSide = 'bottom';
+    // Determine which side based on handle position relative to entity
+    const handleCenterX = handleRect.left + handleRect.width / 2;
+    const handleCenterY = handleRect.top + handleRect.height / 2;
+    const entityCenterX = entityRect.left + entityRect.width / 2;
+    const entityCenterY = entityRect.top + entityRect.height / 2;
+    const dx = handleCenterX - entityCenterX;
+    const dy = handleCenterY - entityCenterY;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+      dynamicStartSide = dx > 0 ? 'right' : 'left';
     } else {
-      dynamicStartSide = 'left';
+      dynamicStartSide = dy > 0 ? 'bottom' : 'top';
     }
     
     canvasElement.setAttribute('data-connection-source-entity', data.id);
@@ -531,27 +534,21 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     }
   }, [handleSaveEdit, data.name, data.description]);
 
-  const renderAddButton = (side: HoverSide) => {
+  const renderConnectionHandle = (side: HoverSide) => {
+    // Only show when mouse is near this specific side
     if (hoverSide !== side) return null;
     
     const positions: Record<string, React.CSSProperties> = {
-      top: { top: '-28px', left: '50%', transform: 'translateX(-50%)' },
-      bottom: { bottom: '-28px', left: '50%', transform: 'translateX(-50%)' },
-      left: { left: '-28px', top: '50%', transform: 'translateY(-50%)' },
-      right: { right: '-28px', top: '50%', transform: 'translateY(-50%)' },
-    };
-    
-    // Triangle pointing outward from the side
-    const triangleRotation: Record<string, string> = {
-      top: 'rotate(-90deg)',
-      bottom: 'rotate(90deg)',
-      left: 'rotate(180deg)',
-      right: 'rotate(0deg)',
+      top: { top: '-5px', left: '50%', transform: 'translateX(-50%)' },
+      bottom: { bottom: '-5px', left: '50%', transform: 'translateX(-50%)' },
+      left: { left: '-5px', top: '50%', transform: 'translateY(-50%)' },
+      right: { right: '-5px', top: '50%', transform: 'translateY(-50%)' },
     };
     
     return (
-      <button
+      <div
         className="nodrag nopan"
+        onMouseDown={handleEntityDragStart}
         onClick={(e) => {
           e.stopPropagation();
           handleCreateLinkedEntity(side);
@@ -561,52 +558,42 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
         style={{
           position: 'absolute',
           ...positions[side!],
-          width: '32px',
-          height: '32px',
-          background: 'transparent',
-          border: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          zIndex: 10,
-          padding: 0,
+          width: '12px',
+          height: '12px',
+          borderRadius: '50%',
+          background: colorMode === 'dark' ? '#4ade80' : '#22c55e',
+          border: `1.5px solid ${colorMode === 'dark' ? '#22c55e' : '#16a34a'}`,
+          cursor: 'crosshair',
+          zIndex: 20,
+          pointerEvents: 'auto',
         }}
-        title="Create linked entity"
-      >
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 44 44"
-          style={{
-            transform: triangleRotation[side!],
-            filter: colorMode === 'dark' 
-              ? 'drop-shadow(0 3px 8px rgba(100, 116, 139, 0.8))'
-              : 'drop-shadow(0 3px 8px rgba(71, 85, 105, 0.6))',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = `${triangleRotation[side!]} scale(1.15)`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = triangleRotation[side!];
-          }}
-        >
-          <defs>
-            <linearGradient id={`gradient-${side}`} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={colorMode === 'dark' ? '#64748b' : '#475569'} />
-              <stop offset="100%" stopColor={colorMode === 'dark' ? '#94a3b8' : '#64748b'} />
-            </linearGradient>
-          </defs>
-          <polygon
-            points="4,12 32,22 4,32"
-            fill={`url(#gradient-${side})`}
-            stroke={colorMode === 'dark' ? '#94a3b8' : '#64748b'}
-            strokeWidth="1"
-            opacity="0.95"
-          />
-        </svg>
-      </button>
+        title="Drag to connect · Click to add"
+      />
+    );
+  };
+
+  // Invisible edge trigger zones — placed inside the entity card to detect proximity
+  const renderEdgeTrigger = (side: HoverSide) => {
+    const zoneStyles: Record<string, React.CSSProperties> = {
+      top:    { top: 0, left: '20%', right: '20%', height: '14px', cursor: 'crosshair' },
+      bottom: { bottom: 0, left: '20%', right: '20%', height: '14px', cursor: 'crosshair' },
+      left:   { left: 0, top: '20%', bottom: '20%', width: '14px', cursor: 'crosshair' },
+      right:  { right: 0, top: '20%', bottom: '20%', width: '14px', cursor: 'crosshair' },
+    };
+    
+    return (
+      <div
+        className="nodrag"
+        onMouseEnter={() => handleSideHover(side, true)}
+        onMouseLeave={() => handleSideHover(side, false)}
+        style={{
+          position: 'absolute',
+          ...zoneStyles[side!],
+          zIndex: 15,
+          pointerEvents: 'auto',
+          // Invisible — just a hover trigger
+        }}
+      />
     );
   };
 
@@ -652,16 +639,16 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     );
   };
   return (
-    <div style={{ position: 'relative' }} ref={nodeRef}>
-      {/* Add entity buttons - only shown on hover of entity edges when selected */}
-      {selected && (
-        <>
-          {renderAddButton('top')}
-          {renderAddButton('right')}
-          {renderAddButton('bottom')}
-          {renderAddButton('left')}
-        </>
-      )}
+    <div
+      style={{ position: 'relative' }}
+      ref={nodeRef}
+      onMouseLeave={() => setHoverSide(null)}
+    >
+      {/* Connection handles - dot appears only on the side the mouse is near */}
+      {renderConnectionHandle('top')}
+      {renderConnectionHandle('right')}
+      {renderConnectionHandle('bottom')}
+      {renderConnectionHandle('left')}
       
       {/* Resize handles */}
       {renderResizeHandle('top-left')}
@@ -721,147 +708,11 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
 
       {/* Conceptual View - Entity Card */}
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }} data-entity-id={data.id}>
-        {/* Drag handle zones on edges for creating connections - only when selected */}
-        {selected && (
-          <>
-            {/* Top */}
-            <div
-              className="nodrag"
-              onMouseDown={handleEntityDragStart}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: '35%',
-                right: '35%',
-                height: '8px',
-                cursor: 'crosshair',
-                zIndex: 15,
-                opacity: 0,
-                background: colorMode === 'dark' 
-                  ? 'linear-gradient(180deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.15) 50%, transparent 100%)' 
-                  : 'linear-gradient(180deg, rgba(96, 165, 250, 0.25) 0%, rgba(96, 165, 250, 0.12) 50%, transparent 100%)',
-                borderRadius: '16px 16px 0 0',
-                transition: 'opacity 0.3s ease',
-                pointerEvents: 'auto',
-              }}
-              onMouseEnter={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '1';
-                  handleSideHover('top', true);
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '0';
-                  handleSideHover('top', false);
-                }
-              }}
-              title="Drag to connect to another entity"
-            />
-            {/* Right */}
-            <div
-              className="nodrag"
-              onMouseDown={handleEntityDragStart}
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: '35%',
-                bottom: '35%',
-                width: '8px',
-                cursor: 'crosshair',
-                zIndex: 15,
-                opacity: 0,
-                background: colorMode === 'dark' 
-                  ? 'linear-gradient(90deg, transparent 0%, rgba(59, 130, 246, 0.15) 50%, rgba(59, 130, 246, 0.3) 100%)' 
-                  : 'linear-gradient(90deg, transparent 0%, rgba(96, 165, 250, 0.12) 50%, rgba(96, 165, 250, 0.25) 100%)',
-                borderRadius: '0 16px 16px 0',
-                transition: 'opacity 0.3s ease',
-                pointerEvents: 'auto',
-              }}
-              onMouseEnter={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '1';
-                  handleSideHover('right', true);
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '0';
-                  handleSideHover('right', false);
-                }
-              }}
-              title="Drag to connect to another entity"
-            />
-            {/* Bottom */}
-            <div
-              className="nodrag"
-              onMouseDown={handleEntityDragStart}
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: '35%',
-                right: '35%',
-                height: '8px',
-                cursor: 'crosshair',
-                zIndex: 15,
-                opacity: 0,
-                background: colorMode === 'dark' 
-                  ? 'linear-gradient(0deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.15) 50%, transparent 100%)' 
-                  : 'linear-gradient(0deg, rgba(96, 165, 250, 0.25) 0%, rgba(96, 165, 250, 0.12) 50%, transparent 100%)',
-                borderRadius: '0 0 16px 16px',
-                transition: 'opacity 0.3s ease',
-                pointerEvents: 'auto',
-              }}
-              onMouseEnter={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '1';
-                  handleSideHover('bottom', true);
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '0';
-                  handleSideHover('bottom', false);
-                }
-              }}
-              title="Drag to connect to another entity"
-            />
-            {/* Left */}
-            <div
-              className="nodrag"
-              onMouseDown={handleEntityDragStart}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: '35%',
-                bottom: '35%',
-                width: '8px',
-                cursor: 'crosshair',
-                zIndex: 15,
-                opacity: 0,
-                background: colorMode === 'dark' 
-                  ? 'linear-gradient(270deg, transparent 0%, rgba(59, 130, 246, 0.15) 50%, rgba(59, 130, 246, 0.3) 100%)' 
-                  : 'linear-gradient(270deg, transparent 0%, rgba(96, 165, 250, 0.12) 50%, rgba(96, 165, 250, 0.25) 100%)',
-                borderRadius: '16px 0 0 16px',
-                transition: 'opacity 0.3s ease',
-                pointerEvents: 'auto',
-              }}
-              onMouseEnter={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '1';
-                  handleSideHover('left', true);
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isResizing && !isEditing) {
-                  e.currentTarget.style.opacity = '0';
-                  handleSideHover('left', false);
-                }
-              }}
-              title="Drag to connect to another entity"
-            />
-          </>
-        )}
+        {/* Invisible edge zones to trigger connection handle dots */}
+        {renderEdgeTrigger('top')}
+        {renderEdgeTrigger('right')}
+        {renderEdgeTrigger('bottom')}
+        {renderEdgeTrigger('left')}
         <div
           className={clsx('entity-node', selected && 'selected')}
           onDoubleClick={handleDoubleClick}

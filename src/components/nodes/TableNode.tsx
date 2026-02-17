@@ -246,26 +246,18 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
     }
   }, [data.id, toggleTableMultiSelect, setSelected]);
 
-  const renderAddButton = (side: HoverSide) => {
+  const renderConnectionHandle = (side: HoverSide) => {
     if (hoverSide !== side) return null;
     
     const positions: Record<string, React.CSSProperties> = {
-      top: { top: '-24px', left: '50%', transform: 'translateX(-50%)' },
-      bottom: { bottom: '-24px', left: '50%', transform: 'translateX(-50%)' },
-      left: { left: '-24px', top: '50%', transform: 'translateY(-50%)' },
-      right: { right: '-24px', top: '50%', transform: 'translateY(-50%)' },
-    };
-    
-    // Triangle pointing outward from the side
-    const triangleRotation: Record<string, string> = {
-      top: 'rotate(-90deg)',
-      bottom: 'rotate(90deg)',
-      left: 'rotate(180deg)',
-      right: 'rotate(0deg)',
+      top: { top: '-5px', left: '50%', transform: 'translateX(-50%)' },
+      bottom: { bottom: '-5px', left: '50%', transform: 'translateX(-50%)' },
+      left: { left: '-5px', top: '50%', transform: 'translateY(-50%)' },
+      right: { right: '-5px', top: '50%', transform: 'translateY(-50%)' },
     };
     
     return (
-      <button
+      <div
         className="nodrag nopan"
         onClick={(e) => {
           e.stopPropagation();
@@ -276,56 +268,39 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
         style={{
           position: 'absolute',
           ...positions[side!],
-          width: '32px',
-          height: '32px',
-          background: 'transparent',
-          border: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          width: '12px',
+          height: '12px',
+          borderRadius: '50%',
+          background: isDark ? '#4ade80' : '#22c55e',
+          border: `1.5px solid ${isDark ? '#22c55e' : '#16a34a'}`,
           cursor: 'pointer',
-          zIndex: 10,
-          padding: 0,
+          zIndex: 20,
+          pointerEvents: 'auto',
         }}
-        title="Create new table (drag field to link)"
-      >
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 28 28"
-          style={{
-            transform: triangleRotation[side!],
-            filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.5))',
-            transition: 'transform 0.15s',
-          }}
-        >
-          <polygon
-            points="2,6 22,14 2,22"
-            fill="#10b981"
-          />
-        </svg>
-      </button>
+        title="Click to add table"
+      />
     );
   };
 
-  const renderHoverZone = (side: HoverSide) => {
+  const renderEdgeTrigger = (side: HoverSide) => {
     const zoneStyles: Record<string, React.CSSProperties> = {
-      top: { top: '-28px', left: '10%', right: '10%', height: '36px', cursor: 'default' },
-      bottom: { bottom: '-28px', left: '10%', right: '10%', height: '36px', cursor: 'default' },
-      left: { left: '-28px', top: '10%', bottom: '10%', width: '36px', cursor: 'default' },
-      right: { right: '-28px', top: '10%', bottom: '10%', width: '36px', cursor: 'default' },
+      top:    { top: 0, left: '20%', right: '20%', height: '14px', cursor: 'pointer' },
+      bottom: { bottom: 0, left: '20%', right: '20%', height: '14px', cursor: 'pointer' },
+      left:   { left: 0, top: '20%', bottom: '20%', width: '14px', cursor: 'pointer' },
+      right:  { right: 0, top: '20%', bottom: '20%', width: '14px', cursor: 'pointer' },
     };
     
     return (
       <div
         className="nodrag"
+        onMouseEnter={() => handleSideHover(side, true)}
+        onMouseLeave={() => handleSideHover(side, false)}
         style={{
           position: 'absolute',
           ...zoneStyles[side!],
-          zIndex: 5,
+          zIndex: 15,
+          pointerEvents: 'auto',
         }}
-        onMouseEnter={() => handleSideHover(side, true)}
-        onMouseLeave={() => handleSideHover(side, false)}
       />
     );
   };
@@ -518,7 +493,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }} onMouseLeave={() => setHoverSide(null)}>
       {/* Table-level handles for when fields are hidden */}
       <Handle 
         type="target" 
@@ -545,17 +520,11 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
         style={{ opacity: 0, right: 0, top: '50%', transform: 'translateY(-50%)' }} 
       />
       
-      {/* Hover zones for add buttons */}
-      {renderHoverZone('top')}
-      {renderHoverZone('right')}
-      {renderHoverZone('bottom')}
-      {renderHoverZone('left')}
-      
-      {/* Add table buttons */}
-      {renderAddButton('top')}
-      {renderAddButton('right')}
-      {renderAddButton('bottom')}
-      {renderAddButton('left')}
+      {/* Connection handle dots — per-side proximity */}
+      {renderConnectionHandle('top')}
+      {renderConnectionHandle('right')}
+      {renderConnectionHandle('bottom')}
+      {renderConnectionHandle('left')}
       
       <div
         className={clsx('table-node', selected && 'selected')}
@@ -599,6 +568,12 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           transition: 'border-color 300ms ease, border-width 300ms ease, box-shadow 300ms ease',
         }}
       >
+      {/* Invisible edge trigger zones for per-side dot proximity */}
+      {renderEdgeTrigger('top')}
+      {renderEdgeTrigger('right')}
+      {renderEdgeTrigger('bottom')}
+      {renderEdgeTrigger('left')}
+      
       {/* Multi-selection indicator badge */}
       {isMultiSelected && (
         <div style={{

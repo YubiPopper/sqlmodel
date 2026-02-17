@@ -133,7 +133,7 @@ button:active {
   }
 }
 
-.react-flow__edge.pulse path {
+.react-flow__edge.pulse .react-flow__edge-path {
   stroke-dasharray: 8, 4;
   animation: line-flow-connected 0.6s linear infinite;
 }
@@ -142,14 +142,19 @@ button:active {
   animation: line-flow 0.4s linear infinite;
 }
 
-/* Interactive edge hover effect */
-.react-flow__edge path:hover {
-  stroke-width: 2 !important;
-  filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.4));
+/* Interactive edge hover effect — target the edge group wrapper so the invisible
+   interaction path (wider hit-area) keeps hover stable instead of flickering when
+   stroke-width changes shift the visible path out from under the cursor. */
+.react-flow__edge {
   cursor: context-menu;
 }
 
-.react-flow__edge.selected path {
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 2 !important;
+  filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.4));
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
   filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.6));
 }
 

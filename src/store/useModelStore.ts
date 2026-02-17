@@ -829,7 +829,13 @@ export const useModelStore = create<ModelState>()(
       
       clearMultiSelection: () => set({ multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
       
-      setViewMode: (mode) => set({ viewMode: mode, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
+      setViewMode: (mode) => {
+        set({ viewMode: mode, multiSelectedEntityIds: [], multiSelectedTableIds: [] });
+        const { fitViewCallback } = get();
+        if (fitViewCallback) {
+          setTimeout(() => fitViewCallback(), 50);
+        }
+      },
       
       setColorMode: (mode) => set({ colorMode: mode }),
       

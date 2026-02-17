@@ -4,7 +4,6 @@ import ReactFlow, {
   ConnectionMode,
   PanOnScrollMode,
   ReactFlowProvider,
-  SimpleBezierEdge,
   useReactFlow,
   applyNodeChanges,
 } from 'reactflow';
@@ -39,7 +38,6 @@ const nodeTypes = {
 };
 
 const edgeTypes = {
-  curved: SimpleBezierEdge,
   animated: AnimatedEdge,
 };
 
@@ -140,6 +138,15 @@ const CanvasInner = () => {
     };
     useModelStore.getState().setFitViewCallback(fitView);
     return () => useModelStore.getState().setFitViewCallback(null);
+  }, [reactFlowInstance]);
+
+  // Auto fit-to-view on initial page load / refresh
+  useEffect(() => {
+    // Small delay to let nodes render and get their dimensions
+    const timer = setTimeout(() => {
+      reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [reactFlowInstance]);
 
   // Ensure hiddenEntityIds and hiddenTableIds are Sets (fallback for localStorage migration)
@@ -556,12 +563,12 @@ const CanvasInner = () => {
           label: showRelationshipLabels ? r.label : '',
           sourceHandle,
           targetHandle,
-          type: 'curved',
+          type: 'animated',
           markerEnd: `url(#marker-${r.toCardinality})`,
           markerStart: `url(#marker-${r.fromCardinality})`,
           selected: isEdgeSelected,
           className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
-          data: { ...r, isHighlighted: isConnectedToSelected || isEdgeSelected },
+          data: { ...r, isHighlighted: isConnectedToSelected || isEdgeSelected, edgeType: 'curved' },
           interactionWidth: 20,
           style: {
             stroke: (isEdgeSelected || isConnectedToSelected) ? '#4ade80' : defaultColor,

@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { getBezierPath, getStraightPath, getSmoothStepPath, type EdgeProps } from 'reactflow';
+import { getBezierPath, getStraightPath, getSmoothStepPath, EdgeLabelRenderer, type EdgeProps } from 'reactflow';
 
 const PARTICLE_COUNT = 4;
 const ANIMATION_DURATION = 5; // seconds
@@ -22,11 +22,14 @@ const AnimatedEdge = memo(({
   markerEnd,
   data,
   interactionWidth,
+  label,
+  labelStyle,
+  labelBgStyle,
 }: EdgeProps<AnimatedEdgeData>) => {
   const edgeType = data?.edgeType || 'curved';
   
   // Compute the edge path based on edge type
-  const [edgePath] = useMemo(() => {
+  const [edgePath, labelX, labelY] = useMemo(() => {
     switch (edgeType) {
       case 'straight':
         return getStraightPath({ sourceX, sourceY, targetX, targetY });
@@ -52,6 +55,7 @@ const AnimatedEdge = memo(({
     <g>
       {/* Invisible wider path for easier interaction */}
       <path
+        className="react-flow__edge-interaction"
         d={edgePath}
         fill="none"
         strokeWidth={interactionWidth || 20}
@@ -61,6 +65,7 @@ const AnimatedEdge = memo(({
       
       {/* Main visible edge path */}
       <path
+        className="react-flow__edge-path"
         d={edgePath}
         fill="none"
         style={{
@@ -93,6 +98,30 @@ const AnimatedEdge = memo(({
           />
         </ellipse>
       ))}
+
+      {/* Edge label */}
+      {label && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              // Map SVG label properties to CSS equivalents
+              background: (labelBgStyle as any)?.fill,
+              opacity: (labelBgStyle as any)?.fillOpacity,
+              color: (labelStyle as any)?.fill,
+              fontSize: (labelStyle as any)?.fontSize,
+              fontWeight: (labelStyle as any)?.fontWeight,
+            }}
+            className="nodrag nopan"
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
     </g>
   );
 });
