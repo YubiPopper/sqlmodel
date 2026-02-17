@@ -277,8 +277,30 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           zIndex: 20,
           pointerEvents: 'auto',
         }}
-        title="Click to add table"
-      />
+      >
+        {/* Inline tooltip */}
+        <div style={{
+          position: 'absolute',
+          ...(side === 'top' ? { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '6px' }
+            : side === 'bottom' ? { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '6px' }
+            : side === 'left' ? { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '6px' }
+            : { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '6px' }),
+          background: isDark ? '#1f2937' : '#374151',
+          color: '#ffffff',
+          padding: '4px 8px',
+          borderRadius: '5px',
+          fontSize: '11px',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          boxShadow: isDark
+            ? '0 2px 8px rgba(0, 0, 0, 0.5)'
+            : '0 2px 8px rgba(0, 0, 0, 0.25)',
+          userSelect: 'none',
+        }}>
+          Click to add table
+        </div>
+      </div>
     );
   };
 

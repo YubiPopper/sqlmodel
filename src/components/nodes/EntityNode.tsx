@@ -544,6 +544,14 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
       left: { left: '-5px', top: '50%', transform: 'translateY(-50%)' },
       right: { right: '-5px', top: '50%', transform: 'translateY(-50%)' },
     };
+
+    // Tooltip label offset from the dot, placed on the outward side
+    const tooltipStyles: Record<string, React.CSSProperties> = {
+      top: { bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '6px' },
+      bottom: { top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '6px' },
+      left: { right: '100%', top: '50%', transform: 'translateY(-50%)', marginRight: '6px' },
+      right: { left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '6px' },
+    };
     
     return (
       <div
@@ -567,8 +575,27 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
           zIndex: 20,
           pointerEvents: 'auto',
         }}
-        title="Drag to connect · Click to add"
-      />
+      >
+        {/* Inline tooltip */}
+        <div style={{
+          position: 'absolute',
+          ...tooltipStyles[side!],
+          background: colorMode === 'dark' ? '#1f2937' : '#374151',
+          color: '#ffffff',
+          padding: '4px 8px',
+          borderRadius: '5px',
+          fontSize: '11px',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          boxShadow: colorMode === 'dark'
+            ? '0 2px 8px rgba(0, 0, 0, 0.5)'
+            : '0 2px 8px rgba(0, 0, 0, 0.25)',
+          userSelect: 'none',
+        }}>
+          Drag to connect · Click to add
+        </div>
+      </div>
     );
   };
 
