@@ -187,7 +187,7 @@ npx tsc --noEmit
 
 ## 📄 License
 
-MIT License — free for personal and commercial use.
+SQLModel is licensed under the Apache License Version 2.0.
 
 ---
 

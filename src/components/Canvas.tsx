@@ -779,10 +779,9 @@ const CanvasInner = () => {
           const isEntity = entities.some(e => e.id === change.id);
           
           if (isEntity && viewMode === 'conceptual') {
-            // For entities in conceptual view, only update our store if it differs
-            // This prevents React Flow's multi-select from overriding our single-select logic
-            if (change.selected && selectedId !== change.id && !multiSelectedEntityIds.length) {
-              // Only select if not already handling multi-selection
+            // For entities in conceptual view, always clear multi-selection on normal clicks
+            if (change.selected) {
+              // Always call setSelected to clear multi-selection state
               setSelected(change.id);
             } else if (!change.selected && change.id === selectedId) {
               setSelected(null);

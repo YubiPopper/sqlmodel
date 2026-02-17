@@ -438,6 +438,12 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     };
     
     const handleMouseUp = (e: MouseEvent) => {
+      // Clear outline from any entity that was highlighted during drag
+      if (snappedTargetEntity) {
+        const innerDiv = snappedTargetEntity.querySelector('.entity-node') as HTMLElement;
+        if (innerDiv) innerDiv.style.outline = '';
+      }
+      
       let targetEntityId = snappedTargetEntityId;
       
       if (!targetEntityId) {
