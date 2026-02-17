@@ -748,8 +748,12 @@ const CanvasInner = () => {
           } else if (isDragEnd) {
             setNodePosition(entityId, change.position.x, change.position.y);
           }
-        } else if (isDragEnd) {
-          // Individual node/table - only persist on drag end
+        } else {
+          // Individual node/table - persist position to store
+          // Must update continuously (not just on drag end) so that when
+          // other state changes cause the `nodes` useMemo to recompute,
+          // the recalculated nodes use the latest position from the store
+          // instead of reverting to the stale pre-drag position.
           if (viewMode === 'conceptual') {
             setNodePosition(change.id, change.position.x, change.position.y);
           } else {
