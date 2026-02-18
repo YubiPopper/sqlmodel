@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useModelStore } from '../../store/useModelStore';
 import type { PhysicalTable, Attribute } from '../../model/schemas';
-import { X, Sparkles, Loader2, Plus, Code, Wand2, Eye, Settings, AlertCircle, Copy, Check } from 'lucide-react';
+import { X, Sparkles, Loader2, Plus, Code, Wand2, Eye, Settings, AlertCircle, Copy, Check, Image as ImageIcon, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { getAISettings, type AIServiceConfig } from '../../services/aiService';
 
@@ -229,10 +229,16 @@ const parseDDL = (ddl: string): TablePreview | null => {
 const generateTableFromAI = async (
   prompt: string,
   config: AIServiceConfig,
-  existingTables: PhysicalTable[]
+  existingTables: PhysicalTable[],
+  imageData?: string | null
 ): Promise<TablePreview> => {
   const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-  const model = config.model || 'gpt-4o';
+  let model = config.model || 'gpt-4o';
+  
+  // Use vision model if image is provided and current model doesn't support vision
+  if (imageData && !model.includes('gpt-4o')) {
+    model = 'gpt-4o-mini';
+  }
   
   const existingTableInfo = existingTables.length > 0
     ? `\n\nExisting tables in the model:\n${existingTables.map(t => `- ${t.name}: ${t.attributes.map(a => a.name).join(', ')}`).join('\n')}`
@@ -258,6 +264,18 @@ Respond with ONLY a valid JSON object in this exact format:
 
 Do not include any explanation or markdown formatting.`;
 
+  // Build user message content - use vision API format if image is provided
+  const userText = `Create a table for: ${prompt}${existingTableInfo}`;
+  let userContent: any;
+  if (imageData) {
+    userContent = [
+      { type: 'text', text: userText },
+      { type: 'image_url', image_url: { url: imageData, detail: 'high' } },
+    ];
+  } else {
+    userContent = userText;
+  }
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -268,7 +286,7 @@ Do not include any explanation or markdown formatting.`;
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a table for: ${prompt}${existingTableInfo}` },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.7,
       max_tokens: 2000,
@@ -318,10 +336,16 @@ Do not include any explanation or markdown formatting.`;
 const reviseTableWithAI = async (
   prompt: string,
   config: AIServiceConfig,
-  currentTable: TablePreview
+  currentTable: TablePreview,
+  imageData?: string | null
 ): Promise<TablePreview> => {
   const baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-  const model = config.model || 'gpt-4o';
+  let model = config.model || 'gpt-4o';
+  
+  // Use vision model if image is provided and current model doesn't support vision
+  if (imageData && !model.includes('gpt-4o')) {
+    model = 'gpt-4o-mini';
+  }
   
   const currentTableInfo = `Current table "${currentTable.name}" has these columns:
 ${currentTable.attributes.map(a => `- ${a.name}: ${a.dataType}${a.isPrimaryKey ? ' (PRIMARY KEY)' : ''}${!a.isNullable ? ' NOT NULL' : ''}`).join('\n')}`;
@@ -347,6 +371,18 @@ Respond with ONLY a valid JSON object for the COMPLETE revised table:
 
 Do not include any explanation or markdown formatting.`;
 
+  // Build user message content - use vision API format if image is provided
+  const userText = `Revise this table: ${prompt}`;
+  let userContent: any;
+  if (imageData) {
+    userContent = [
+      { type: 'text', text: userText },
+      { type: 'image_url', image_url: { url: imageData, detail: 'high' } },
+    ];
+  } else {
+    userContent = userText;
+  }
+
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -357,7 +393,7 @@ Do not include any explanation or markdown formatting.`;
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Revise this table: ${prompt}` },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.7,
       max_tokens: 2000,
@@ -426,8 +462,11 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
   const [showDdlView, setShowDdlView] = useState(false);
   const [previewDdl, setPreviewDdl] = useState('');
   const [manualTableName, setManualTableName] = useState('new_table');
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [imageName, setImageName] = useState<string | null>(null);
   
   const dialogRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Reset state when dialog opens
   useEffect(() => {
@@ -438,6 +477,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         setDdlText('');
         setAiPrompt('');
         setError(null);
+        setImageData(null);
+        setImageName(null);
         // Convert existing table to preview format
         setPreview({
           name: existingTable.name,
@@ -455,6 +496,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         setDdlText('');
         setAiPrompt('');
         setError(null);
+        setImageData(null);
+        setImageName(null);
         setPreview(null);
         setShowPreview(false);
         setShowDdlView(false);
@@ -478,6 +521,71 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+  
+  // Remove image
+  const handleRemoveImage = useCallback(() => {
+    setImageData(null);
+    setImageName(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  // Handle image file selection
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setImageData(result);
+      setImageName(file.name);
+      setError(null);
+    };
+    reader.onerror = () => {
+      setError('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  // Handle paste event for screenshots
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!isOpen || (activeTab !== 'ai' && !showPreview)) return;
+      
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          event.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const result = e.target?.result as string;
+              setImageData(result);
+              setImageName('Pasted Screenshot');
+              setError(null);
+            };
+            reader.readAsDataURL(file);
+          }
+          break;
+        }
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('paste', handlePaste);
+      return () => document.removeEventListener('paste', handlePaste);
+    }
+  }, [isOpen, activeTab, showPreview]);
   
   // Generate DDL from preview (defined early to be used in other callbacks)
   const generateDdlFromPreview = useCallback((prev: TablePreview | null): string => {
@@ -538,8 +646,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
       return;
     }
     
-    if (!aiPrompt.trim()) {
-      setError(isEditMode ? 'Please describe the changes you want to make.' : 'Please describe the table you want to create.');
+    if (!aiPrompt.trim() && !imageData) {
+      setError(isEditMode ? 'Please describe the changes you want to make or attach an image.' : 'Please describe the table you want to create or attach an image.');
       return;
     }
     
@@ -551,7 +659,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
       
       if (isEditMode && preview) {
         // Edit mode: revise existing table
-        result = await reviseTableWithAI(aiPrompt, settings, preview);
+        result = await reviseTableWithAI(aiPrompt, settings, preview, imageData);
         
         // Preserve FK properties from original table (existingTable) where names match
         // Use case-insensitive matching to handle AI returning different casing
@@ -581,7 +689,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         });
       } else {
         // Create mode: generate new table
-        result = await generateTableFromAI(aiPrompt, settings, tables);
+        result = await generateTableFromAI(aiPrompt, settings, tables, imageData);
       }
       
       setPreview(result);
@@ -595,7 +703,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
     } finally {
       setIsLoading(false);
     }
-  }, [aiPrompt, tables, isEditMode, preview, showDdlView, generateDdlFromPreview, existingTable]);
+  }, [aiPrompt, tables, isEditMode, preview, showDdlView, generateDdlFromPreview, existingTable, imageData]);
   
   // Create or update the table from preview
   const handleCreateTable = useCallback(() => {
@@ -1174,6 +1282,139 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                 />
               </div>
               
+              {/* Image Upload Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: 'none' }}
+                />
+                
+                {!imageData ? (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 12px',
+                      background: isDark ? '#21262d' : '#f3f4f6',
+                      border: `2px dashed ${isDark ? '#30363d' : '#d1d5db'}`,
+                      borderRadius: '6px',
+                      color: isDark ? '#8b949e' : '#6b7280',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+                      e.currentTarget.style.borderColor = '#9333ea';
+                      e.currentTarget.style.color = isDark ? '#e6edf3' : '#374151';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+                      e.currentTarget.style.borderColor = isDark ? '#30363d' : '#d1d5db';
+                      e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+                    }}
+                  >
+                    <Upload size={14} />
+                    Attach Image or Paste Screenshot (⌘V)
+                  </button>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px',
+                    background: isDark ? '#161b22' : '#f9fafb',
+                    border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                    borderRadius: '6px',
+                  }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                    }}>
+                      <img
+                        src={imageData}
+                        alt="Preview"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginBottom: '2px',
+                      }}>
+                        <ImageIcon size={12} color={isDark ? '#8b949e' : '#6b7280'} />
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: isDark ? '#e6edf3' : '#374151',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {imageName}
+                        </span>
+                      </div>
+                      <p style={{
+                        margin: 0,
+                        fontSize: '10px',
+                        color: isDark ? '#8b949e' : '#6b7280',
+                      }}>
+                        AI will analyze this image
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleRemoveImage}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        background: isDark ? '#30363d' : '#f3f4f6',
+                        border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+                        borderRadius: '6px',
+                        color: isDark ? '#e6edf3' : '#374151',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease',
+                        padding: 0,
+                        minHeight: 'auto',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#ef4444';
+                        e.currentTarget.style.borderColor = '#dc2626';
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
+                        e.currentTarget.style.borderColor = isDark ? '#30363d' : '#d1d5db';
+                        e.currentTarget.style.color = isDark ? '#e6edf3' : '#374151';
+                      }}
+                      title="Remove image"
+                    >
+                      <X size={16} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               <p style={{
                 fontSize: '11px',
                 color: isDark ? '#8b949e' : '#6b7280',
@@ -1181,8 +1422,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                 lineHeight: '1.4',
               }}>
                 {isEditMode 
-                  ? 'AI will revise the table structure based on your description. Preview changes before applying.'
-                  : 'AI will generate a table structure based on your description. You can preview and edit before creating.'}
+                  ? 'AI will revise the table structure based on your description or image. Preview changes before applying.'
+                  : 'AI will generate a table structure based on your description or image. You can preview and edit before creating.'}
               </p>
             </div>
           )}
@@ -1435,18 +1676,141 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                   <Sparkles size={10} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
                   Refine with AI
                 </label>
+                
+                {/* Image preview inside refine section */}
+                {imageData && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 8px',
+                    background: isDark ? '#161b22' : '#f9fafb',
+                    border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                    borderRadius: '5px',
+                    marginBottom: '6px',
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '3px',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                    }}>
+                      <img
+                        src={imageData}
+                        alt="Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 500,
+                        color: isDark ? '#e6edf3' : '#374151',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                      }}>
+                        {imageName}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleRemoveImage}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '20px',
+                        height: '20px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: isDark ? '#8b949e' : '#9ca3af',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        padding: 0,
+                        minHeight: 'auto',
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = isDark ? '#8b949e' : '#9ca3af'; }}
+                      title="Remove image"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                )}
+                
                 <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '6px',
+                      background: isDark ? '#21262d' : '#f3f4f6',
+                      border: isDark ? '1px solid #30363d' : '1px solid #d1d5db',
+                      borderRadius: '5px',
+                      color: isDark ? '#8b949e' : '#6b7280',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      minHeight: 'auto',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#9333ea';
+                      e.currentTarget.style.color = isDark ? '#c084fc' : '#9333ea';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = isDark ? '#30363d' : '#d1d5db';
+                      e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+                    }}
+                    title="Attach image or paste screenshot (⌘V)"
+                  >
+                    <ImageIcon size={13} />
+                  </button>
                   <input
                     type="text"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !isLoading && aiPrompt.trim()) {
+                      if (e.key === 'Enter' && !isLoading && (aiPrompt.trim() || imageData)) {
                         e.preventDefault();
                         handleGenerateAI();
                       }
                     }}
-                    placeholder="Add a status enum column, or add audit fields..."
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (!items) return;
+                      for (const item of Array.from(items)) {
+                        if (item.type.startsWith('image/')) {
+                          e.preventDefault();
+                          const file = item.getAsFile();
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              setImageData(result);
+                              setImageName('Pasted Screenshot');
+                              setError(null);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                          break;
+                        }
+                      }
+                    }}
+                    placeholder={imageData ? "Describe what to extract, or just hit Refine..." : "Add a status enum column, or add audit fields..."}
                     style={{
                         flex: 1,
                         padding: '6px 8px',
@@ -1460,7 +1824,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                     />
                     <button
                       onClick={handleGenerateAI}
-                      disabled={isLoading}
+                      disabled={isLoading || (!aiPrompt.trim() && !imageData)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1473,7 +1837,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                         fontSize: '11px',
                         fontWeight: 600,
                         cursor: isLoading ? 'wait' : 'pointer',
-                        opacity: isLoading ? 0.7 : 1,
+                        opacity: (isLoading || (!aiPrompt.trim() && !imageData)) ? 0.7 : 1,
                       }}
                     >
                       {isLoading ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Wand2 size={12} />}
