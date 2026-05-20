@@ -119,6 +119,45 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     };
   }, [dataModels, entities, entityGroups, relationships, searchQuery]);
 
+  const activeDataModelId = useMemo(() => {
+    if (dataModels.length === 0) return undefined;
+
+    if (selectedId && dataModels.some(model => model.id === selectedId)) {
+      return selectedId;
+    }
+
+    const selectedEntity = entities.find(entity => entity.id === selectedId);
+    if (selectedEntity?.dataModelId) return selectedEntity.dataModelId;
+
+    const selectedGroup = entityGroups.find(group => group.id === selectedId);
+    if (selectedGroup) {
+      const firstEntityInGroup = entities.find(entity => selectedGroup.entityIds.includes(entity.id));
+      if (firstEntityInGroup?.dataModelId) return firstEntityInGroup.dataModelId;
+    }
+
+    const selectedRelationship = relationships.find(rel => rel.id === selectedId);
+    if (selectedRelationship?.fromEntityId) {
+      const fromEntity = entities.find(entity => entity.id === selectedRelationship.fromEntityId);
+      if (fromEntity?.dataModelId) return fromEntity.dataModelId;
+    }
+
+    return dataModels[0]?.id;
+  }, [dataModels, selectedId, entities, entityGroups, relationships]);
+
+  const filteredRelationshipsForActiveModel = useMemo(() => {
+    if (!activeDataModelId) return [];
+
+    return filteredConceptualData.relationships.filter(rel => {
+      const isEntityRelationship = rel.relationshipType === 'entity' || rel.relationshipType === undefined;
+      if (!isEntityRelationship || !rel.fromEntityId || !rel.toEntityId) return false;
+
+      const fromEntity = entities.find(entity => entity.id === rel.fromEntityId);
+      const toEntity = entities.find(entity => entity.id === rel.toEntityId);
+
+      return fromEntity?.dataModelId === activeDataModelId && toEntity?.dataModelId === activeDataModelId;
+    });
+  }, [activeDataModelId, filteredConceptualData.relationships, entities]);
+
   // Physical View - Filter tables and entities based on search
   const filteredTablesAndEntities = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -1369,7 +1408,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         )}
 
         {/* Relationships Section */}
-        {viewMode === 'conceptual' && filteredConceptualData.relationships.length > 0 && (
+        {viewMode === 'conceptual' && filteredRelationshipsForActiveModel.length > 0 && (
           <>
             <div style={{
               padding: '16px 20px 4px',
@@ -1381,9 +1420,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
               borderTop: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
               marginTop: '8px',
             }}>
-              Relationships ({filteredConceptualData.relationships.length})
+              Relationships ({filteredRelationshipsForActiveModel.length})
             </div>
-            {filteredConceptualData.relationships.map(rel => {
+            {filteredRelationshipsForActiveModel.map(rel => {
               const fromEntity = entities.find(e => e.id === rel.fromEntityId);
               const toEntity = entities.find(e => e.id === rel.toEntityId);
               
