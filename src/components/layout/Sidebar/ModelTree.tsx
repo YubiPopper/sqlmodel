@@ -44,6 +44,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     toggleEntityVisibility,
     toggleTableVisibility,
     navigateToNodeCallback,
+    centerDataModelCallback,
   } = useModelStore();
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -316,6 +317,43 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
   const getTablesForEntity = (entityId: string) => 
     tables.filter(t => t.entityId === entityId);
+
+  const focusEntityOnCanvas = useCallback((entityId: string) => {
+    if (viewMode !== 'physical' && navigateToNodeCallback) {
+      navigateToNodeCallback(entityId);
+    }
+  }, [viewMode, navigateToNodeCallback]);
+
+  const focusModelOnCanvas = useCallback((modelId: string) => {
+    if (viewMode === 'physical') return;
+
+    if (centerDataModelCallback) {
+      centerDataModelCallback(modelId);
+      return;
+    }
+
+    if (!navigateToNodeCallback) return;
+
+    const modelEntity = entities.find(entity =>
+      entity.dataModelId === modelId && !hiddenEntityIds.has(entity.id)
+    );
+
+    if (modelEntity) {
+      navigateToNodeCallback(modelEntity.id);
+    }
+  }, [viewMode, centerDataModelCallback, navigateToNodeCallback, entities, hiddenEntityIds]);
+
+  const focusGroupOnCanvas = useCallback((groupId: string) => {
+    if (viewMode === 'physical' || !navigateToNodeCallback) return;
+
+    const group = entityGroups.find(g => g.id === groupId);
+    if (!group) return;
+
+    const firstVisibleEntityId = group.entityIds.find(entityId => !hiddenEntityIds.has(entityId));
+    if (firstVisibleEntityId) {
+      navigateToNodeCallback(firstVisibleEntityId);
+    }
+  }, [viewMode, navigateToNodeCallback, entityGroups, hiddenEntityIds]);
 
   const handleRenameStart = useCallback((type: 'database' | 'schema' | 'table', key: string, currentValue: string) => {
     console.log('[ModelTree] handleRenameStart called:', { type, key, currentValue });
@@ -1152,6 +1190,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                   setRenamingItem(null);
                   setSelected(model.id);
                   if (!isModelExpanded) toggleDataModelExpand(model.id);
+                  focusModelOnCanvas(model.id);
                 }}
                 onExpand={() => toggleDataModelExpand(model.id)}
                 expanded={isModelExpanded}
@@ -1175,6 +1214,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                         setRenamingItem(null);
                         setSelected(group.id);
                         if (!isExpanded) toggleGroupExpand(group.id);
+                        focusGroupOnCanvas(group.id);
                       }}
                       onExpand={() => toggleGroupExpand(group.id)}
                       expanded={isExpanded}
@@ -1198,6 +1238,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                               setRenamingItem(null);
                               setSelected(entity.id);
                               if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                              focusEntityOnCanvas(entity.id);
                             }}
                             onExpand={() => toggleEntityExpand(entity.id)}
                             onShowInDiagram={() => toggleEntityVisibility(entity.id)}
@@ -1242,6 +1283,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                         setRenamingItem(null);
                         setSelected(entity.id);
                         if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                        focusEntityOnCanvas(entity.id);
                       }}
                       onExpand={() => toggleEntityExpand(entity.id)}
                       onShowInDiagram={() => toggleEntityVisibility(entity.id)}
@@ -1298,6 +1340,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                       setRenamingItem(null);
                       setSelected(entity.id);
                       if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                      focusEntityOnCanvas(entity.id);
                     }}
                     onExpand={() => toggleEntityExpand(entity.id)}
                     onShowInDiagram={() => toggleEntityVisibility(entity.id)}

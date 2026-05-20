@@ -120,6 +120,7 @@ const CanvasInner = () => {
     addEntityToGroup,
     removeEntityFromGroup,
     setNavigateToNodeCallback,
+    setCenterDataModelCallback,
   } = useModelStore();
 
   const selectedDataModelId = dataModels.some(model => model.id === selectedId)
@@ -127,20 +128,84 @@ const CanvasInner = () => {
     : undefined;
   const isConceptualLikeView = viewMode !== 'physical';
 
+  const activeDataModelId = useMemo(() => {
+    if (dataModels.length === 0) return undefined;
+
+    if (selectedDataModelId) return selectedDataModelId;
+
+    const selectedEntity = entities.find(entity => entity.id === selectedId);
+    if (selectedEntity?.dataModelId) return selectedEntity.dataModelId;
+
+    const selectedTable = tables.find(table => table.id === selectedId);
+    if (selectedTable?.entityId) {
+      const tableEntity = entities.find(entity => entity.id === selectedTable.entityId);
+      if (tableEntity?.dataModelId) return tableEntity.dataModelId;
+    }
+
+    const selectedRelationship = relationships.find(rel => rel.id === selectedId);
+    if (selectedRelationship) {
+      if (selectedRelationship.relationshipType === 'entity' || selectedRelationship.relationshipType === undefined) {
+        const fromEntity = entities.find(entity => entity.id === selectedRelationship.fromEntityId);
+        if (fromEntity?.dataModelId) return fromEntity.dataModelId;
+      }
+      if (selectedRelationship.relationshipType === 'dataModel' && selectedRelationship.fromDataModelId) {
+        return selectedRelationship.fromDataModelId;
+      }
+    }
+
+    const selectedGroup = entityGroups.find(group => group.id === selectedId);
+    if (selectedGroup) {
+      const firstEntityInGroup = entities.find(entity => selectedGroup.entityIds.includes(entity.id));
+      if (firstEntityInGroup?.dataModelId) return firstEntityInGroup.dataModelId;
+    }
+
+    return dataModels[0]?.id;
+  }, [dataModels, selectedId, selectedDataModelId, entities, tables, relationships, entityGroups]);
+
   // Register navigation callback for sidebar
   useEffect(() => {
-    const navigateToNode = (nodeId: string) => {
+    const navigateToNode = (nodeId: string, retries = 4) => {
       const node = reactFlowInstance.getNode(nodeId);
       if (node) {
         reactFlowInstance.setCenter(node.position.x + (node.width || 200) / 2, node.position.y + (node.height || 100) / 2, {
           zoom: 0.7,
           duration: 400,
         });
+      } else if (retries > 0) {
+        requestAnimationFrame(() => navigateToNode(nodeId, retries - 1));
       }
     };
+
+    const centerDataModel = (dataModelId: string, retries = 4) => {
+      const state = useModelStore.getState();
+      const hiddenEntitySet = state.hiddenEntityIds instanceof Set
+        ? state.hiddenEntityIds
+        : new Set(state.hiddenEntityIds || []);
+
+      const modelEntityIds = new Set(
+        state.entities
+          .filter(entity => entity.dataModelId === dataModelId && !hiddenEntitySet.has(entity.id))
+          .map(entity => entity.id)
+      );
+
+      if (modelEntityIds.size === 0) return;
+
+      const modelNodes = reactFlowInstance.getNodes().filter(node => modelEntityIds.has(node.id));
+      if (modelNodes.length > 0) {
+        reactFlowInstance.fitView({ nodes: modelNodes, padding: 0.25, duration: 400, maxZoom: 0.9 });
+      } else if (retries > 0) {
+        requestAnimationFrame(() => centerDataModel(dataModelId, retries - 1));
+      }
+    };
+
     setNavigateToNodeCallback(navigateToNode);
-    return () => setNavigateToNodeCallback(null);
-  }, [reactFlowInstance, setNavigateToNodeCallback]);
+    setCenterDataModelCallback(centerDataModel);
+
+    return () => {
+      setNavigateToNodeCallback(null);
+      setCenterDataModelCallback(null);
+    };
+  }, [reactFlowInstance, setNavigateToNodeCallback, setCenterDataModelCallback]);
 
   // Register fitView callback for auto-fit after loading/importing
   useEffect(() => {
@@ -168,9 +233,15 @@ const CanvasInner = () => {
   const connectedEntityIds = useMemo(() => {
     const activeId = selectedId || hoveredNodeId;
     if (!activeId) return new Set<string>();
+
+    const scopedEntityIds = new Set(
+      entities
+        .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+        .map(entity => entity.id)
+    );
     
     // Check if activeId is an entity
-    const isEntity = entities.some(e => e.id === activeId);
+    const isEntity = entities.some(e => e.id === activeId && scopedEntityIds.has(e.id));
     // Check if activeId is an entity group
     const isGroup = entityGroups.some(g => g.id === activeId);
     
@@ -197,13 +268,14 @@ const CanvasInner = () => {
       relationships.forEach(rel => {
         const isEntityRelationship = rel.relationshipType === 'entity' || rel.relationshipType === undefined;
         if (!isEntityRelationship || !rel.fromEntityId || !rel.toEntityId) return;
+        if (!scopedEntityIds.has(rel.fromEntityId) || !scopedEntityIds.has(rel.toEntityId)) return;
         if (rel.fromEntityId === sourceId) connected.add(rel.toEntityId);
         if (rel.toEntityId === sourceId) connected.add(rel.fromEntityId);
       });
     });
     
     return connected;
-  }, [selectedId, hoveredNodeId, entities, relationships, entityGroups]);
+  }, [selectedId, hoveredNodeId, entities, relationships, entityGroups, activeDataModelId]);
 
   const connectedDataModelIds = useMemo(() => {
     const activeId = selectedId || hoveredNodeId;
@@ -230,9 +302,21 @@ const CanvasInner = () => {
   const connectedTableIds = useMemo(() => {
     const activeId = selectedId || hoveredNodeId;
     if (!activeId) return new Set<string>();
+
+    const scopedEntityIds = new Set(
+      entities
+        .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+        .map(entity => entity.id)
+    );
+
+    const scopedTableIds = new Set(
+      tables
+        .filter(table => !table.entityId || scopedEntityIds.has(table.entityId))
+        .map(table => table.id)
+    );
     
     // Check if activeId is a table
-    const isTable = tables.some(t => t.id === activeId);
+    const isTable = tables.some(t => t.id === activeId && scopedTableIds.has(t.id));
     // Check if activeId is an entity (in physical view with overlay)
     const isEntity = viewMode === 'physical' && showEntityOverlay && entities.some(e => e.id === activeId);
     
@@ -255,13 +339,14 @@ const CanvasInner = () => {
     // Only add directly connected tables (1-hop)
     sourceTableIds.forEach(sourceId => {
       foreignKeys.forEach(fk => {
+        if (!scopedTableIds.has(fk.fromTableId) || !scopedTableIds.has(fk.toTableId)) return;
         if (fk.fromTableId === sourceId) connected.add(fk.toTableId);
         if (fk.toTableId === sourceId) connected.add(fk.fromTableId);
       });
     });
     
     return connected;
-  }, [selectedId, hoveredNodeId, tables, foreignKeys, viewMode, showEntityOverlay, entities]);
+  }, [selectedId, hoveredNodeId, tables, foreignKeys, viewMode, showEntityOverlay, entities, activeDataModelId]);
 
   // Build nodes based on view mode
   const nodes: Node[] = useMemo(() => {
@@ -296,7 +381,9 @@ const CanvasInner = () => {
 
     if (isConceptualLikeView) {
       // Filter out hidden entities
-      const visibleEntities = entities.filter(e => !safeHiddenEntityIds.has(e.id));
+      const scopedEntities = entities.filter(e => !activeDataModelId || e.dataModelId === activeDataModelId);
+      const visibleEntities = scopedEntities.filter(e => !safeHiddenEntityIds.has(e.id));
+      const visibleEntityIdSet = new Set(visibleEntities.map(entity => entity.id));
       
       // Entity nodes - higher z-index so they're always clickable above groups
       const entityNodes = visibleEntities.map(e => {
@@ -317,6 +404,11 @@ const CanvasInner = () => {
 
       // Entity group nodes (background)
       const groupNodes: Node[] = entityGroups.map(group => {
+        const scopedGroupEntityIds = group.entityIds.filter(entityId => visibleEntityIdSet.has(entityId));
+        if (scopedGroupEntityIds.length === 0) {
+          return null;
+        }
+
         const leftPadding = 40; // Left padding (smaller due to label)
         const rightPadding = 80; // Right padding
         const headerPadding = 70; // Extra space at top for label
@@ -329,7 +421,7 @@ const CanvasInner = () => {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         let hasEntities = false;
         
-        group.entityIds.forEach(entityId => {
+        scopedGroupEntityIds.forEach(entityId => {
           const layout = nodeLayouts[entityId];
           if (layout) {
             hasEntities = true;
@@ -375,7 +467,7 @@ const CanvasInner = () => {
 
         // Only use passthrough class if group has entities (to allow clicking entities inside)
         // Empty groups should be fully interactive for dragging
-        const hasEntitiesInGroup = group.entityIds.length > 0 && group.entityIds.some(id => nodeLayouts[id]);
+        const hasEntitiesInGroup = scopedGroupEntityIds.length > 0 && scopedGroupEntityIds.some(id => nodeLayouts[id]);
 
         return {
           id: group.id,
@@ -383,6 +475,7 @@ const CanvasInner = () => {
           position: { x: groupX, y: groupY },
           data: {
             ...group,
+            entityIds: scopedGroupEntityIds,
             width: groupWidth,
             height: groupHeight,
             hasEntities: hasEntitiesInGroup, // Flag for whether group has entities
@@ -399,13 +492,22 @@ const CanvasInner = () => {
             style: { pointerEvents: 'all' }
           }),
         };
-      });
+      }).filter(Boolean) as Node[];
 
       // Return group nodes first (lower z-index), then entity nodes on top
       return [...groupNodes, ...entityNodes];
     } else {
       // Filter out hidden tables
-      const visibleTables = tables.filter(t => !safeHiddenTableIds.has(t.id));
+      const scopedEntityIds = new Set(
+        entities
+          .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+          .map(entity => entity.id)
+      );
+      const visibleTables = tables.filter(t => {
+        if (safeHiddenTableIds.has(t.id)) return false;
+        if (!activeDataModelId) return true;
+        return !t.entityId || scopedEntityIds.has(t.entityId);
+      });
       
       // Tables are always positioned absolutely (not relative to groups)
       const tableNodes = visibleTables.map(t => {
@@ -427,7 +529,9 @@ const CanvasInner = () => {
       }
 
       // Create entity group nodes as background containers (independent positioning)
-      const entityGroupNodes: Node[] = entities.map(entity => {
+      const entityGroupNodes: Node[] = entities
+      .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+      .map(entity => {
         // Find all visible tables belonging to this entity
         const entityTables = visibleTables.filter(t => t.entityId === entity.id);
         
@@ -558,7 +662,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, dataModels, nodeLayouts, tableLayouts, selectedId, isConceptualLikeView, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize, viewMode]);
+  }, [entities, entityGroups, tables, dataModels, nodeLayouts, tableLayouts, selectedId, isConceptualLikeView, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize, viewMode, activeDataModelId]);
 
   // Local display nodes - mirrors store nodes but gets fast position updates during drag
   // This avoids the Zustand → useMemo → all nodes rebuild cycle on every drag pixel
@@ -570,11 +674,18 @@ const CanvasInner = () => {
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
     if (viewMode === 'conceptual') {
+      const scopedEntityIdSet = new Set(
+        entities
+          .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+          .map(entity => entity.id)
+      );
+
       // Filter out relationships where either entity is hidden
       return relationships
         .filter(r => {
           const isEntityRelationship = r.relationshipType === 'entity' || r.relationshipType === undefined;
           if (!isEntityRelationship || !r.fromEntityId || !r.toEntityId) return false;
+          if (!scopedEntityIdSet.has(r.fromEntityId) || !scopedEntityIdSet.has(r.toEntityId)) return false;
           return !safeHiddenEntityIds.has(r.fromEntityId) && !safeHiddenEntityIds.has(r.toEntityId);
         })
         .map(r => {
@@ -691,10 +802,25 @@ const CanvasInner = () => {
     } else {
       // Physical view: FK edges with smart routing
       const tableFieldsDisplay = useModelStore.getState().tableFieldsDisplay;
+
+      const scopedEntityIds = new Set(
+        entities
+          .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+          .map(entity => entity.id)
+      );
+      const scopedTableIds = new Set(
+        tables
+          .filter(table => !table.entityId || scopedEntityIds.has(table.entityId))
+          .map(table => table.id)
+      );
       
       // Filter out foreign keys where either table is hidden
       return foreignKeys
-        .filter(fk => !safeHiddenTableIds.has(fk.fromTableId) && !safeHiddenTableIds.has(fk.toTableId))
+        .filter(fk => {
+          if (safeHiddenTableIds.has(fk.fromTableId) || safeHiddenTableIds.has(fk.toTableId)) return false;
+          if (!scopedTableIds.has(fk.fromTableId) || !scopedTableIds.has(fk.toTableId)) return false;
+          return true;
+        })
         .map(fk => {
         // Determine which side handles to use based on table positions
         const sourceTable = tableLayouts[fk.fromTableId];
@@ -802,7 +928,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedDataModelIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
+  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedDataModelIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize, entities, tables, activeDataModelId]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // Apply ALL changes (position, select, etc.) to local display nodes immediately

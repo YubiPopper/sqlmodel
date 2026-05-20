@@ -118,6 +118,8 @@ interface ModelState {
   setSelected: (id: string | null) => void;
   navigateToNodeCallback: ((nodeId: string) => void) | null;
   setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
+  centerDataModelCallback: ((dataModelId: string) => void) | null;
+  setCenterDataModelCallback: (callback: ((dataModelId: string) => void) | null) => void;
   fitViewCallback: (() => void) | null;
   setFitViewCallback: (callback: (() => void) | null) => void;
   setEditingGroupId: (id: string | null) => void;
@@ -207,6 +209,7 @@ export const useModelStore = create<ModelState>()(
       selectedId: null,
       multiSelectedEntityIds: [],
       navigateToNodeCallback: null,
+      centerDataModelCallback: null,
       fitViewCallback: null,
       multiSelectedTableIds: [],
       editingGroupId: null,
@@ -831,6 +834,8 @@ export const useModelStore = create<ModelState>()(
       setSelected: (id) => set({ selectedId: id, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
       
       setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
+
+      setCenterDataModelCallback: (callback) => set({ centerDataModelCallback: callback }),
       
       setFitViewCallback: (callback) => set({ fitViewCallback: callback }),
       
