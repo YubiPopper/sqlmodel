@@ -135,11 +135,13 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
   const entityGroups = useModelStore(state => state.entityGroups);
   const addEntityToGroup = useModelStore(state => state.addEntityToGroup);
   const showEntityDescriptions = useModelStore(state => state.showEntityDescriptions);
+  const viewMode = useModelStore(state => state.viewMode);
 
   // Check if this entity is multi-selected (determines color: green for multi, blue for single)
   const isMultiSelected = multiSelectedEntityIds.includes(data.id);
 
   const handleCreateLinkedEntity = useCallback((side: HoverSide) => {
+    if (viewMode !== 'conceptual') return;
     if (!side) return;
     
     const currentLayout = nodeLayouts[data.id];
@@ -160,7 +162,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     }
     
     // Create new entity and relationship
-    const newEntityId = addEntity();
+    const newEntityId = addEntity(data.dataModelId);
     setNodePosition(newEntityId, newX, newY);
     addRelationship(data.id, newEntityId);
     
@@ -169,7 +171,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
     if (parentGroup) {
       addEntityToGroup(parentGroup.id, newEntityId);
     }
-  }, [data.id, nodeLayouts, addEntity, addRelationship, setNodePosition, entityGroups, addEntityToGroup]);
+  }, [viewMode, data.id, nodeLayouts, addEntity, addRelationship, setNodePosition, entityGroups, addEntityToGroup]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent, corner: string) => {
     e.stopPropagation();
@@ -237,6 +239,7 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
   }, [isResizing, isEditing, isDraggingConnection]);
 
   const handleEntityDragStart = (event: React.MouseEvent) => {
+    if (viewMode !== 'conceptual') return;
     const canvasElement = event.currentTarget.closest('.react-flow');
     if (!canvasElement) return;
     

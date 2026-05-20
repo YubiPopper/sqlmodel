@@ -16,6 +16,7 @@ export const LeftSidebar: React.FC = () => {
   const setPhysicalHierarchyMode = useModelStore(state => state.setPhysicalHierarchyMode);
 
   const isDark = colorMode === 'dark';
+  const isPhysical = viewMode === 'physical';
 
   return (
     <aside
@@ -47,7 +48,7 @@ export const LeftSidebar: React.FC = () => {
           fontSize: '14px',
           color: isDark ? '#e6edf3' : '#1f2937',
         }}>
-          {viewMode === 'conceptual' ? 'Model' : 'Schema'}
+          {isPhysical ? 'Schema' : 'Model'}
         </span>
         {viewMode === 'conceptual' && (
           <Tooltip content="View Settings" placement="bottom">
@@ -78,7 +79,7 @@ export const LeftSidebar: React.FC = () => {
             </button>
           </Tooltip>
         )}
-        {viewMode === 'physical' && (
+        {isPhysical && (
           <Tooltip 
             content={physicalHierarchyMode === 'entity' ? 'Group by Database/Schema' : 'Group by Entity'} 
             placement="bottom"
@@ -168,7 +169,7 @@ export const LeftSidebar: React.FC = () => {
       <SearchBox 
         value={searchQuery} 
         onChange={setSearchQuery} 
-        placeholder={viewMode === 'conceptual' ? 'Search entities...' : 'Search tables...'}
+        placeholder={isPhysical ? 'Search tables...' : 'Search data models and entities...'}
       />
 
       {/* Tree View */}

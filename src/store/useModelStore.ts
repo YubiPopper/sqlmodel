@@ -5,6 +5,7 @@ import dagre from 'dagre';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
 import type { 
+  DataModel,
   Entity, 
   Relationship, 
   Viewport, 
@@ -28,6 +29,7 @@ interface ModelState {
   signOut: () => Promise<void>;
   
   // Conceptual layer
+  dataModels: DataModel[];
   entities: Entity[];
   relationships: Relationship[];
   entityGroups: EntityGroup[];
@@ -50,7 +52,7 @@ interface ModelState {
   hiddenTableIds: Set<string>; // Hidden tables in physical view
   emptyDatabases: Set<string>; // Empty databases with no tables (for physical view hierarchy)
   emptySchemas: Set<string>; // Empty schemas with no tables (for physical view hierarchy)
-  viewMode: 'conceptual' | 'physical';
+  viewMode: 'data-model' | 'conceptual' | 'physical';
   colorMode: 'light' | 'dark';
   showEntityOverlay: boolean; // Show entity groupings in physical view
   tableFieldsDisplay: 'all' | 'name' | 'keys'; // Table display mode in physical view
@@ -64,7 +66,13 @@ interface ModelState {
   relationshipLabelSize: 'small' | 'normal' | 'large'; // Relationship label font size
   
   // Entity Actions
-  addEntity: () => string;
+  // Data model actions
+  addDataModel: () => string;
+  updateDataModel: (id: string, data: Partial<DataModel>) => void;
+  deleteDataModel: (id: string) => void;
+
+  // Entity actions
+  addEntity: (dataModelId?: string) => string;
   updateEntity: (id: string, data: Partial<Entity>) => void;
   deleteEntity: (id: string) => void;
   
@@ -76,7 +84,7 @@ interface ModelState {
   removeEntityFromGroup: (groupId: string, entityId: string) => void;
   
   // Relationship Actions (conceptual)
-  addRelationship: (fromId: string, toId: string) => string;
+  addRelationship: (fromId: string, toId: string, relationshipType?: 'entity' | 'dataModel', sourceHandle?: string | null, targetHandle?: string | null) => string;
   updateRelationship: (id: string, data: Partial<Relationship>) => void;
   deleteRelationship: (id: string) => void;
   
@@ -116,7 +124,7 @@ interface ModelState {
   toggleEntityMultiSelect: (entityId: string) => void;
   toggleTableMultiSelect: (tableId: string) => void;
   clearMultiSelection: () => void;
-  setViewMode: (mode: 'conceptual' | 'physical') => void;
+  setViewMode: (mode: 'data-model' | 'conceptual' | 'physical') => void;
   setColorMode: (mode: 'light' | 'dark') => void;
   setShowEntityOverlay: (show: boolean) => void;
   setTableFieldsDisplay: (mode: 'all' | 'name' | 'keys') => void;
@@ -187,6 +195,7 @@ export const useModelStore = create<ModelState>()(
       },
       
       entities: [],
+      dataModels: [],
       relationships: [],
       entityGroups: [],
       tables: [],
@@ -230,11 +239,61 @@ export const useModelStore = create<ModelState>()(
       showAISettingsDialog: false,
       setShowAISettingsDialog: (show) => set({ showAISettingsDialog: show }),
 
+      // === Data Model Actions ===
+      addDataModel: () => {
+        const id = uuidv4();
+        const newDataModel: DataModel = {
+          id,
+          name: `Data Model ${get().dataModels.length + 1}`,
+          description: '',
+        };
+
+        const { viewport } = get();
+        const index = get().dataModels.length;
+        const x = -viewport.x / viewport.zoom + 120 + (index % 3) * 380;
+        const y = -viewport.y / viewport.zoom + 120 + Math.floor(index / 3) * 240;
+
+        set((state) => ({
+          dataModels: [...state.dataModels, newDataModel],
+          nodeLayouts: {
+            ...state.nodeLayouts,
+            [id]: { x, y, width: 320, height: 180 },
+          },
+          selectedId: id,
+        }));
+
+        return id;
+      },
+
+      updateDataModel: (id, data) => {
+        set((state) => ({
+          dataModels: state.dataModels.map((model) =>
+            model.id === id ? { ...model, ...data } : model
+          ),
+        }));
+      },
+
+      deleteDataModel: (id) => {
+        set((state) => ({
+          dataModels: state.dataModels.filter((model) => model.id !== id),
+          entities: state.entities.map((entity) =>
+            entity.dataModelId === id ? { ...entity, dataModelId: undefined } : entity
+          ),
+          relationships: state.relationships.filter((rel) =>
+            rel.relationshipType === 'entity' || rel.relationshipType === undefined
+              ? true
+              : rel.fromDataModelId !== id && rel.toDataModelId !== id
+          ),
+          selectedId: state.selectedId === id ? null : state.selectedId,
+        }));
+      },
+
       // === Entity Actions ===
-      addEntity: () => {
+      addEntity: (dataModelId) => {
         const id = uuidv4();
         const newEntity: Entity = {
           id,
+          dataModelId,
           name: 'New Entity',
           description: '',
         };
@@ -272,7 +331,11 @@ export const useModelStore = create<ModelState>()(
           // Cascade delete: relationships, tables (and their FKs)
           const tablesToDelete = state.tables.filter(t => t.entityId === id).map(t => t.id);
           const newRelationships = state.relationships.filter(
-            (r) => r.fromEntityId !== id && r.toEntityId !== id
+            (r) => {
+              const isEntityRelationship = r.relationshipType === 'entity' || r.relationshipType === undefined;
+              if (!isEntityRelationship) return true;
+              return r.fromEntityId !== id && r.toEntityId !== id;
+            }
           );
           const newTables = state.tables.filter((t) => t.entityId !== id);
           const newForeignKeys = state.foreignKeys.filter(
@@ -408,15 +471,19 @@ export const useModelStore = create<ModelState>()(
       },
 
       // === Relationship Actions ===
-      addRelationship: (fromId, toId) => {
+      addRelationship: (fromId, toId, relationshipType = 'entity', sourceHandle, targetHandle) => {
         const id = uuidv4();
         const newRel: Relationship = {
           id,
-          fromEntityId: fromId,
-          toEntityId: toId,
-          label: '',
+          relationshipType,
+          ...(relationshipType === 'dataModel'
+            ? { fromDataModelId: fromId, toDataModelId: toId }
+            : { fromEntityId: fromId, toEntityId: toId }),
+          label: relationshipType === 'dataModel' ? 'related to' : '',
           fromCardinality: '1',
           toCardinality: '0..*',
+          sourceHandle: sourceHandle || undefined,
+          targetHandle: targetHandle || undefined,
         };
         set((state) => ({
           relationships: [...state.relationships, newRel],
@@ -955,6 +1022,8 @@ export const useModelStore = create<ModelState>()(
           });
 
           relationships.forEach((rel) => {
+            const isEntityRelationship = rel.relationshipType === 'entity' || rel.relationshipType === undefined;
+            if (!isEntityRelationship || !rel.fromEntityId || !rel.toEntityId) return;
             dagreGraph.setEdge(rel.fromEntityId, rel.toEntityId);
           });
 
@@ -1350,6 +1419,7 @@ export const useModelStore = create<ModelState>()(
         });
 
         set({
+          dataModels: conceptual.dataModels || [],
           entities: conceptual.entities,
           relationships: conceptual.relationships,
           entityGroups: conceptual.groups || [],
@@ -1368,6 +1438,7 @@ export const useModelStore = create<ModelState>()(
         const hasLayouts = data.nodeLayouts || data.tableLayouts;
         
         set({
+          dataModels: data.conceptual?.dataModels || [],
           entities: data.conceptual?.entities || [],
           relationships: data.conceptual?.relationships || [],
           entityGroups: data.conceptual?.groups || [],
@@ -1403,6 +1474,7 @@ export const useModelStore = create<ModelState>()(
         clearSchemaUrl();
         
         set({
+          dataModels: [],
           entities: [],
           relationships: [],
           entityGroups: [],
@@ -1543,6 +1615,7 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          dataModels: [],
           entities: [entityBorrower, entityLoans, entityBooks],
           relationships,
           entityGroups: [],
@@ -1674,6 +1747,7 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          dataModels: [],
           entities: [entityCustomer, entityProduct, entityOrder, entityOrderItem, entityPayment],
           relationships,
           entityGroups: [],
@@ -1785,6 +1859,7 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          dataModels: [],
           entities: [entityAuthor, entityPost, entityComment, entityCategory],
           relationships,
           entityGroups: [],
@@ -1899,6 +1974,7 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          dataModels: [],
           entities: [entityProject, entityTask, entityMember, entityMilestone],
           relationships,
           entityGroups: [],
@@ -1929,6 +2005,7 @@ export const useModelStore = create<ModelState>()(
         
         const diagramData = {
           conceptual: {
+            dataModels: state.dataModels,
             entities: state.entities,
             relationships: state.relationships,
             groups: state.entityGroups,
@@ -1997,6 +2074,7 @@ export const useModelStore = create<ModelState>()(
           
           const diagramData = data.data;
           set({
+            dataModels: diagramData.conceptual?.dataModels || [],
             entities: diagramData.conceptual?.entities || [],
             relationships: diagramData.conceptual?.relationships || [],
             entityGroups: diagramData.conceptual?.groups || [],

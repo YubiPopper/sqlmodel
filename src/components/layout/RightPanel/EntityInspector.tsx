@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Trash2, Table, MoreVertical, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
-import { FormField, TextInput, ColorPicker } from './FormComponents';
+import { FormField, TextInput, ColorPicker, SelectInput } from './FormComponents';
 import type { Entity } from '../../../model/schemas';
 
 interface EntityInspectorProps {
@@ -17,6 +17,7 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
   const deleteEntity = useModelStore(state => state.deleteEntity);
   const addTable = useModelStore(state => state.addTable);
   const tables = useModelStore(state => state.tables);
+  const dataModels = useModelStore(state => state.dataModels);
   const entityGroups = useModelStore(state => state.entityGroups);
   const colorMode = useModelStore(state => state.colorMode);
   const setSelected = useModelStore(state => state.setSelected);
@@ -162,6 +163,17 @@ export const EntityInspector: React.FC<EntityInspectorProps> = ({ entity }) => {
             onChange={(value) => updateEntity(entity.id, { description: value })}
             placeholder="Describe this entity..."
             multiline
+          />
+        </FormField>
+
+        <FormField label="Data Model">
+          <SelectInput
+            value={entity.dataModelId || ''}
+            onChange={(value) => updateEntity(entity.id, { dataModelId: value || undefined })}
+            options={[
+              { value: '', label: 'Unassigned' },
+              ...dataModels.map((model) => ({ value: model.id, label: model.name })),
+            ]}
           />
         </FormField>
 

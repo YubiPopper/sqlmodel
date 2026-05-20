@@ -9,10 +9,12 @@ import { ForeignKeyInspector } from './ForeignKeyInspector';
 import { GroupInspector } from './GroupInspector';
 import { DatabaseInspector } from './DatabaseInspector';
 import { SchemaInspector } from './SchemaInspector';
+import { DataModelInspector } from './DataModelInspector';
 
 export const RightPanel: React.FC = () => {
   const selectedId = useModelStore(state => state.selectedId);
   const entities = useModelStore(state => state.entities);
+  const dataModels = useModelStore(state => state.dataModels);
   const tables = useModelStore(state => state.tables);
   const relationships = useModelStore(state => state.relationships);
   const foreignKeys = useModelStore(state => state.foreignKeys);
@@ -74,6 +76,7 @@ export const RightPanel: React.FC = () => {
 
   // Determine what's selected
   const selectedEntity = useMemo(() => entities.find(e => e.id === selectedId), [entities, selectedId]);
+  const selectedDataModel = useMemo(() => dataModels.find(model => model.id === selectedId), [dataModels, selectedId]);
   const selectedTable = useMemo(() => tables.find(t => t.id === selectedId), [tables, selectedId]);
   const selectedRelationship = useMemo(() => relationships.find(r => r.id === selectedId), [relationships, selectedId]);
   const selectedForeignKey = useMemo(() => foreignKeys.find(fk => fk.id === selectedId), [foreignKeys, selectedId]);
@@ -114,7 +117,7 @@ export const RightPanel: React.FC = () => {
   }, [tables, multiSelectedTableIds]);
 
   // Hide panel if nothing is selected
-  const hasSelection = selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || selectedDatabase || selectedSchema || firstMultiSelectedEntity || firstMultiSelectedTable;
+  const hasSelection = selectedDataModel || selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || selectedDatabase || selectedSchema || firstMultiSelectedEntity || firstMultiSelectedTable;
   if (!hasSelection) {
     return null;
   }
@@ -156,7 +159,7 @@ export const RightPanel: React.FC = () => {
         lineHeight: 1.5,
         maxWidth: '220px',
       }}>
-        Select an {viewMode === 'conceptual' ? 'entity, group, or relationship' : 'table or foreign key'} on the canvas to view and edit its properties.
+        Select an {viewMode === 'physical' ? 'table or foreign key' : (viewMode === 'data-model' ? 'data model, entity, group, or model relationship' : 'entity, group, or relationship')} on the canvas to view and edit its properties.
       </p>
       
       <div style={{
@@ -340,6 +343,7 @@ export const RightPanel: React.FC = () => {
           </div>
         )}
         
+        {selectedDataModel && <DataModelInspector dataModel={selectedDataModel} />}
         {selectedGroup && <GroupInspector group={selectedGroup} />}
         {selectedEntity && <EntityInspector entity={selectedEntity} />}
         {selectedTable && <TableInspector table={selectedTable} />}
@@ -349,7 +353,7 @@ export const RightPanel: React.FC = () => {
         {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
         {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
         {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
-        {!selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
+        {!selectedDataModel && !selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
       </aside>
     </>
   );
@@ -362,5 +366,6 @@ export { ForeignKeyInspector } from './ForeignKeyInspector';
 export { GroupInspector } from './GroupInspector';
 export { DatabaseInspector } from './DatabaseInspector';
 export { SchemaInspector } from './SchemaInspector';
+export { DataModelInspector } from './DataModelInspector';
 export { InspectorHeader } from './InspectorHeader';
 export { FormField, TextInput, SelectInput } from './FormComponents';

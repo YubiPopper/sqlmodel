@@ -25,6 +25,7 @@ export const Toolbar: React.FC = () => {
   const handleSave = () => {
     const state = useModelStore.getState();
     const conceptual: ConceptualData = {
+      dataModels: state.dataModels,
       entities: state.entities,
       relationships: state.relationships,
       groups: state.entityGroups

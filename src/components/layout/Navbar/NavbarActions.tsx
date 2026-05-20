@@ -4,6 +4,7 @@ import {
   Layers,
   Plus,
   Group,
+  FolderPlus,
   Download,
   Upload,
   Sparkles,
@@ -132,6 +133,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
   
   const addEntity = useModelStore(state => state.addEntity);
+  const addDataModel = useModelStore(state => state.addDataModel);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
   const clearModel = useModelStore(state => state.clearModel);
   const loadModel = useModelStore(state => state.loadModel);
@@ -144,6 +146,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const handleSave = () => {
     const state = useModelStore.getState();
     const conceptual: ConceptualData = {
+      dataModels: state.dataModels,
       entities: state.entities,
       relationships: state.relationships,
       groups: state.entityGroups
@@ -246,8 +249,9 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     { label: 'Export SQL', icon: <DatabaseIcon size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
   ];
 
-  const insertItems: DropdownItem[] = viewMode === 'conceptual'
+  const insertItems: DropdownItem[] = viewMode !== 'physical'
     ? [
+        { label: 'Add Data Model', icon: <FolderPlus size={14} />, onClick: () => { addDataModel(); onActionComplete?.(); } },
         { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => { addEntity(); onActionComplete?.(); } },
         { label: 'Add Group', icon: <Group size={14} />, onClick: () => { addEntityGroup([], 'New Group'); onActionComplete?.(); } },
       ]

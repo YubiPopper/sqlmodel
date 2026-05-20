@@ -21,11 +21,17 @@ export const RelationshipInspector: React.FC<RelationshipInspectorProps> = ({ re
   const updateRelationship = useModelStore(state => state.updateRelationship);
   const deleteRelationship = useModelStore(state => state.deleteRelationship);
   const entities = useModelStore(state => state.entities);
+  const dataModels = useModelStore(state => state.dataModels);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
-  const fromEntity = entities.find(e => e.id === relationship.fromEntityId);
-  const toEntity = entities.find(e => e.id === relationship.toEntityId);
+  const isDataModelRelationship = relationship.relationshipType === 'dataModel';
+  const fromLabel = isDataModelRelationship
+    ? dataModels.find(model => model.id === relationship.fromDataModelId)?.name
+    : entities.find(entity => entity.id === relationship.fromEntityId)?.name;
+  const toLabel = isDataModelRelationship
+    ? dataModels.find(model => model.id === relationship.toDataModelId)?.name
+    : entities.find(entity => entity.id === relationship.toEntityId)?.name;
 
   const handleDelete = () => {
     setShowMenu(false);
@@ -112,8 +118,8 @@ export const RelationshipInspector: React.FC<RelationshipInspectorProps> = ({ re
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <InspectorHeader
         icon={<Link size={18} />}
-        title="Relationship"
-        subtitle={`${fromEntity?.name || '?'} → ${toEntity?.name || '?'}`}
+        title={isDataModelRelationship ? 'Model Relationship' : 'Relationship'}
+        subtitle={`${fromLabel || '?'} → ${toLabel || '?'}`}
         actions={<ActionsMenu />}
       />
 
@@ -148,7 +154,7 @@ export const RelationshipInspector: React.FC<RelationshipInspectorProps> = ({ re
               color: isDark ? '#e6edf3' : '#374151',
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             }}>
-              {fromEntity?.name || 'Unknown'}
+              {fromLabel || 'Unknown'}
             </div>
             <div style={{ color: isDark ? '#8b949e' : '#9ca3af' }}>→</div>
             <div style={{
@@ -160,7 +166,7 @@ export const RelationshipInspector: React.FC<RelationshipInspectorProps> = ({ re
               color: isDark ? '#e6edf3' : '#374151',
               border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             }}>
-              {toEntity?.name || 'Unknown'}
+              {toLabel || 'Unknown'}
             </div>
           </div>
         </div>

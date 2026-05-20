@@ -142,6 +142,14 @@ button:active {
   animation: line-flow 0.4s linear infinite;
 }
 
+.react-flow__connection .react-flow__connection-path {
+  stroke: #22c55e !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 8 4;
+  animation: line-flow 0.45s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(74, 222, 128, 0.45));
+}
+
 /* Interactive edge hover effect — target the edge group wrapper so the invisible
    interaction path (wider hit-area) keeps hover stable instead of flickering when
    stroke-width changes shift the visible path out from under the cursor. */

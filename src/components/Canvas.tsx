@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import ReactFlow, { 
   Background, 
   ConnectionMode,
@@ -14,6 +14,7 @@ import type {
   Node, 
   NodeChange, 
   EdgeChange, 
+  OnConnectStartParams,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useModelStore } from '../store/useModelStore';
@@ -21,6 +22,7 @@ import EntityNode from './nodes/EntityNode';
 import TableNode from './nodes/TableNode';
 import EntityGroupNode from './nodes/EntityGroupNode';
 import ConceptualGroupNode from './nodes/ConceptualGroupNode';
+import DataModelBoxNode from './nodes/DataModelBoxNode';
 import { MarkerDefs } from './MarkerDefs';
 import { CanvasControls } from './CanvasControls';
 import { ConfirmationDialog } from './ui/ConfirmationDialog';
@@ -35,6 +37,7 @@ const nodeTypes = {
   table: TableNode,
   entityGroup: EntityGroupNode,
   conceptualGroup: ConceptualGroupNode,
+  dataModelBox: DataModelBoxNode,
 };
 
 const edgeTypes = {
@@ -69,8 +72,11 @@ const CanvasInner = () => {
   const [editingTable, setEditingTable] = useState<typeof tables[0] | undefined>(undefined);
   const [showAddTableDialog, setShowAddTableDialog] = useState(false);
   const [showAISettingsDialog, setShowAISettingsDialog] = useState(false);
+  const pendingModelConnectionRef = useRef<{ sourceId: string; sourceHandle?: string | null } | null>(null);
+  const modelRelationshipCreatedRef = useRef(false);
 
   const { 
+    dataModels,
     entities, 
     relationships, 
     entityGroups,
@@ -115,6 +121,11 @@ const CanvasInner = () => {
     removeEntityFromGroup,
     setNavigateToNodeCallback,
   } = useModelStore();
+
+  const selectedDataModelId = dataModels.some(model => model.id === selectedId)
+    ? (selectedId ?? undefined)
+    : undefined;
+  const isConceptualLikeView = viewMode !== 'physical';
 
   // Register navigation callback for sidebar
   useEffect(() => {
@@ -184,6 +195,8 @@ const CanvasInner = () => {
     // Only add directly connected entities (1-hop)
     sourceIds.forEach(sourceId => {
       relationships.forEach(rel => {
+        const isEntityRelationship = rel.relationshipType === 'entity' || rel.relationshipType === undefined;
+        if (!isEntityRelationship || !rel.fromEntityId || !rel.toEntityId) return;
         if (rel.fromEntityId === sourceId) connected.add(rel.toEntityId);
         if (rel.toEntityId === sourceId) connected.add(rel.fromEntityId);
       });
@@ -191,6 +204,26 @@ const CanvasInner = () => {
     
     return connected;
   }, [selectedId, hoveredNodeId, entities, relationships, entityGroups]);
+
+  const connectedDataModelIds = useMemo(() => {
+    const activeId = selectedId || hoveredNodeId;
+    if (!activeId) return new Set<string>();
+
+    const isDataModel = dataModels.some(model => model.id === activeId);
+    if (!isDataModel) return new Set<string>();
+
+    const connected = new Set<string>();
+    connected.add(activeId);
+
+    relationships.forEach(rel => {
+      if (rel.relationshipType !== 'dataModel') return;
+      if (!rel.fromDataModelId || !rel.toDataModelId) return;
+      if (rel.fromDataModelId === activeId) connected.add(rel.toDataModelId);
+      if (rel.toDataModelId === activeId) connected.add(rel.fromDataModelId);
+    });
+
+    return connected;
+  }, [selectedId, hoveredNodeId, dataModels, relationships]);
 
 
   // Compute directly connected table IDs (1-hop only, matching Liam ERD behavior)
@@ -232,7 +265,36 @@ const CanvasInner = () => {
 
   // Build nodes based on view mode
   const nodes: Node[] = useMemo(() => {
-    if (viewMode === 'conceptual') {
+    if (viewMode === 'data-model') {
+      const modelNodes: Node[] = dataModels.map((model, index) => {
+        const layout = nodeLayouts[model.id];
+        const modelEntities = entities.filter(entity => entity.dataModelId === model.id);
+
+        return {
+          id: model.id,
+          type: 'dataModelBox',
+          position: layout
+            ? { x: layout.x, y: layout.y }
+            : { x: 120 + (index % 3) * 380, y: 120 + Math.floor(index / 3) * 240 },
+          data: {
+            name: model.name,
+            color: model.color,
+            width: layout?.width || 320,
+            height: layout?.height || 180,
+            entityCount: modelEntities.length,
+            isSelected: selectedId === model.id,
+          },
+          draggable: true,
+          selectable: true,
+          selected: selectedId === model.id,
+          zIndex: 2,
+        };
+      });
+
+      return modelNodes;
+    }
+
+    if (isConceptualLikeView) {
       // Filter out hidden entities
       const visibleEntities = entities.filter(e => !safeHiddenEntityIds.has(e.id));
       
@@ -496,7 +558,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, nodeLayouts, tableLayouts, selectedId, viewMode, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize]);
+  }, [entities, entityGroups, tables, dataModels, nodeLayouts, tableLayouts, selectedId, isConceptualLikeView, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize, viewMode]);
 
   // Local display nodes - mirrors store nodes but gets fast position updates during drag
   // This avoids the Zustand → useMemo → all nodes rebuild cycle on every drag pixel
@@ -510,7 +572,11 @@ const CanvasInner = () => {
     if (viewMode === 'conceptual') {
       // Filter out relationships where either entity is hidden
       return relationships
-        .filter(r => !safeHiddenEntityIds.has(r.fromEntityId) && !safeHiddenEntityIds.has(r.toEntityId))
+        .filter(r => {
+          const isEntityRelationship = r.relationshipType === 'entity' || r.relationshipType === undefined;
+          if (!isEntityRelationship || !r.fromEntityId || !r.toEntityId) return false;
+          return !safeHiddenEntityIds.has(r.fromEntityId) && !safeHiddenEntityIds.has(r.toEntityId);
+        })
         .map(r => {
         let sourceHandle = r.sourceHandle || null;
         let targetHandle = r.targetHandle || null;
@@ -585,6 +651,43 @@ const CanvasInner = () => {
           },
         };
       });
+    } else if (viewMode === 'data-model') {
+      return relationships
+        .filter(r => r.relationshipType === 'dataModel' && !!r.fromDataModelId && !!r.toDataModelId)
+        .map(r => {
+          const isConnectedToSelected = connectedDataModelIds.has(r.fromDataModelId!) && connectedDataModelIds.has(r.toDataModelId!);
+          const isEdgeSelected = selectedId === r.id;
+          const defaultColor = colorMode === 'dark' ? '#4b5563' : '#9ca3af';
+
+          return {
+            id: r.id,
+            source: r.fromDataModelId!,
+            target: r.toDataModelId!,
+            label: r.label,
+            sourceHandle: r.sourceHandle || null,
+            targetHandle: r.targetHandle || null,
+            type: 'animated',
+            markerEnd: `url(#marker-${r.toCardinality})`,
+            markerStart: `url(#marker-${r.fromCardinality})`,
+            selected: isEdgeSelected,
+            className: (isConnectedToSelected || isEdgeSelected) ? 'pulse' : '',
+            data: { ...r, isHighlighted: isConnectedToSelected || isEdgeSelected, edgeType: 'curved' },
+            interactionWidth: 20,
+            style: {
+              stroke: (isEdgeSelected || isConnectedToSelected) ? '#4ade80' : defaultColor,
+              strokeWidth: (isEdgeSelected || isConnectedToSelected) ? 1.5 : 1.2,
+            },
+            labelStyle: {
+              fontSize: relationshipLabelSize === 'small' ? '10px' : relationshipLabelSize === 'large' ? '14px' : '12px',
+              fontWeight: 500,
+              fill: colorMode === 'dark' ? '#94a3b8' : '#475569',
+            },
+            labelBgStyle: {
+              fill: colorMode === 'dark' ? '#0d1117' : '#ffffff',
+              fillOpacity: 0.9,
+            },
+          };
+        });
     } else {
       // Physical view: FK edges with smart routing
       const tableFieldsDisplay = useModelStore.getState().tableFieldsDisplay;
@@ -699,7 +802,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
+  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedDataModelIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // Apply ALL changes (position, select, etc.) to local display nodes immediately
@@ -761,7 +864,7 @@ const CanvasInner = () => {
           // other state changes cause the `nodes` useMemo to recompute,
           // the recalculated nodes use the latest position from the store
           // instead of reverting to the stale pre-drag position.
-          if (viewMode === 'conceptual') {
+          if (isConceptualLikeView) {
             setNodePosition(change.id, change.position.x, change.position.y);
           } else {
             setTablePosition(change.id, change.position.x, change.position.y);
@@ -778,7 +881,7 @@ const CanvasInner = () => {
           // Handle normal selection (entities, relationships, conceptual groups, etc.)
           const isEntity = entities.some(e => e.id === change.id);
           
-          if (isEntity && viewMode === 'conceptual') {
+          if (isEntity && isConceptualLikeView) {
             // For entities in conceptual view, always clear multi-selection on normal clicks
             if (change.selected) {
               // Always call setSelected to clear multi-selection state
@@ -796,7 +899,7 @@ const CanvasInner = () => {
         }
       }
     });
-  }, [setNodePosition, setTablePosition, setSelected, selectedId, viewMode, tables, nodes, tableLayouts, entityGroups, entities, addEntityToGroup, dragHoverGroupId, multiSelectedEntityIds, nodeLayouts]);
+  }, [setNodePosition, setTablePosition, setSelected, selectedId, isConceptualLikeView, tables, nodes, tableLayouts, entityGroups, entities, addEntityToGroup, dragHoverGroupId, multiSelectedEntityIds, nodeLayouts]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
       changes.forEach(change => {
@@ -807,6 +910,27 @@ const CanvasInner = () => {
       });
   }, [setSelected, selectedId]);
 
+  const createDataModelRelationship = useCallback((
+    sourceId: string,
+    targetId: string,
+    sourceHandle?: string | null,
+    targetHandle?: string | null
+  ) => {
+    const isSourceModel = dataModels.some(model => model.id === sourceId);
+    const isTargetModel = dataModels.some(model => model.id === targetId);
+    if (!isSourceModel || !isTargetModel) return false;
+
+    const hasExistingModelRelationship = relationships.some(rel =>
+      rel.relationshipType === 'dataModel' &&
+      ((rel.fromDataModelId === sourceId && rel.toDataModelId === targetId) ||
+        (rel.fromDataModelId === targetId && rel.toDataModelId === sourceId))
+    );
+    if (hasExistingModelRelationship) return false;
+
+    addRelationship(sourceId, targetId, 'dataModel', sourceHandle, targetHandle);
+    return true;
+  }, [dataModels, relationships, addRelationship]);
+
   const onConnect = useCallback((params: Connection) => {
     if (params.source && params.target) {
       if (params.source === params.target) {
@@ -815,15 +939,77 @@ const CanvasInner = () => {
         }
       }
       if (viewMode === 'conceptual') {
-        addRelationship(params.source, params.target);
+        addRelationship(params.source, params.target, 'entity', params.sourceHandle, params.targetHandle);
+      } else if (viewMode === 'data-model') {
+        const created = createDataModelRelationship(params.source, params.target, params.sourceHandle, params.targetHandle);
+        if (created) {
+          modelRelationshipCreatedRef.current = true;
+        }
       }
       // For physical view, FK connections are handled via TableNode drag interactions
     }
-  }, [addRelationship, viewMode]);
+  }, [addRelationship, viewMode, createDataModelRelationship]);
+
+  const onConnectStart = useCallback((_: React.MouseEvent | React.TouchEvent, params: OnConnectStartParams) => {
+    if (viewMode !== 'data-model') return;
+    if (!params.nodeId) return;
+    pendingModelConnectionRef.current = { sourceId: params.nodeId, sourceHandle: params.handleId };
+    modelRelationshipCreatedRef.current = false;
+  }, [viewMode]);
+
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState?: { isValid?: boolean }) => {
+    if (viewMode !== 'data-model') return;
+
+    const pending = pendingModelConnectionRef.current;
+    const createdAlready = modelRelationshipCreatedRef.current;
+    pendingModelConnectionRef.current = null;
+    modelRelationshipCreatedRef.current = false;
+
+    if (!pending || createdAlready || connectionState?.isValid) return;
+
+    const isTouchEvent = 'touches' in event || 'changedTouches' in event;
+    const clientPoint = isTouchEvent
+      ? ((event as TouchEvent).changedTouches?.[0] || (event as TouchEvent).touches?.[0])
+      : (event as MouseEvent);
+    if (!clientPoint) return;
+
+    const flowPoint = (reactFlowInstance as any).screenToFlowPosition
+      ? (reactFlowInstance as any).screenToFlowPosition({ x: clientPoint.clientX, y: clientPoint.clientY })
+      : (reactFlowInstance as any).project({ x: clientPoint.clientX, y: clientPoint.clientY });
+
+    const modelIdSet = new Set(dataModels.map(model => model.id));
+    const targetNode = reactFlowInstance
+      .getNodes()
+      .filter(node => modelIdSet.has(node.id) && node.id !== pending.sourceId)
+      .find(node => {
+        const width = node.width ?? (node.data as any)?.width ?? nodeLayouts[node.id]?.width ?? 320;
+        const height = node.height ?? (node.data as any)?.height ?? nodeLayouts[node.id]?.height ?? 180;
+        const nodePosition = node.positionAbsolute || node.position;
+
+        return (
+          flowPoint.x >= nodePosition.x &&
+          flowPoint.x <= nodePosition.x + width &&
+          flowPoint.y >= nodePosition.y &&
+          flowPoint.y <= nodePosition.y + height
+        );
+      });
+
+    if (targetNode) {
+      createDataModelRelationship(pending.sourceId, targetNode.id, pending.sourceHandle, undefined);
+      return;
+    }
+
+    const targetElement = event.target as HTMLElement | null;
+    const targetNodeElement = targetElement?.closest?.('.react-flow__node[data-id]') as HTMLElement | null;
+    const targetId = targetNodeElement?.getAttribute('data-id');
+    if (!targetId || targetId === pending.sourceId) return;
+
+    createDataModelRelationship(pending.sourceId, targetId, pending.sourceHandle, undefined);
+  }, [viewMode, createDataModelRelationship, reactFlowInstance, dataModels, nodeLayouts]);
 
   const onNodeDrag = useCallback((_: any, node: any) => {
     // Conceptual view: track entities being dragged over entity groups
-    if (viewMode === 'conceptual' && entities.some(e => e.id === node.id)) {
+    if (isConceptualLikeView && entities.some(e => e.id === node.id)) {
       // Check if entity is over any group
       const entityX = node.position.x + 110; // Entity center
       const entityY = node.position.y + 60;
@@ -936,11 +1122,11 @@ const CanvasInner = () => {
   // Clear hover states if not dragging relevant items
   setDragHoverGroupId(null);
   setDragHoverEntityGroupId(null);
-}, [viewMode, entities, entityGroups, nodeLayouts, tables, tableLayouts, showEntityOverlay]);
+}, [isConceptualLikeView, viewMode, entities, entityGroups, nodeLayouts, tables, tableLayouts, showEntityOverlay]);
 
   const onNodeDragStop = useCallback((_: any, node: any) => {
     // Conceptual view: Handle entities dropped into entity groups
-    if (viewMode === 'conceptual' && dragHoverGroupId) {
+    if (isConceptualLikeView && dragHoverGroupId) {
       const entity = entities.find(e => e.id === node.id);
       if (entity) {
         addEntityToGroup(dragHoverGroupId, entity.id);
@@ -958,7 +1144,7 @@ const CanvasInner = () => {
     // Clear hover states after handling drop
     setDragHoverGroupId(null);
     setDragHoverEntityGroupId(null);
-  }, [viewMode, dragHoverGroupId, dragHoverEntityGroupId, entities, tables, addEntityToGroup, updateTable, showEntityOverlay]);
+  }, [isConceptualLikeView, viewMode, dragHoverGroupId, dragHoverEntityGroupId, entities, tables, addEntityToGroup, updateTable, showEntityOverlay]);
 
   const onMoveEnd = useCallback((_: any, viewport: any) => {
     setViewport(viewport);
@@ -980,11 +1166,11 @@ const CanvasInner = () => {
       setContextMenu({
         isOpen: true,
         position: { x: event.clientX, y: event.clientY },
-        type: nodeType || (viewMode === 'conceptual' ? 'entity' : 'table'),
+        type: nodeType || (isConceptualLikeView ? 'entity' : 'table'),
         targetId: nodeId,
       });
     }
-  }, [setSelected, viewMode]);
+  }, [setSelected, isConceptualLikeView]);
 
   const handleEdgeContextMenu = useCallback((event: React.MouseEvent, edge: any) => {
     event.preventDefault();
@@ -994,7 +1180,7 @@ const CanvasInner = () => {
     setContextMenu({
       isOpen: true,
       position: { x: event.clientX, y: event.clientY },
-      type: viewMode === 'conceptual' ? 'relationship' : 'foreignKey',
+      type: viewMode === 'physical' ? 'foreignKey' : 'relationship',
       targetId: edge.id,
     });
   }, [setSelected, viewMode]);
@@ -1017,9 +1203,9 @@ const CanvasInner = () => {
     const { type, targetId } = contextMenu;
     
     if (type === 'canvas') {
-      return viewMode === 'conceptual'
+      return isConceptualLikeView
         ? [
-            { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => addEntity() },
+            { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => addEntity(selectedDataModelId) },
             { label: 'Add Group', icon: <Group size={14} />, onClick: () => addEntityGroup([], 'New Group') },
             { label: '', divider: true, onClick: () => {} },
             { label: 'Auto Layout', icon: <ArrowDownUp size={14} />, onClick: autoLayout, shortcut: '⌘L' },
@@ -1038,10 +1224,10 @@ const CanvasInner = () => {
       const menuItems: ContextMenuItem[] = [
         { label: 'Edit Entity', icon: <Pencil size={14} />, onClick: () => setSelected(targetId) },
         { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => {
-          const newId = addEntity();
+          const newId = addEntity(entity?.dataModelId);
           if (entity) {
             const state = useModelStore.getState();
-            state.updateEntity(newId, { name: `${entity.name} (copy)`, description: entity.description });
+            state.updateEntity(newId, { name: `${entity.name} (copy)`, description: entity.description, dataModelId: entity.dataModelId });
             const layout = nodeLayouts[targetId];
             if (layout) {
               setNodePosition(newId, layout.x + 40, layout.y + 40);
@@ -1209,10 +1395,10 @@ const CanvasInner = () => {
     }
 
     return [];
-  }, [contextMenu, viewMode, entities, tables, entityGroups, addEntity, addEntityGroup, addTable, autoLayout, setSelected, setNodePosition, setTablePosition, nodeLayouts, tableLayouts]);
+  }, [contextMenu, isConceptualLikeView, dataModels, entities, tables, entityGroups, addEntity, addEntityGroup, addTable, autoLayout, setSelected, selectedDataModelId, setNodePosition, setTablePosition, nodeLayouts, tableLayouts]);
 
   const onEdgeDoubleClick = useCallback((event: React.MouseEvent, edge: Edge) => {
-    if (viewMode !== 'conceptual') return;
+    if (viewMode === 'physical') return;
     
     event.stopPropagation();
     const relationship = relationships.find(r => r.id === edge.id);
@@ -1290,7 +1476,7 @@ const CanvasInner = () => {
         // Prevent backspace navigation
         event.preventDefault();
         
-        if (viewMode === 'conceptual') {
+        if (isConceptualLikeView) {
           // Check if it's an entity
           const entity = entities.find(e => e.id === selectedId);
           if (entity) {
@@ -1360,7 +1546,7 @@ const CanvasInner = () => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedId, viewMode, entities, entityGroups, relationships, tables, foreignKeys]);
+  }, [selectedId, isConceptualLikeView, entities, entityGroups, relationships, tables, foreignKeys]);
 
   // Dynamic background based on view mode and color mode
   const canvasBackground = viewMode === 'physical' 
@@ -1380,6 +1566,8 @@ const CanvasInner = () => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onNodeMouseEnter={useCallback((_: any, node: any) => {

@@ -7,6 +7,15 @@ export type Cardinality = z.infer<typeof CardinalitySchema>;
 export const ColorSchema = z.string().optional();
 export type Color = z.infer<typeof ColorSchema>;
 
+// Data Model - top-level grouping above conceptual entities
+export const DataModelSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().optional(),
+  color: ColorSchema,
+});
+export type DataModel = z.infer<typeof DataModelSchema>;
+
 // Column/attribute definition for physical tables
 export const AttributeSchema = z.object({
   id: z.string().uuid(),
@@ -23,6 +32,7 @@ export type Attribute = z.infer<typeof AttributeSchema>;
 // Conceptual Entity - high-level business concept
 export const EntitySchema = z.object({
   id: z.string().uuid(),
+  dataModelId: z.string().uuid().optional(),
   name: z.string(),
   description: z.string().optional(),
   color: ColorSchema,
@@ -70,8 +80,11 @@ export type PhysicalTable = z.infer<typeof PhysicalTableSchema>;
 // Conceptual Relationship - entity-to-entity
 export const RelationshipSchema = z.object({
   id: z.string().uuid(),
-  fromEntityId: z.string().uuid(),
-  toEntityId: z.string().uuid(),
+  relationshipType: z.enum(['entity', 'dataModel']).optional(),
+  fromEntityId: z.string().uuid().optional(),
+  toEntityId: z.string().uuid().optional(),
+  fromDataModelId: z.string().uuid().optional(),
+  toDataModelId: z.string().uuid().optional(),
   label: z.string(),
   fromCardinality: CardinalitySchema,
   toCardinality: CardinalitySchema,
@@ -98,6 +111,7 @@ export const ForeignKeySchema = z.object({
 export type ForeignKey = z.infer<typeof ForeignKeySchema>;
 
 export const ConceptualSchema = z.object({
+  dataModels: z.array(DataModelSchema).optional().default([]),
   entities: z.array(EntitySchema),
   relationships: z.array(RelationshipSchema),
   groups: z.array(EntityGroupSchema).optional().default([]),

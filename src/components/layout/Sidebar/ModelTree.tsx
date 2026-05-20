@@ -26,6 +26,7 @@ interface ModelTreeProps {
 
 export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const {
+    dataModels,
     entities,
     tables,
     relationships,
@@ -46,6 +47,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   } = useModelStore();
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedDataModels, setExpandedDataModels] = useState<Set<string>>(new Set());
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
   const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
@@ -70,13 +72,19 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
   const isDark = colorMode === 'dark';
 
-  // Conceptual View - Filter entities, groups, and relationships based on search
+  // Conceptual View - Filter data models, entities, groups, and relationships based on search
   const filteredConceptualData = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     
     if (!query) {
-      return { entities, entityGroups, relationships };
+      return { dataModels, entities, entityGroups, relationships };
     }
+
+    const matchingDataModels = dataModels.filter(model =>
+      model.name.toLowerCase().includes(query) ||
+      (model.description && model.description.toLowerCase().includes(query))
+    );
+    const matchingDataModelIds = new Set(matchingDataModels.map(model => model.id));
     
     // Filter entities by name or description
     const matchingEntities = entities.filter(e => 
@@ -84,6 +92,11 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       (e.description && e.description.toLowerCase().includes(query))
     );
     const matchingEntityIds = new Set(matchingEntities.map(e => e.id));
+    matchingEntities.forEach(entity => {
+      if (entity.dataModelId) matchingDataModelIds.add(entity.dataModelId);
+    });
+
+    const allMatchingDataModels = dataModels.filter(model => matchingDataModelIds.has(model.id));
     
     // Filter groups - include if group name matches OR if any entity in group matches
     const matchingGroups = entityGroups.filter(g => {
@@ -98,17 +111,12 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     });
     
     return { 
+      dataModels: allMatchingDataModels,
       entities: matchingEntities, 
       entityGroups: matchingGroups,
       relationships: matchingRelationships 
     };
-  }, [entities, entityGroups, relationships, searchQuery]);
-
-  // Get entities that are not in any group (based on filtered data)
-  const ungroupedEntities = useMemo(() => {
-    const groupedIds = new Set(filteredConceptualData.entityGroups.flatMap(g => g.entityIds));
-    return filteredConceptualData.entities.filter(e => !groupedIds.has(e.id));
-  }, [filteredConceptualData.entities, filteredConceptualData.entityGroups]);
+  }, [dataModels, entities, entityGroups, relationships, searchQuery]);
 
   // Physical View - Filter tables and entities based on search
   const filteredTablesAndEntities = useMemo(() => {
@@ -263,6 +271,15 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
 
   const toggleGroupExpand = (id: string) => {
     setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleDataModelExpand = (id: string) => {
+    setExpandedDataModels(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -1081,29 +1098,30 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     );
   };
 
-  if (viewMode === 'conceptual') {
+  if (viewMode !== 'physical') {
+    const unassignedEntities = filteredConceptualData.entities.filter(e => !e.dataModelId);
+
     return (
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: '8px', paddingBottom: '80px' }}>
-        {/* Empty State - No Entities */}
-        {entities.length === 0 && entityGroups.length === 0 && (
+        {dataModels.length === 0 && entities.length === 0 && entityGroups.length === 0 && (
           <div style={{ 
             padding: '32px 16px', 
             textAlign: 'center', 
             color: isDark ? '#8b949e' : '#9ca3af' 
           }}>
-            <Box size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-            <div style={{ fontSize: '13px' }}>No entities yet</div>
+            <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+            <div style={{ fontSize: '13px' }}>No models yet</div>
             <div style={{ fontSize: '11px', marginTop: '4px' }}>
-              Click "Entity" below to add one
+              Click "Insert" to add a data model
             </div>
           </div>
         )}
 
-        {/* No Search Results */}
-        {searchQuery && filteredConceptualData.entities.length === 0 && 
+        {searchQuery && filteredConceptualData.dataModels.length === 0 &&
+         filteredConceptualData.entities.length === 0 && 
          filteredConceptualData.entityGroups.length === 0 && 
          filteredConceptualData.relationships.length === 0 && 
-         (entities.length > 0 || entityGroups.length > 0 || relationships.length > 0) && (
+         (dataModels.length > 0 || entities.length > 0 || entityGroups.length > 0 || relationships.length > 0) && (
           <div style={{ 
             padding: '32px 16px', 
             textAlign: 'center', 
@@ -1113,34 +1131,106 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           </div>
         )}
 
-        {/* Groups */}
-        {filteredConceptualData.entityGroups.map(group => {
-          const isExpanded = expandedGroups.has(group.id);
-          const groupEntities = group.entityIds
-            .map(id => filteredConceptualData.entities.find(e => e.id === id))
-            .filter(Boolean) as typeof entities;
+        {filteredConceptualData.dataModels.map(model => {
+          const modelEntities = filteredConceptualData.entities.filter(e => e.dataModelId === model.id);
+          const modelEntityIds = new Set(modelEntities.map(e => e.id));
+          const modelGroups = filteredConceptualData.entityGroups.filter(g =>
+            g.entityIds.some(entityId => modelEntityIds.has(entityId))
+          );
+          const groupedEntityIds = new Set(modelGroups.flatMap(g => g.entityIds));
+          const ungroupedModelEntities = modelEntities.filter(e => !groupedEntityIds.has(e.id));
+          const isModelExpanded = expandedDataModels.has(model.id);
 
           return (
-            <div key={group.id}>
+            <div key={model.id}>
               <TreeItem
-                icon={<FolderOpen size={12} />}
-                label={group.name}
-                selected={selectedId === group.id}
-                onClick={() => { 
+                icon={<Layers size={12} />}
+                label={model.name}
+                secondaryLabel={model.description}
+                selected={selectedId === model.id}
+                onClick={() => {
                   setRenamingItem(null);
-                  setSelected(group.id); 
-                  if (!isExpanded) toggleGroupExpand(group.id); 
+                  setSelected(model.id);
+                  if (!isModelExpanded) toggleDataModelExpand(model.id);
                 }}
-                onExpand={() => toggleGroupExpand(group.id)}
-                expanded={isExpanded}
-                hasChildren={groupEntities.length > 0}
-                badge={groupEntities.length}
+                onExpand={() => toggleDataModelExpand(model.id)}
+                expanded={isModelExpanded}
+                hasChildren={modelEntities.length > 0}
+                badge={modelEntities.length}
               />
-              
-              {isExpanded && groupEntities.map(entity => {
+
+              {isModelExpanded && modelGroups.map(group => {
+                const isExpanded = expandedGroups.has(group.id);
+                const groupEntities = group.entityIds
+                  .map(id => modelEntities.find(e => e.id === id))
+                  .filter(Boolean) as typeof entities;
+
+                return (
+                  <div key={group.id}>
+                    <TreeItem
+                      icon={<FolderOpen size={12} />}
+                      label={group.name}
+                      selected={selectedId === group.id}
+                      onClick={() => {
+                        setRenamingItem(null);
+                        setSelected(group.id);
+                        if (!isExpanded) toggleGroupExpand(group.id);
+                      }}
+                      onExpand={() => toggleGroupExpand(group.id)}
+                      expanded={isExpanded}
+                      hasChildren={groupEntities.length > 0}
+                      level={1}
+                      badge={groupEntities.length}
+                    />
+
+                    {isExpanded && groupEntities.map(entity => {
+                      const entityTables = getTablesForEntity(entity.id);
+                      const isEntityExpanded = expandedEntities.has(entity.id);
+
+                      return (
+                        <div key={entity.id}>
+                          <TreeItem
+                            icon={<Box size={12} />}
+                            label={entity.name}
+                            secondaryLabel={entity.description}
+                            selected={selectedId === entity.id}
+                            onClick={() => {
+                              setRenamingItem(null);
+                              setSelected(entity.id);
+                              if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                            }}
+                            onExpand={() => toggleEntityExpand(entity.id)}
+                            onShowInDiagram={() => toggleEntityVisibility(entity.id)}
+                            isHidden={hiddenEntityIds.has(entity.id)}
+                            expanded={isEntityExpanded}
+                            hasChildren={entityTables.length > 0}
+                            level={2}
+                            badge={entityTables.length > 0 ? entityTables.length : undefined}
+                          />
+
+                          {isEntityExpanded && entityTables.map(table => (
+                            <TreeItem
+                              key={table.id}
+                              icon={<Table size={12} />}
+                              label={table.name}
+                              selected={selectedId === table.id}
+                              onClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
+                              onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
+                              onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
+                              level={3}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {isModelExpanded && ungroupedModelEntities.map(entity => {
                 const entityTables = getTablesForEntity(entity.id);
                 const isEntityExpanded = expandedEntities.has(entity.id);
-                
+
                 return (
                   <div key={entity.id}>
                     <TreeItem
@@ -1148,9 +1238,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                       label={entity.name}
                       secondaryLabel={entity.description}
                       selected={selectedId === entity.id}
-                      onClick={() => { 
+                      onClick={() => {
                         setRenamingItem(null);
-                        setSelected(entity.id); 
+                        setSelected(entity.id);
                         if (!isEntityExpanded) toggleEntityExpand(entity.id);
                       }}
                       onExpand={() => toggleEntityExpand(entity.id)}
@@ -1161,7 +1251,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                       level={1}
                       badge={entityTables.length > 0 ? entityTables.length : undefined}
                     />
-                    
+
                     {isEntityExpanded && entityTables.map(table => (
                       <TreeItem
                         key={table.id}
@@ -1169,8 +1259,8 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                         label={table.name}
                         selected={selectedId === table.id}
                         onClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
-                        onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
-                        onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
+                        onDoubleClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
+                        onNavigate={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
                         level={2}
                       />
                     ))}
@@ -1181,25 +1271,22 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           );
         })}
 
-        {/* Ungrouped Entities */}
-        {ungroupedEntities.length > 0 && (
+        {unassignedEntities.length > 0 && (
           <>
-            {entityGroups.length > 0 && (
-              <div style={{
-                padding: '8px 20px 4px',
-                fontSize: '10px',
-                fontWeight: 600,
-                color: isDark ? '#8b949e' : '#9ca3af',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
-                Ungrouped
-              </div>
-            )}
-            {ungroupedEntities.map(entity => {
+            <div style={{
+              padding: '8px 20px 4px',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: isDark ? '#8b949e' : '#9ca3af',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              Unassigned
+            </div>
+            {unassignedEntities.map(entity => {
               const entityTables = getTablesForEntity(entity.id);
               const isEntityExpanded = expandedEntities.has(entity.id);
-              
+
               return (
                 <div key={entity.id}>
                   <TreeItem
@@ -1207,9 +1294,9 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                     label={entity.name}
                     secondaryLabel={entity.description}
                     selected={selectedId === entity.id}
-                    onClick={() => { 
+                    onClick={() => {
                       setRenamingItem(null);
-                      setSelected(entity.id); 
+                      setSelected(entity.id);
                       if (!isEntityExpanded) toggleEntityExpand(entity.id);
                     }}
                     onExpand={() => toggleEntityExpand(entity.id)}
@@ -1219,7 +1306,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                     hasChildren={entityTables.length > 0}
                     badge={entityTables.length > 0 ? entityTables.length : undefined}
                   />
-                  
+
                   {isEntityExpanded && entityTables.map(table => (
                     <TreeItem
                       key={table.id}
@@ -1239,7 +1326,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         )}
 
         {/* Relationships Section */}
-        {filteredConceptualData.relationships.length > 0 && (
+        {viewMode === 'conceptual' && filteredConceptualData.relationships.length > 0 && (
           <>
             <div style={{
               padding: '16px 20px 4px',
