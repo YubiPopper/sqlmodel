@@ -403,11 +403,15 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const handleRenameComplete = useCallback(() => {
     if (!renamingItem) return;
     
-    const newValue = renamingItem.value.trim();
-    if (!newValue || newValue === 'unassigned') {
+    const newValueRaw = renamingItem.value;
+    const newValue = newValueRaw.trim();
+    if (!newValue) {
       setRenamingItem(null);
       return;
     }
+
+    // Preserve the user's spacing exactly; only reject truly empty values.
+    const finalValue = newValueRaw;
     
     if (renamingItem.type === 'database') {
       // Get the old database name from the key
@@ -420,7 +424,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       if (tablesToUpdate.length > 0) {
         // Rename existing database
         tablesToUpdate.forEach(table => {
-          updateTable(table.id, { database: newValue });
+          updateTable(table.id, { database: finalValue });
         });
       }
       // If no tables, the database name will be created when a table is added to it
@@ -430,7 +434,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         setEmptyDatabases(prev => {
           const next = new Set(prev);
           next.delete(oldDbName);
-          next.add(newValue);
+          next.add(finalValue);
           return next;
         });
       }
@@ -439,7 +443,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       setExpandedDatabases(prev => {
         const next = new Set(prev);
         next.delete(oldDbName);
-        next.add(newValue);
+        next.add(finalValue);
         return next;
       });
     } else if (renamingItem.type === 'schema') {
@@ -456,7 +460,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       
       if (tablesToUpdate.length > 0) {
         tablesToUpdate.forEach(table => {
-          updateTable(table.id, { schema: newValue });
+          updateTable(table.id, { schema: finalValue });
         });
         
         // Remove from empty schemas if it now has tables
@@ -470,7 +474,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         setEmptySchemas(prev => {
           const next = new Set(prev);
           next.delete(renamingItem.key);
-          next.add(`${dbName}.${newValue}`);
+          next.add(`${dbName}.${finalValue}`);
           return next;
         });
       }
@@ -479,13 +483,13 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       setExpandedSchemas(prev => {
         const next = new Set(prev);
         next.delete(renamingItem.key);
-        next.add(`${dbName}.${newValue}`);
+        next.add(`${dbName}.${finalValue}`);
         return next;
       });
     } else if (renamingItem.type === 'table') {
       // Rename table
       const tableId = renamingItem.key;
-      updateTable(tableId, { name: newValue });
+      updateTable(tableId, { name: finalValue });
     }
     
     setRenamingItem(null);
@@ -988,7 +992,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
             }}
             onBlur={(e) => {
               e.stopPropagation();
-              setRenamingItem(null);
+              handleRenameComplete();
             }}
             onKeyDown={(e) => {
               e.stopPropagation();

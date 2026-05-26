@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Layers, Trash2, MoreVertical, Plus } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
-import { FormField, TextInput } from './FormComponents';
+import { FormField, SelectInput, TextInput } from './FormComponents';
 import { ConfirmationDialog } from '../../ui/ConfirmationDialog';
 
 interface SchemaInspectorProps {
@@ -19,6 +19,7 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
   const addTable = useModelStore(state => state.addTable);
   const setSelected = useModelStore(state => state.setSelected);
   const emptySchemas = useModelStore(state => state.emptySchemas);
+  const emptyDatabases = useModelStore(state => state.emptyDatabases);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
@@ -30,9 +31,69 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
   );
 
   const handleNameChange = (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || newName === schemaName) return;
+
     // Update all tables in this schema
     schemaTables.forEach(table => {
       updateTable(table.id, { schema: newName });
+    });
+
+    // Update empty placeholder entry so empty schemas can be renamed.
+    const oldKey = `${dbName}.${schemaName}`;
+    const nextEmptySchemas = new Set(emptySchemas);
+    nextEmptySchemas.delete(oldKey);
+    if (schemaTables.length === 0) {
+      nextEmptySchemas.add(`${dbName}.${newName}`);
+    }
+    useModelStore.setState({
+      emptySchemas: nextEmptySchemas,
+      selectedId: `schema-${dbName}-${newName}`,
+    });
+  };
+
+  const databaseOptions = useMemo(() => {
+    const names = new Set<string>();
+
+    tables.forEach((table) => {
+      if (table.database) names.add(table.database);
+    });
+    emptyDatabases.forEach((name) => names.add(name));
+    if (dbName !== 'unassigned') names.add(dbName);
+
+    const options = Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ value: name, label: name }));
+
+    return [{ value: 'unassigned', label: '(none)' }, ...options];
+  }, [tables, emptyDatabases, dbName]);
+
+  const handleDatabaseChange = (newDbValue: string) => {
+    const normalizedValue = newDbValue || 'unassigned';
+    if (normalizedValue === dbName) return;
+
+    const targetDb = normalizedValue === 'unassigned' ? undefined : normalizedValue;
+
+    schemaTables.forEach((table) => {
+      updateTable(table.id, { database: targetDb });
+    });
+
+    const oldKey = `${dbName}.${schemaName}`;
+    const nextEmptySchemas = new Set(emptySchemas);
+    nextEmptySchemas.delete(oldKey);
+    if (schemaTables.length === 0) {
+      nextEmptySchemas.add(`${normalizedValue}.${schemaName}`);
+    }
+
+    const nextEmptyDatabases = new Set(emptyDatabases);
+    if (normalizedValue !== 'unassigned') {
+      nextEmptyDatabases.add(normalizedValue);
+    }
+
+    useModelStore.setState({
+      emptySchemas: nextEmptySchemas,
+      emptyDatabases: nextEmptyDatabases,
+      selectedId: `schema-${normalizedValue}-${schemaName}`,
     });
   };
 
@@ -192,6 +253,14 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
             value={schemaName}
             onChange={handleNameChange}
             placeholder="schema_name"
+          />
+        </FormField>
+
+        <FormField label="Database">
+          <SelectInput
+            value={dbName}
+            onChange={handleDatabaseChange}
+            options={databaseOptions}
           />
         </FormField>
 

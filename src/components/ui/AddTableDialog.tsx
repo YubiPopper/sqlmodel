@@ -462,6 +462,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
   const [showDdlView, setShowDdlView] = useState(false);
   const [previewDdl, setPreviewDdl] = useState('');
   const [manualTableName, setManualTableName] = useState('new_table');
+  const [manualDatabase, setManualDatabase] = useState('');
+  const [manualSchema, setManualSchema] = useState('');
   const [imageData, setImageData] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   
@@ -490,6 +492,8 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         setShowDdlView(false);
         setPreviewDdl('');
         setManualTableName(existingTable.name);
+        setManualDatabase(existingTable.database || '');
+        setManualSchema(existingTable.schema || '');
       } else {
         // Create mode: reset everything
         setActiveTab('manual');
@@ -503,9 +507,11 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
         setShowDdlView(false);
         setPreviewDdl('');
         setManualTableName('new_table');
+        setManualDatabase('');
+        setManualSchema(entityId ? 'public' : '');
       }
     }
-  }, [isOpen, existingTable]);
+  }, [isOpen, existingTable, entityId]);
   
   // Handle escape key
   useEffect(() => {
@@ -891,9 +897,15 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
   // Create empty table (manual mode)
   const handleCreateEmptyTable = useCallback(() => {
     const tableId = addTable(entityId);
-    updateTable(tableId, { name: manualTableName });
+    const dbName = manualDatabase.trim();
+    const schemaName = manualSchema.trim();
+    updateTable(tableId, {
+      name: manualTableName,
+      database: dbName || undefined,
+      schema: schemaName || undefined,
+    });
     onClose();
-  }, [manualTableName, entityId, addTable, updateTable, onClose]);
+  }, [manualTableName, manualDatabase, manualSchema, entityId, addTable, updateTable, onClose]);
   
   // Update preview attribute
   const handleUpdatePreviewAttribute = useCallback((attrId: string, field: keyof Attribute, value: string | boolean) => {
@@ -1197,6 +1209,65 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                   }}
                 />
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: isDark ? '#e6edf3' : '#374151',
+                    marginBottom: '5px',
+                  }}>
+                    Database (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualDatabase}
+                    onChange={(e) => setManualDatabase(e.target.value)}
+                    placeholder="e.g., app_db"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      background: isDark ? '#0d1117' : '#ffffff',
+                      border: isDark ? '1px solid #30363d' : '1px solid #d1d5db',
+                      borderRadius: '5px',
+                      color: isDark ? '#e6edf3' : '#111827',
+                      fontSize: '12px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: isDark ? '#e6edf3' : '#374151',
+                    marginBottom: '5px',
+                  }}>
+                    Schema (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualSchema}
+                    onChange={(e) => setManualSchema(e.target.value)}
+                    placeholder="e.g., public"
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '8px 10px',
+                      background: isDark ? '#0d1117' : '#ffffff',
+                      border: isDark ? '1px solid #30363d' : '1px solid #d1d5db',
+                      borderRadius: '5px',
+                      color: isDark ? '#e6edf3' : '#111827',
+                      fontSize: '12px',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
               
               <p style={{
                 fontSize: '11px',
@@ -1472,6 +1543,78 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                 />
               ) : (
                 <>
+                  {/* Database + Schema */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '10px',
+                        fontWeight: 500,
+                        color: isDark ? '#8b949e' : '#6b7280',
+                        marginBottom: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>
+                        Database
+                      </label>
+                      <input
+                        type="text"
+                        value={preview.database || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          setPreview({ ...preview, database: value || undefined });
+                        }}
+                        placeholder="optional"
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '7px 10px',
+                          background: isDark ? '#0d1117' : '#ffffff',
+                          border: isDark ? '1px solid #30363d' : '1px solid #d1d5db',
+                          borderRadius: '5px',
+                          color: isDark ? '#e6edf3' : '#111827',
+                          fontSize: '12px',
+                          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '10px',
+                        fontWeight: 500,
+                        color: isDark ? '#8b949e' : '#6b7280',
+                        marginBottom: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>
+                        Schema
+                      </label>
+                      <input
+                        type="text"
+                        value={preview.schema || ''}
+                        onChange={(e) => {
+                          const value = e.target.value.trim();
+                          setPreview({ ...preview, schema: value || undefined });
+                        }}
+                        placeholder="optional"
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '7px 10px',
+                          background: isDark ? '#0d1117' : '#ffffff',
+                          border: isDark ? '1px solid #30363d' : '1px solid #d1d5db',
+                          borderRadius: '5px',
+                          color: isDark ? '#e6edf3' : '#111827',
+                          fontSize: '12px',
+                          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   {/* Table Name */}
                   <div>
                     <label style={{

@@ -27,9 +27,34 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ dbName }) 
   const databaseTables = tables.filter(t => (t.database || 'unassigned') === dbName);
 
   const handleNameChange = (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || newName === dbName) return;
+
     // Update all tables in this database
     databaseTables.forEach(table => {
       updateTable(table.id, { database: newName });
+    });
+
+    // Update empty database/schema placeholders so rename works for empty DBs too.
+    const nextEmptyDatabases = new Set(emptyDatabases);
+    nextEmptyDatabases.delete(dbName);
+    if (databaseTables.length === 0) {
+      nextEmptyDatabases.add(newName);
+    }
+
+    const nextEmptySchemas = new Set<string>();
+    emptySchemas.forEach((key) => {
+      if (key.startsWith(`${dbName}.`)) {
+        nextEmptySchemas.add(`${newName}.${key.split('.').slice(1).join('.')}`);
+      } else {
+        nextEmptySchemas.add(key);
+      }
+    });
+
+    useModelStore.setState({
+      emptyDatabases: nextEmptyDatabases,
+      emptySchemas: nextEmptySchemas,
+      selectedId: `db-${newName}`,
     });
   };
 

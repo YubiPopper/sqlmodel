@@ -5,6 +5,7 @@ import {
   Plus,
   Group,
   FolderPlus,
+  Database,
   Download,
   Upload,
   Sparkles,
@@ -227,6 +228,79 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     setShowAddTableDialog(true);
   };
 
+  const getUniqueName = (base: string, existing: Set<string>) => {
+    let name = base;
+    let counter = 2;
+    while (existing.has(name)) {
+      name = `${base}_${counter}`;
+      counter += 1;
+    }
+    return name;
+  };
+
+  const handleAddDatabase = () => {
+    const state = useModelStore.getState();
+    const existingDbNames = new Set<string>();
+
+    state.tables.forEach((table) => {
+      if (table.database) existingDbNames.add(table.database);
+    });
+    state.emptyDatabases.forEach((dbName) => existingDbNames.add(dbName));
+
+    const dbName = getUniqueName('new_database', existingDbNames);
+    const nextEmptyDatabases = new Set(state.emptyDatabases);
+    nextEmptyDatabases.add(dbName);
+
+    useModelStore.setState({
+      emptyDatabases: nextEmptyDatabases,
+      physicalHierarchyMode: 'database',
+      selectedId: `db-${dbName}`,
+    });
+  };
+
+  const handleAddSchema = () => {
+    const state = useModelStore.getState();
+    const existingDbNames = new Set<string>();
+
+    state.tables.forEach((table) => {
+      if (table.database) existingDbNames.add(table.database);
+    });
+    state.emptyDatabases.forEach((dbName) => existingDbNames.add(dbName));
+
+    const suggestedDb = existingDbNames.size > 0
+      ? Array.from(existingDbNames)[0]
+      : 'new_database';
+    const requestedDb = window.prompt('Target database for new schema:', suggestedDb);
+    if (requestedDb === null) return;
+
+    const targetDb = requestedDb.trim() || suggestedDb;
+
+    const existingSchemaNames = new Set<string>();
+    state.tables.forEach((table) => {
+      if ((table.database || 'unassigned') === targetDb && table.schema) {
+        existingSchemaNames.add(table.schema);
+      }
+    });
+    state.emptySchemas.forEach((key) => {
+      if (key.startsWith(`${targetDb}.`)) {
+        existingSchemaNames.add(key.split('.').slice(1).join('.'));
+      }
+    });
+
+    const schemaName = getUniqueName('new_schema', existingSchemaNames);
+    const nextEmptyDatabases = new Set(state.emptyDatabases);
+    const nextEmptySchemas = new Set(state.emptySchemas);
+    nextEmptyDatabases.add(targetDb);
+    nextEmptySchemas.add(`${targetDb}.${schemaName}`);
+
+    useModelStore.setState({
+      emptyDatabases: nextEmptyDatabases,
+      emptySchemas: nextEmptySchemas,
+      physicalHierarchyMode: 'database',
+      selectedId: `schema-${targetDb}-${schemaName}`,
+    });
+  };
+
   const importItems: DropdownItem[] = [
     { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: '', divider: true, onClick: () => {} },
@@ -257,6 +331,8 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       ]
     : [
         { label: 'Add Table', icon: <Plus size={14} />, onClick: () => { handleAddTable(); onActionComplete?.(); } },
+        { label: 'Add Database', icon: <Database size={14} />, onClick: () => { handleAddDatabase(); onActionComplete?.(); } },
+        { label: 'Add Schema', icon: <Layers size={14} />, onClick: () => { handleAddSchema(); onActionComplete?.(); } },
       ];
 
   return (
