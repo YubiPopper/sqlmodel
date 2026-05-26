@@ -22,6 +22,9 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = 
 
     const triggerRect = triggerRef.current.getBoundingClientRect();
     const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const margin = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     
     let top, left;
     
@@ -47,15 +50,29 @@ export const Tooltip: React.FC<TooltipProps> = ({ content, children, disabled = 
       }
     }
 
+    // Clamp to viewport so tooltip text never gets cut off at screen edges.
+    left = Math.max(margin, Math.min(left, viewportWidth - tooltipRect.width - margin));
+    top = Math.max(margin, Math.min(top, viewportHeight - tooltipRect.height - margin));
+
     setPosition({ top, left });
   };
 
   useEffect(() => {
     if (isVisible) {
       // Delay to ensure tooltip is rendered and we have dimensions
-      setTimeout(updatePosition, 0);
+      const timer = window.setTimeout(updatePosition, 0);
+      const handleReposition = () => updatePosition();
+
+      window.addEventListener('scroll', handleReposition, true);
+      window.addEventListener('resize', handleReposition);
+
+      return () => {
+        window.clearTimeout(timer);
+        window.removeEventListener('scroll', handleReposition, true);
+        window.removeEventListener('resize', handleReposition);
+      };
     }
-  }, [isVisible]);
+  }, [isVisible, placement]);
 
   if (disabled || !content) {
     return children;
