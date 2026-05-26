@@ -10,6 +10,34 @@ interface AnimatedEdgeData {
   [key: string]: any;
 }
 
+const CARDINALITY_BADGE_OFFSET = 34;
+
+const getCardinalityBadgePosition = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  distanceFromEndpoint: number,
+  towardsTarget: boolean,
+) => {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  const length = Math.hypot(deltaX, deltaY) || 1;
+  const unitX = deltaX / length;
+  const unitY = deltaY / length;
+
+  return {
+    x: towardsTarget
+      ? endX - unitX * distanceFromEndpoint
+      : startX + unitX * distanceFromEndpoint,
+    y: towardsTarget
+      ? endY - unitY * distanceFromEndpoint
+      : startY + unitY * distanceFromEndpoint,
+  };
+};
+
+const formatCardinality = (cardinality?: string) => cardinality ?? '';
+
 const AnimatedEdge = memo(({
   sourceX,
   sourceY,
@@ -27,6 +55,7 @@ const AnimatedEdge = memo(({
   labelBgStyle,
 }: EdgeProps<AnimatedEdgeData>) => {
   const edgeType = data?.edgeType || 'curved';
+  const showCardinalityBadges = Boolean(data?.fromAttributeId && data?.toAttributeId);
   
   // Compute the edge path based on edge type
   const [edgePath, labelX, labelY] = useMemo(() => {
@@ -48,6 +77,16 @@ const AnimatedEdge = memo(({
         });
     }
   }, [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, edgeType]);
+
+  const sourceCardinalityPosition = useMemo(
+    () => getCardinalityBadgePosition(sourceX, sourceY, targetX, targetY, CARDINALITY_BADGE_OFFSET, false),
+    [sourceX, sourceY, targetX, targetY],
+  );
+
+  const targetCardinalityPosition = useMemo(
+    () => getCardinalityBadgePosition(sourceX, sourceY, targetX, targetY, CARDINALITY_BADGE_OFFSET, true),
+    [sourceX, sourceY, targetX, targetY],
+  );
 
   const isHighlighted = data?.isHighlighted || false;
 
@@ -120,6 +159,54 @@ const AnimatedEdge = memo(({
           >
             {label}
           </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {showCardinalityBadges && (
+        <EdgeLabelRenderer>
+          <>
+            <div
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${sourceCardinalityPosition.x}px,${sourceCardinalityPosition.y}px)`,
+                pointerEvents: 'none',
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                background: (labelBgStyle as any)?.fill,
+                opacity: (labelBgStyle as any)?.fillOpacity,
+                color: (labelStyle as any)?.fill,
+                border: `1px solid ${(labelStyle as any)?.fill}`,
+                fontSize: '13px',
+                fontWeight: 700,
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+              }}
+            >
+              {formatCardinality(data?.fromCardinality)}
+            </div>
+
+            <div
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${targetCardinalityPosition.x}px,${targetCardinalityPosition.y}px)`,
+                pointerEvents: 'none',
+                padding: '4px 12px',
+                borderRadius: '9999px',
+                background: (labelBgStyle as any)?.fill,
+                opacity: (labelBgStyle as any)?.fillOpacity,
+                color: (labelStyle as any)?.fill,
+                border: `1px solid ${(labelStyle as any)?.fill}`,
+                fontSize: '13px',
+                fontWeight: 700,
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
+              }}
+            >
+              {formatCardinality(data?.toCardinality)}
+            </div>
+          </>
         </EdgeLabelRenderer>
       )}
     </g>

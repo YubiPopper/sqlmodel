@@ -568,7 +568,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
             return `1.5px solid ${colors.border}`;
           })(),
           borderRadius: '8px',
-          minWidth: '240px',
+          minWidth: '280px',
           boxShadow: (() => {
             if (isActiveHighlighted || isMultiSelected) {
               return isDark
@@ -735,8 +735,9 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                       ? '1px solid rgba(255, 255, 255, 0.1)' 
                       : (colorMode === 'dark' ? '1px solid #21262d' : '1px solid #e5e7eb'))
                   : 'none', 
-                display: 'flex', 
-                justifyContent: 'space-between',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                columnGap: '12px',
                 alignItems: 'center',
                 fontSize: '14px',
                 color: data.color && data.color !== 'default' 
@@ -764,7 +765,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                   : 'transparent';
               }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'none', minWidth: 0 }}>
                 {attr.isPrimaryKey && (
                   <Key size={14} style={{ 
                     color: data.color && data.color !== 'default' 
@@ -795,6 +796,10 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                   />
                 )}
                 <span style={{ 
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                   fontWeight: attr.isPrimaryKey ? 600 : 400,
                   textShadow: data.color && data.color !== 'default' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none',
                 }}>
