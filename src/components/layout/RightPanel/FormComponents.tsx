@@ -59,6 +59,7 @@ export const TextInput: React.FC<TextInputProps> = ({
 
   const baseStyle: React.CSSProperties = {
     width: '100%',
+    boxSizing: 'border-box',
     padding: '10px 12px',
     fontSize: '13px',
     color: isDark ? '#e6edf3' : '#374151',
@@ -128,6 +129,7 @@ export const SelectInput: React.FC<SelectInputProps> = ({
       onChange={(e) => onChange(e.target.value)}
       style={{
         width: '100%',
+        boxSizing: 'border-box',
         padding: '10px 12px',
         fontSize: '13px',
         color: isDark ? '#e6edf3' : '#374151',

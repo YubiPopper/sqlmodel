@@ -10,7 +10,7 @@ import 'reactflow/dist/style.css';
 import { Table, Trash2, Key, Link, MoreVertical, Copy, FileCode, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
-import { FormField, TextInput, ColorPicker } from './FormComponents';
+import { FormField, TextInput, ColorPicker, SelectInput } from './FormComponents';
 import type { PhysicalTable, Attribute } from '../../../model/schemas';
 import { AddTableDialog } from '../../ui/AddTableDialog';
 import { AISettingsDialog } from '../../ui/AISettingsDialog';
@@ -222,11 +222,57 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const updateTable = useModelStore(state => state.updateTable);
   const deleteTable = useModelStore(state => state.deleteTable);
   const tables = useModelStore(state => state.tables);
+  const entities = useModelStore(state => state.entities);
   const foreignKeys = useModelStore(state => state.foreignKeys);
   const setSelected = useModelStore(state => state.setSelected);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
+
+  const databaseOptions = useMemo(() => {
+    const dbSet = new Set<string>();
+    tables.forEach((t) => {
+      if (t.database) dbSet.add(t.database);
+    });
+    if (table.database) dbSet.add(table.database);
+
+    return [
+      { value: '', label: 'Unassigned' },
+      ...Array.from(dbSet)
+        .sort((a, b) => a.localeCompare(b))
+        .map((db) => ({ value: db, label: db })),
+    ];
+  }, [tables, table.database]);
+
+  const schemaOptions = useMemo(() => {
+    const targetDb = table.database || '';
+    const schemaSet = new Set<string>();
+    tables.forEach((t) => {
+      const tableDb = t.database || '';
+      if (tableDb === targetDb && t.schema) {
+        schemaSet.add(t.schema);
+      }
+    });
+    if (table.schema) schemaSet.add(table.schema);
+
+    return [
+      { value: '', label: 'Unassigned' },
+      ...Array.from(schemaSet)
+        .sort((a, b) => a.localeCompare(b))
+        .map((schema) => ({ value: schema, label: schema })),
+    ];
+  }, [tables, table.database, table.schema]);
+
+  const handleDatabaseChange = (value: string) => {
+    updateTable(table.id, {
+      database: value || undefined,
+      schema: undefined,
+    });
+  };
+
+  const handleSchemaChange = (value: string) => {
+    updateTable(table.id, { schema: value || undefined });
+  };
   
   // Find FK relationships for this table
   const outgoingFKs = foreignKeys.filter(fk => fk.fromTableId === table.id);
@@ -517,6 +563,33 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
             value={table.name}
             onChange={(value) => updateTable(table.id, { name: value })}
             placeholder="table_name"
+          />
+        </FormField>
+
+        <FormField label="Linked Entity">
+          <SelectInput
+            value={table.entityId || ''}
+            onChange={(value) => updateTable(table.id, { entityId: value || undefined })}
+            options={[
+              { value: '', label: 'None' },
+              ...entities.map((e) => ({ value: e.id, label: e.name })),
+            ]}
+          />
+        </FormField>
+
+        <FormField label="Database" hint="Move this table to a database namespace">
+          <SelectInput
+            value={table.database || ''}
+            onChange={handleDatabaseChange}
+            options={databaseOptions}
+          />
+        </FormField>
+
+        <FormField label="Schema" hint="Move this table to a schema in the selected database">
+          <SelectInput
+            value={table.schema || ''}
+            onChange={handleSchemaChange}
+            options={schemaOptions}
           />
         </FormField>
 

@@ -1707,10 +1707,11 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                     ? [[renamingItem!.key.split('.').slice(1).join('.'), []]]
                     : [];
                   
-                  // Combine all schemas: existing + empty + new being renamed
-                  const allSchemas: [string, PhysicalTable[]][] = [...schemaEntries, ...emptySchemasList, ...newSchemaEntry];
-                  
-                  // Remove duplicates (if an empty schema now has tables)
+                  // Combine all schemas. Existing schema entries come last so real table lists
+                  // always win over stale empty-schema placeholders.
+                  const allSchemas: [string, PhysicalTable[]][] = [...emptySchemasList, ...newSchemaEntry, ...schemaEntries];
+
+                  // Remove duplicates while preserving the last occurrence for each schema name.
                   const uniqueSchemas: [string, PhysicalTable[]][] = Array.from(
                     new Map(allSchemas.map(([name, schemaTables]) => [name, schemaTables])).entries()
                   );

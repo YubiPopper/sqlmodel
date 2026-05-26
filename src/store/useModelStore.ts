@@ -535,6 +535,7 @@ export const useModelStore = create<ModelState>()(
           id,
           entityId,
           name: tableName,
+          schema: entityId ? 'public' : undefined,
           attributes: [],
         };
 

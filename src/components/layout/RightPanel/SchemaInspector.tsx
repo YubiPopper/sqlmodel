@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Trash2, MoreVertical } from 'lucide-react';
+import { Layers, Trash2, MoreVertical, Plus } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
 import { FormField, TextInput } from './FormComponents';
@@ -16,7 +16,9 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
   const tables = useModelStore(state => state.tables);
   const updateTable = useModelStore(state => state.updateTable);
   const deleteTable = useModelStore(state => state.deleteTable);
+  const addTable = useModelStore(state => state.addTable);
   const setSelected = useModelStore(state => state.setSelected);
+  const emptySchemas = useModelStore(state => state.emptySchemas);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
@@ -39,8 +41,25 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
     schemaTables.forEach(table => {
       deleteTable(table.id);
     });
+
+    // Remove empty placeholder entry for this schema.
+    const nextEmptySchemas = new Set(emptySchemas);
+    nextEmptySchemas.delete(`${dbName}.${schemaName}`);
+    useModelStore.setState({ emptySchemas: nextEmptySchemas });
+
     setSelected(null);
     setShowDeleteDialog(false);
+  };
+
+  const handleAddTable = () => {
+    const newTableId = addTable();
+    const nextIndex = schemaTables.length + 1;
+    const nextName = nextIndex === 1 ? 'new_table' : `new_table_${nextIndex}`;
+    updateTable(newTableId, {
+      name: nextName,
+      database: dbName === 'unassigned' ? undefined : dbName,
+      schema: schemaName === 'unassigned' ? undefined : schemaName,
+    });
   };
 
   return (
@@ -137,6 +156,37 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
       />
       
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <button
+          onClick={handleAddTable}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            background: isDark ? '#161b22' : '#ffffff',
+            border: `1px dashed ${isDark ? '#30363d' : '#d1d5db'}`,
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            color: isDark ? '#8b949e' : '#6b7280',
+            fontSize: '12px',
+            fontWeight: 500,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#6366f1';
+            e.currentTarget.style.color = '#6366f1';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = isDark ? '#30363d' : '#d1d5db';
+            e.currentTarget.style.color = isDark ? '#8b949e' : '#6b7280';
+          }}
+        >
+          <Plus size={14} />
+          Add Table to Schema
+        </button>
+
         <FormField label="Schema Name">
           <TextInput
             value={schemaName}
