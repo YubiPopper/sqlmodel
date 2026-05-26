@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import ReactFlow, { 
   ReactFlowProvider,
   useReactFlow,
@@ -225,6 +225,8 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const entities = useModelStore(state => state.entities);
   const foreignKeys = useModelStore(state => state.foreignKeys);
   const setSelected = useModelStore(state => state.setSelected);
+  const emptyDatabases = useModelStore(state => state.emptyDatabases);
+  const emptySchemas = useModelStore(state => state.emptySchemas);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
@@ -234,6 +236,7 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
     tables.forEach((t) => {
       if (t.database) dbSet.add(t.database);
     });
+    emptyDatabases.forEach((dbName) => dbSet.add(dbName));
     if (table.database) dbSet.add(table.database);
 
     return [
@@ -242,7 +245,7 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         .sort((a, b) => a.localeCompare(b))
         .map((db) => ({ value: db, label: db })),
     ];
-  }, [tables, table.database]);
+  }, [tables, emptyDatabases, table.database]);
 
   const schemaOptions = useMemo(() => {
     const targetDb = table.database || '';
@@ -253,6 +256,16 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         schemaSet.add(t.schema);
       }
     });
+
+    emptySchemas.forEach((key) => {
+      const parts = key.split('.');
+      const dbName = parts[0] || '';
+      const schemaName = parts.slice(1).join('.');
+      if (dbName === (targetDb || 'unassigned') && schemaName) {
+        schemaSet.add(schemaName);
+      }
+    });
+
     if (table.schema) schemaSet.add(table.schema);
 
     return [
@@ -261,7 +274,14 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         .sort((a, b) => a.localeCompare(b))
         .map((schema) => ({ value: schema, label: schema })),
     ];
-  }, [tables, table.database, table.schema]);
+  }, [tables, emptySchemas, table.database, table.schema]);
+
+  // Normalize stale state: a schema without a database should be unassigned.
+  useEffect(() => {
+    if (!table.database && table.schema) {
+      updateTable(table.id, { schema: undefined });
+    }
+  }, [table.id, table.database, table.schema, updateTable]);
 
   const handleDatabaseChange = (value: string) => {
     updateTable(table.id, {

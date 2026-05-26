@@ -1195,6 +1195,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                   type="text"
                   value={manualTableName}
                   onChange={(e) => setManualTableName(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
                   placeholder="e.g., users, orders, products"
                   style={{
                     width: '100%',
@@ -1225,6 +1226,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                     type="text"
                     value={manualDatabase}
                     onChange={(e) => setManualDatabase(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
                     placeholder="e.g., app_db"
                     style={{
                       width: '100%',
@@ -1253,6 +1255,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                     type="text"
                     value={manualSchema}
                     onChange={(e) => setManualSchema(e.target.value)}
+                    onKeyDown={(e) => e.stopPropagation()}
                     placeholder="e.g., public"
                     style={{
                       width: '100%',
@@ -1561,9 +1564,10 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                         type="text"
                         value={preview.database || ''}
                         onChange={(e) => {
-                          const value = e.target.value.trim();
+                          const value = e.target.value;
                           setPreview({ ...preview, database: value || undefined });
                         }}
+                        onKeyDown={(e) => e.stopPropagation()}
                         placeholder="optional"
                         style={{
                           width: '100%',
@@ -1595,9 +1599,10 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                         type="text"
                         value={preview.schema || ''}
                         onChange={(e) => {
-                          const value = e.target.value.trim();
+                          const value = e.target.value;
                           setPreview({ ...preview, schema: value || undefined });
                         }}
+                        onKeyDown={(e) => e.stopPropagation()}
                         placeholder="optional"
                         style={{
                           width: '100%',
@@ -1927,6 +1932,7 @@ export const AddTableDialog: React.FC<AddTableDialogProps> = ({ isOpen, onClose,
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     onKeyDown={(e) => {
+                      e.stopPropagation();
                       if (e.key === 'Enter' && !isLoading && (aiPrompt.trim() || imageData)) {
                         e.preventDefault();
                         handleGenerateAI();
