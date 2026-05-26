@@ -128,27 +128,42 @@ const CanvasInner = () => {
     : undefined;
   const isConceptualLikeView = viewMode !== 'physical';
 
+  const lastActiveDataModelIdRef = useRef<string | undefined>(undefined);
+
   const activeDataModelId = useMemo(() => {
     if (dataModels.length === 0) return undefined;
 
-    if (selectedDataModelId) return selectedDataModelId;
+    if (selectedDataModelId) {
+      lastActiveDataModelIdRef.current = selectedDataModelId;
+      return selectedDataModelId;
+    }
 
     const selectedEntity = entities.find(entity => entity.id === selectedId);
-    if (selectedEntity?.dataModelId) return selectedEntity.dataModelId;
+    if (selectedEntity?.dataModelId) {
+      lastActiveDataModelIdRef.current = selectedEntity.dataModelId;
+      return selectedEntity.dataModelId;
+    }
 
     const selectedTable = tables.find(table => table.id === selectedId);
     if (selectedTable?.entityId) {
       const tableEntity = entities.find(entity => entity.id === selectedTable.entityId);
-      if (tableEntity?.dataModelId) return tableEntity.dataModelId;
+      if (tableEntity?.dataModelId) {
+        lastActiveDataModelIdRef.current = tableEntity.dataModelId;
+        return tableEntity.dataModelId;
+      }
     }
 
     const selectedRelationship = relationships.find(rel => rel.id === selectedId);
     if (selectedRelationship) {
       if (selectedRelationship.relationshipType === 'entity' || selectedRelationship.relationshipType === undefined) {
         const fromEntity = entities.find(entity => entity.id === selectedRelationship.fromEntityId);
-        if (fromEntity?.dataModelId) return fromEntity.dataModelId;
+        if (fromEntity?.dataModelId) {
+          lastActiveDataModelIdRef.current = fromEntity.dataModelId;
+          return fromEntity.dataModelId;
+        }
       }
       if (selectedRelationship.relationshipType === 'dataModel' && selectedRelationship.fromDataModelId) {
+        lastActiveDataModelIdRef.current = selectedRelationship.fromDataModelId;
         return selectedRelationship.fromDataModelId;
       }
     }
@@ -156,10 +171,14 @@ const CanvasInner = () => {
     const selectedGroup = entityGroups.find(group => group.id === selectedId);
     if (selectedGroup) {
       const firstEntityInGroup = entities.find(entity => selectedGroup.entityIds.includes(entity.id));
-      if (firstEntityInGroup?.dataModelId) return firstEntityInGroup.dataModelId;
+      if (firstEntityInGroup?.dataModelId) {
+        lastActiveDataModelIdRef.current = firstEntityInGroup.dataModelId;
+        return firstEntityInGroup.dataModelId;
+      }
     }
 
-    return dataModels[0]?.id;
+    // Nothing selected — return the last known data model (so clicking the background doesn't reset scope)
+    return lastActiveDataModelIdRef.current;
   }, [dataModels, selectedId, selectedDataModelId, entities, tables, relationships, entityGroups]);
 
   // Register navigation callback for sidebar
