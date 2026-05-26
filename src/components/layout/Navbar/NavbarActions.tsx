@@ -164,6 +164,8 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     const data = { 
       conceptual, 
       physical, 
+      databaseDescriptions: state.databaseDescriptions,
+      schemaDescriptions: state.schemaDescriptions,
       nodeLayouts: state.nodeLayouts,
       tableLayouts: state.tableLayouts,
       viewport: state.viewport,

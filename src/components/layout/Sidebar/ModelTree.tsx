@@ -41,6 +41,8 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     hiddenTableIds,
     emptyDatabases,
     emptySchemas,
+    databaseDescriptions,
+    schemaDescriptions,
     toggleEntityVisibility,
     toggleTableVisibility,
     navigateToNodeCallback,
@@ -70,6 +72,20 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     const newSet = typeof updater === 'function' ? updater(emptySchemas) : updater;
     useModelStore.setState({ emptySchemas: newSet });
   }, [emptySchemas]);
+
+  const setDatabaseDescriptions = useCallback((
+    updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)
+  ) => {
+    const next = typeof updater === 'function' ? updater(databaseDescriptions) : updater;
+    useModelStore.setState({ databaseDescriptions: next });
+  }, [databaseDescriptions]);
+
+  const setSchemaDescriptions = useCallback((
+    updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)
+  ) => {
+    const next = typeof updater === 'function' ? updater(schemaDescriptions) : updater;
+    useModelStore.setState({ schemaDescriptions: next });
+  }, [schemaDescriptions]);
 
   const isDark = colorMode === 'dark';
 
@@ -166,9 +182,13 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       return { tables, entities };
     }
     
-    // Filter tables by name
+    // Filter tables by table name plus namespace name/description.
     const matchingTables = tables.filter(t => 
-      t.name.toLowerCase().includes(query)
+      t.name.toLowerCase().includes(query) ||
+      (t.database || 'unassigned').toLowerCase().includes(query) ||
+      (t.schema || 'unassigned').toLowerCase().includes(query) ||
+      (databaseDescriptions[t.database || 'unassigned'] || '').toLowerCase().includes(query) ||
+      (schemaDescriptions[`${t.database || 'unassigned'}.${t.schema || 'unassigned'}`] || '').toLowerCase().includes(query)
     );
     
     // Get entities that either match by name or have matching tables
@@ -188,7 +208,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       tables: matchingTables, 
       entities: matchingEntities 
     };
-  }, [tables, entities, searchQuery]);
+  }, [tables, entities, searchQuery, databaseDescriptions, schemaDescriptions]);
 
   // Group tables by entity
   const entitiesWithTables = useMemo(() => {
@@ -438,6 +458,28 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           return next;
         });
       }
+
+      setDatabaseDescriptions(prev => {
+        const next = { ...prev };
+        const description = next[oldDbName];
+        delete next[oldDbName];
+        if (description) {
+          next[finalValue] = description;
+        }
+        return next;
+      });
+
+      setSchemaDescriptions(prev => {
+        const next: Record<string, string> = {};
+        Object.entries(prev).forEach(([key, value]) => {
+          if (key.startsWith(`${oldDbName}.`)) {
+            next[`${finalValue}.${key.split('.').slice(1).join('.')}`] = value;
+          } else {
+            next[key] = value;
+          }
+        });
+        return next;
+      });
       
       // Expand the new/renamed database
       setExpandedDatabases(prev => {
@@ -478,6 +520,16 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           return next;
         });
       }
+
+      setSchemaDescriptions(prev => {
+        const next = { ...prev };
+        const description = next[renamingItem.key];
+        delete next[renamingItem.key];
+        if (description) {
+          next[`${dbName}.${finalValue}`] = description;
+        }
+        return next;
+      });
       
       // Expand the new/renamed schema
       setExpandedSchemas(prev => {
@@ -493,7 +545,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     }
     
     setRenamingItem(null);
-  }, [renamingItem, tables, updateTable]);
+  }, [renamingItem, tables, updateTable, setEmptyDatabases, setEmptySchemas, setDatabaseDescriptions, setSchemaDescriptions]);
 
   const handleRenameKeyDown = useCallback((e: React.KeyboardEvent) => {
     // Stop all propagation to prevent global keyboard handlers
@@ -1638,6 +1690,18 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
             const dbTables = Object.values(schemas).flat();
             const tableCount = dbTables.length;
             const allTablesHidden = dbTables.length > 0 && dbTables.every(t => hiddenTableIds.has(t.id));
+            const schemaEntries = Object.entries(schemas);
+            const renamingNewSchema = renamingItem?.type === 'schema' &&
+              renamingItem.key.startsWith(`${dbName}.`) &&
+              !schemaEntries.some(([schemaName]) => `${dbName}.${schemaName}` === renamingItem.key);
+            const emptySchemasList: [string, PhysicalTable[]][] = Array.from(emptySchemas)
+              .filter(key => key.startsWith(`${dbName}.`))
+              .map(key => [key.split('.').slice(1).join('.'), []]);
+            const newSchemaEntry: [string, PhysicalTable[]][] = renamingNewSchema
+              ? [[renamingItem.key.split('.').slice(1).join('.'), []]]
+              : [];
+            const allSchemasForDatabase: [string, PhysicalTable[]][] = [...emptySchemasList, ...newSchemaEntry, ...schemaEntries];
+            const hasSchemaChildren = Array.from(new Map(allSchemasForDatabase.map(([name, schemaTables]) => [name, schemaTables])).keys()).length > 0;
             
             return (
               <div key={dbName}>
@@ -1677,7 +1741,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                   }}
                   isHidden={allTablesHidden}
                   expanded={isDatabaseExpanded}
-                  hasChildren={Object.keys(schemas).length > 0}
+                  hasChildren={hasSchemaChildren}
                   badge={tableCount}
                   onAddChild={() => handleAddSchema(dbName)}
                   isRenaming={renamingItem?.type === 'database' && renamingItem.key === dbName}

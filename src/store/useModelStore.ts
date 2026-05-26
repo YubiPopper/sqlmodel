@@ -52,6 +52,8 @@ interface ModelState {
   hiddenTableIds: Set<string>; // Hidden tables in physical view
   emptyDatabases: Set<string>; // Empty databases with no tables (for physical view hierarchy)
   emptySchemas: Set<string>; // Empty schemas with no tables (for physical view hierarchy)
+  databaseDescriptions: Record<string, string>; // Database descriptions by database name
+  schemaDescriptions: Record<string, string>; // Schema descriptions by "database.schema" key
   viewMode: 'data-model' | 'conceptual' | 'physical';
   colorMode: 'light' | 'dark';
   showEntityOverlay: boolean; // Show entity groupings in physical view
@@ -136,6 +138,8 @@ interface ModelState {
   setShowRelationshipLabels: (show: boolean) => void;
   setEntityCardSize: (size: 'compact' | 'normal' | 'large') => void;
   setRelationshipLabelSize: (size: 'small' | 'normal' | 'large') => void;
+  setDatabaseDescription: (dbName: string, description: string) => void;
+  setSchemaDescription: (dbName: string, schemaName: string, description: string) => void;
   toggleEntityVisibility: (entityId: string) => void;
   toggleTableVisibility: (tableId: string) => void;
   showAllEntities: () => void;
@@ -217,6 +221,8 @@ export const useModelStore = create<ModelState>()(
       hiddenTableIds: new Set(),
       emptyDatabases: new Set(),
       emptySchemas: new Set(),
+      databaseDescriptions: {},
+      schemaDescriptions: {},
       viewMode: 'physical',
       colorMode: 'dark',
       showEntityOverlay: false,
@@ -935,6 +941,35 @@ export const useModelStore = create<ModelState>()(
       setEntityCardSize: (size) => set({ entityCardSize: size }),
       
       setRelationshipLabelSize: (size) => set({ relationshipLabelSize: size }),
+
+      setDatabaseDescription: (dbName, description) => {
+        set((state) => {
+          const next = { ...state.databaseDescriptions };
+
+          if (description.trim()) {
+            next[dbName] = description;
+          } else {
+            delete next[dbName];
+          }
+
+          return { databaseDescriptions: next };
+        });
+      },
+
+      setSchemaDescription: (dbName, schemaName, description) => {
+        set((state) => {
+          const key = `${dbName}.${schemaName}`;
+          const next = { ...state.schemaDescriptions };
+
+          if (description.trim()) {
+            next[key] = description;
+          } else {
+            delete next[key];
+          }
+
+          return { schemaDescriptions: next };
+        });
+      },
       
       toggleEntityVisibility: (entityId) => set((state) => {
         const newHidden = new Set(state.hiddenEntityIds);
@@ -1429,6 +1464,8 @@ export const useModelStore = create<ModelState>()(
           entities: conceptual.entities,
           relationships: conceptual.relationships,
           entityGroups: conceptual.groups || [],
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts,
           viewport: layout.viewport,
           selectedId: null,
@@ -1451,6 +1488,8 @@ export const useModelStore = create<ModelState>()(
           tables: data.physical?.tables || [],
           foreignKeys: data.physical?.foreignKeys || [],
           tableGroups: data.physical?.tableGroups || [],
+          databaseDescriptions: data.databaseDescriptions || {},
+          schemaDescriptions: data.schemaDescriptions || {},
           nodeLayouts: data.nodeLayouts || {},
           tableLayouts: data.tableLayouts || {},
           viewport: data.viewport || { x: 0, y: 0, zoom: 1 },
@@ -1486,6 +1525,8 @@ export const useModelStore = create<ModelState>()(
           entityGroups: [],
           tables: [],
           foreignKeys: [],
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts: {},
           tableLayouts: {},
           selectedId: null,
@@ -1627,6 +1668,8 @@ export const useModelStore = create<ModelState>()(
           entityGroups: [],
           tables: [borrowerTable, loansTable, booksTable],
           foreignKeys,
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts: {},
           tableLayouts: {},
           viewport: { x: 0, y: 0, zoom: 1 },
@@ -1759,6 +1802,8 @@ export const useModelStore = create<ModelState>()(
           entityGroups: [],
           tables: [customerTable, productTable, orderTable, orderItemTable, paymentTable],
           foreignKeys,
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts: {},
           tableLayouts: {},
           viewport: { x: 0, y: 0, zoom: 1 },
@@ -1871,6 +1916,8 @@ export const useModelStore = create<ModelState>()(
           entityGroups: [],
           tables: [authorTable, postTable, commentTable, categoryTable],
           foreignKeys,
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts: {},
           tableLayouts: {},
           viewport: { x: 0, y: 0, zoom: 1 },
@@ -1986,6 +2033,8 @@ export const useModelStore = create<ModelState>()(
           entityGroups: [],
           tables: [projectTable, taskTable, memberTable, milestoneTable],
           foreignKeys,
+          databaseDescriptions: {},
+          schemaDescriptions: {},
           nodeLayouts: {},
           tableLayouts: {},
           viewport: { x: 0, y: 0, zoom: 1 },
@@ -2021,6 +2070,8 @@ export const useModelStore = create<ModelState>()(
             foreignKeys: state.foreignKeys,
             tableGroups: state.tableGroups,
           },
+          databaseDescriptions: state.databaseDescriptions,
+          schemaDescriptions: state.schemaDescriptions,
           nodeLayouts: state.nodeLayouts,
           tableLayouts: state.tableLayouts,
           viewport: state.viewport,
@@ -2087,6 +2138,8 @@ export const useModelStore = create<ModelState>()(
             tables: diagramData.physical?.tables || [],
             foreignKeys: diagramData.physical?.foreignKeys || [],
             tableGroups: diagramData.physical?.tableGroups || [],
+            databaseDescriptions: diagramData.databaseDescriptions || {},
+            schemaDescriptions: diagramData.schemaDescriptions || {},
             nodeLayouts: diagramData.nodeLayouts || {},
             tableLayouts: diagramData.tableLayouts || {},
             viewport: diagramData.viewport || { x: 0, y: 0, zoom: 1 },

@@ -19,6 +19,9 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ dbName }) 
   const setSelected = useModelStore(state => state.setSelected);
   const emptyDatabases = useModelStore(state => state.emptyDatabases);
   const emptySchemas = useModelStore(state => state.emptySchemas);
+  const databaseDescriptions = useModelStore(state => state.databaseDescriptions);
+  const schemaDescriptions = useModelStore(state => state.schemaDescriptions);
+  const setDatabaseDescription = useModelStore(state => state.setDatabaseDescription);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
@@ -51,9 +54,27 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ dbName }) 
       }
     });
 
+    const nextDatabaseDescriptions = { ...databaseDescriptions };
+    const dbDescription = nextDatabaseDescriptions[dbName];
+    delete nextDatabaseDescriptions[dbName];
+    if (dbDescription) {
+      nextDatabaseDescriptions[newName] = dbDescription;
+    }
+
+    const nextSchemaDescriptions: Record<string, string> = {};
+    Object.entries(schemaDescriptions).forEach(([key, value]) => {
+      if (key.startsWith(`${dbName}.`)) {
+        nextSchemaDescriptions[`${newName}.${key.split('.').slice(1).join('.')}`] = value;
+      } else {
+        nextSchemaDescriptions[key] = value;
+      }
+    });
+
     useModelStore.setState({
       emptyDatabases: nextEmptyDatabases,
       emptySchemas: nextEmptySchemas,
+      databaseDescriptions: nextDatabaseDescriptions,
+      schemaDescriptions: nextSchemaDescriptions,
       selectedId: `db-${newName}`,
     });
   };
@@ -75,9 +96,21 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ dbName }) 
       }
     });
 
+    const nextDatabaseDescriptions = { ...databaseDescriptions };
+    delete nextDatabaseDescriptions[dbName];
+
+    const nextSchemaDescriptions: Record<string, string> = {};
+    Object.entries(schemaDescriptions).forEach(([key, value]) => {
+      if (!key.startsWith(`${dbName}.`)) {
+        nextSchemaDescriptions[key] = value;
+      }
+    });
+
     useModelStore.setState({
       emptyDatabases: nextEmptyDatabases,
       emptySchemas: nextEmptySchemas,
+      databaseDescriptions: nextDatabaseDescriptions,
+      schemaDescriptions: nextSchemaDescriptions,
     });
 
     setSelected(null);
@@ -225,6 +258,16 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ dbName }) 
             value={dbName}
             onChange={handleNameChange}
             placeholder="database_name"
+          />
+        </FormField>
+
+        <FormField label="Description">
+          <TextInput
+            value={databaseDescriptions[dbName] || ''}
+            onChange={(value) => setDatabaseDescription(dbName, value)}
+            placeholder="Describe this database"
+            multiline
+            rows={3}
           />
         </FormField>
 

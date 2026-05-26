@@ -20,6 +20,8 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
   const setSelected = useModelStore(state => state.setSelected);
   const emptySchemas = useModelStore(state => state.emptySchemas);
   const emptyDatabases = useModelStore(state => state.emptyDatabases);
+  const schemaDescriptions = useModelStore(state => state.schemaDescriptions);
+  const setSchemaDescription = useModelStore(state => state.setSchemaDescription);
   const colorMode = useModelStore(state => state.colorMode);
 
   const isDark = colorMode === 'dark';
@@ -46,8 +48,17 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
     if (schemaTables.length === 0) {
       nextEmptySchemas.add(`${dbName}.${newName}`);
     }
+
+    const nextSchemaDescriptions = { ...schemaDescriptions };
+    const schemaDescription = nextSchemaDescriptions[oldKey];
+    delete nextSchemaDescriptions[oldKey];
+    if (schemaDescription) {
+      nextSchemaDescriptions[`${dbName}.${newName}`] = schemaDescription;
+    }
+
     useModelStore.setState({
       emptySchemas: nextEmptySchemas,
+      schemaDescriptions: nextSchemaDescriptions,
       selectedId: `schema-${dbName}-${newName}`,
     });
   };
@@ -90,9 +101,17 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
       nextEmptyDatabases.add(normalizedValue);
     }
 
+    const nextSchemaDescriptions = { ...schemaDescriptions };
+    const schemaDescription = nextSchemaDescriptions[oldKey];
+    delete nextSchemaDescriptions[oldKey];
+    if (schemaDescription) {
+      nextSchemaDescriptions[`${normalizedValue}.${schemaName}`] = schemaDescription;
+    }
+
     useModelStore.setState({
       emptySchemas: nextEmptySchemas,
       emptyDatabases: nextEmptyDatabases,
+      schemaDescriptions: nextSchemaDescriptions,
       selectedId: `schema-${normalizedValue}-${schemaName}`,
     });
   };
@@ -106,7 +125,9 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
     // Remove empty placeholder entry for this schema.
     const nextEmptySchemas = new Set(emptySchemas);
     nextEmptySchemas.delete(`${dbName}.${schemaName}`);
-    useModelStore.setState({ emptySchemas: nextEmptySchemas });
+    const nextSchemaDescriptions = { ...schemaDescriptions };
+    delete nextSchemaDescriptions[`${dbName}.${schemaName}`];
+    useModelStore.setState({ emptySchemas: nextEmptySchemas, schemaDescriptions: nextSchemaDescriptions });
 
     setSelected(null);
     setShowDeleteDialog(false);
@@ -261,6 +282,16 @@ export const SchemaInspector: React.FC<SchemaInspectorProps> = ({ dbName, schema
             value={dbName}
             onChange={handleDatabaseChange}
             options={databaseOptions}
+          />
+        </FormField>
+
+        <FormField label="Description">
+          <TextInput
+            value={schemaDescriptions[`${dbName}.${schemaName}`] || ''}
+            onChange={(value) => setSchemaDescription(dbName, schemaName, value)}
+            placeholder="Describe this schema"
+            multiline
+            rows={3}
           />
         </FormField>
 
