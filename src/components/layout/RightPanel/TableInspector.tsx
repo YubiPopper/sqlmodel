@@ -220,11 +220,14 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   const [columnsExpanded, setColumnsExpanded] = useState(false);
   const [lineageExpanded, setLineageExpanded] = useState(true);
   const updateTable = useModelStore(state => state.updateTable);
+  const updateTableAttribute = useModelStore(state => state.updateTableAttribute);
   const deleteTable = useModelStore(state => state.deleteTable);
   const tables = useModelStore(state => state.tables);
   const entities = useModelStore(state => state.entities);
   const foreignKeys = useModelStore(state => state.foreignKeys);
   const setSelected = useModelStore(state => state.setSelected);
+  const selectedTableAttribute = useModelStore(state => state.selectedTableAttribute);
+  const setSelectedTableAttribute = useModelStore(state => state.setSelectedTableAttribute);
   const emptyDatabases = useModelStore(state => state.emptyDatabases);
   const emptySchemas = useModelStore(state => state.emptySchemas);
   const colorMode = useModelStore(state => state.colorMode);
@@ -275,6 +278,11 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
         .map((schema) => ({ value: schema, label: schema })),
     ];
   }, [tables, emptySchemas, table.database, table.schema]);
+
+  const selectedAttribute = useMemo(() => {
+    if (!selectedTableAttribute || selectedTableAttribute.tableId !== table.id) return undefined;
+    return table.attributes.find((attr) => attr.id === selectedTableAttribute.attrId);
+  }, [selectedTableAttribute, table.id, table.attributes]);
 
   // Normalize stale state: a schema without a database should be unassigned.
   useEffect(() => {
@@ -438,22 +446,29 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
   );
 
   // Simplified read-only column row
-  const ColumnRow: React.FC<{ attr: Attribute }> = ({ attr }) => {
+  const ColumnRow: React.FC<{ attr: Attribute; isSelected?: boolean }> = ({ attr, isSelected }) => {
     const referencedTable = attr.referencesTableId 
       ? tables.find(t => t.id === attr.referencesTableId) 
       : null;
     
     return (
       <div
+        onClick={() => {
+          setSelected(table.id);
+          setSelectedTableAttribute(table.id, attr.id);
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
           padding: '8px 12px',
-          background: isDark ? '#161b22' : '#ffffff',
+          background: isSelected
+            ? (isDark ? 'rgba(34, 197, 94, 0.14)' : 'rgba(34, 197, 94, 0.08)')
+            : (isDark ? '#161b22' : '#ffffff'),
           borderRadius: '6px',
           marginBottom: '4px',
-          border: `1px solid ${isDark ? '#21262d' : '#f3f4f6'}`,
+          border: `1px solid ${isSelected ? '#22c55e' : (isDark ? '#21262d' : '#f3f4f6')}`,
+          cursor: 'pointer',
         }}
       >
         {/* Key icon */}
@@ -747,12 +762,59 @@ export const TableInspector: React.FC<TableInspectorProps> = ({ table }) => {
             ) : (
               <div>
                 {table.attributes.map((attr) => (
-                  <ColumnRow key={attr.id} attr={attr} />
+                          <ColumnRow
+                            key={attr.id}
+                            attr={attr}
+                            isSelected={selectedAttribute?.id === attr.id}
+                          />
                 ))}
               </div>
             )
           )}
         </div>
+
+                {selectedAttribute ? (
+                  <div style={{ marginTop: '24px' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: isDark ? '#e6edf3' : '#374151',
+                      marginBottom: '12px',
+                    }}>
+                      Selected Column
+                    </div>
+
+                    <FormField label="Column Name">
+                      <TextInput
+                        value={selectedAttribute.name}
+                        onChange={(value) => updateTableAttribute(table.id, selectedAttribute.id, { name: value })}
+                        placeholder="column_name"
+                      />
+                    </FormField>
+
+                    <FormField label="Description" hint="Shown in the inspector for this column">
+                      <TextInput
+                        value={selectedAttribute.description || ''}
+                        onChange={(value) => updateTableAttribute(table.id, selectedAttribute.id, { description: value })}
+                        placeholder="Optional column description"
+                        multiline
+                        rows={4}
+                      />
+                    </FormField>
+                  </div>
+                ) : (
+                  <div style={{
+                    marginTop: '24px',
+                    padding: '14px 16px',
+                    borderRadius: '8px',
+                    border: `1px dashed ${isDark ? '#30363d' : '#e5e7eb'}`,
+                    background: isDark ? '#0d1117' : '#f9fafb',
+                    color: isDark ? '#8b949e' : '#6b7280',
+                    fontSize: '12px',
+                  }}>
+                    Click a column on the table to rename it or add a description.
+                  </div>
+                )}
 
         {/* Lineage Section */}
         <div style={{ marginTop: '24px' }}>

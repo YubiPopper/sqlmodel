@@ -145,12 +145,14 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const foreignKeys = useModelStore(state => state.foreignKeys);
   const addTable = useModelStore(state => state.addTable);
   const updateTable = useModelStore(state => state.updateTable);
+  const setSelectedTableAttribute = useModelStore(state => state.setSelectedTableAttribute);
   const tableLayouts = useModelStore(state => state.tableLayouts);
   const setTablePosition = useModelStore(state => state.setTablePosition);
   const colorMode = useModelStore(state => state.colorMode);
   const multiSelectedTableIds = useModelStore(state => state.multiSelectedTableIds);
   const toggleTableMultiSelect = useModelStore(state => state.toggleTableMultiSelect);
   const setSelected = useModelStore(state => state.setSelected);
+  const selectedTableAttribute = useModelStore(state => state.selectedTableAttribute);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
   const selectedId = useModelStore(state => state.selectedId);
 
@@ -719,9 +721,14 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                 return true;
               })
               .map((attr, index, filteredArray) => (
-            <div 
+              <div 
               key={attr.id} 
               data-field-id={attr.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelected(data.id);
+                setSelectedTableAttribute(data.id, attr.id);
+              }}
               onMouseDown={(e) => {
                 if (e.button === 0) {
                   e.stopPropagation();
@@ -746,11 +753,17 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
                 position: 'relative',
                 cursor: 'crosshair',
                 transition: 'background 0.15s',
-                background: attr.isPrimaryKey 
+                background: selectedTableAttribute?.tableId === data.id && selectedTableAttribute?.attrId === attr.id
                   ? (data.color && data.color !== 'default' 
-                      ? 'rgba(255, 255, 255, 0.1)' 
-                      : (colorMode === 'dark' ? 'rgba(227, 180, 34, 0.12)' : 'rgba(202, 138, 4, 0.08)'))
-                  : 'transparent',
+                      ? 'rgba(255, 255, 255, 0.16)' 
+                      : (colorMode === 'dark' ? 'rgba(34, 197, 94, 0.14)' : 'rgba(34, 197, 94, 0.08)'))
+                  : attr.isPrimaryKey 
+                    ? (data.color && data.color !== 'default' 
+                        ? 'rgba(255, 255, 255, 0.1)' 
+                        : (colorMode === 'dark' ? 'rgba(227, 180, 34, 0.12)' : 'rgba(202, 138, 4, 0.08)'))
+                    : 'transparent',
+                outline: 'none',
+                boxShadow: selectedTableAttribute?.tableId === data.id && selectedTableAttribute?.attrId === attr.id ? 'inset 0 0 0 1px rgba(34, 197, 94, 0.45)' : 'none',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = data.color && data.color !== 'default' 

@@ -21,6 +21,7 @@ export const AttributeSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   dataType: z.string(), // e.g. 'int', 'varchar', 'boolean'
+  description: z.string().optional(),
   isPrimaryKey: z.boolean().default(false),
   isNullable: z.boolean().default(false),
   isForeignKey: z.boolean().default(false),

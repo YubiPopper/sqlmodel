@@ -45,6 +45,7 @@ interface ModelState {
   
   viewport: Viewport;
   selectedId: string | null; // entityId, relationshipId, tableId, foreignKeyId, or groupId
+  selectedTableAttribute: { tableId: string; attrId: string } | null;
   multiSelectedEntityIds: string[]; // For shift-click multi-selection in conceptual view
   multiSelectedTableIds: string[]; // For shift-click multi-selection in physical view
   editingGroupId: string | null; // For triggering inline editing of group name
@@ -118,6 +119,7 @@ interface ModelState {
   setTablePosition: (id: string, x: number, y: number) => void;
   setViewport: (viewport: Viewport) => void;
   setSelected: (id: string | null) => void;
+  setSelectedTableAttribute: (tableId: string | null, attrId: string | null) => void;
   navigateToNodeCallback: ((nodeId: string) => void) | null;
   setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
   centerDataModelCallback: ((dataModelId: string) => void) | null;
@@ -211,6 +213,7 @@ export const useModelStore = create<ModelState>()(
       tableLayouts: {},
       viewport: { x: 0, y: 0, zoom: 1 },
       selectedId: null,
+      selectedTableAttribute: null,
       multiSelectedEntityIds: [],
       navigateToNodeCallback: null,
       centerDataModelCallback: null,
@@ -582,6 +585,7 @@ export const useModelStore = create<ModelState>()(
             tableLayouts: newTableLayouts,
             tableGroups: newTableGroups,
             selectedId: state.selectedId === id ? null : state.selectedId,
+            selectedTableAttribute: state.selectedTableAttribute?.tableId === id ? null : state.selectedTableAttribute,
           };
         });
       },
@@ -692,6 +696,7 @@ export const useModelStore = create<ModelState>()(
           id: uuidv4(),
           name: 'new_column',
           dataType: 'varchar',
+          description: '',
           isPrimaryKey: false,
           isNullable: true,
           isForeignKey: false,
@@ -731,6 +736,10 @@ export const useModelStore = create<ModelState>()(
                 : t
             ),
             foreignKeys: newForeignKeys,
+            selectedTableAttribute:
+              state.selectedTableAttribute?.tableId === tableId && state.selectedTableAttribute?.attrId === attrId
+                ? null
+                : state.selectedTableAttribute,
           };
         });
       },
@@ -838,7 +847,11 @@ export const useModelStore = create<ModelState>()(
 
       setViewport: (viewport) => set({ viewport }),
       
-      setSelected: (id) => set({ selectedId: id, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
+      setSelected: (id) => set({ selectedId: id, selectedTableAttribute: null, multiSelectedEntityIds: [], multiSelectedTableIds: [] }),
+
+      setSelectedTableAttribute: (tableId, attrId) => set({
+        selectedTableAttribute: tableId && attrId ? { tableId, attrId } : null,
+      }),
       
       setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
 
@@ -1469,6 +1482,7 @@ export const useModelStore = create<ModelState>()(
           nodeLayouts,
           viewport: layout.viewport,
           selectedId: null,
+          selectedTableAttribute: null,
           multiSelectedEntityIds: [],
         });
       },
@@ -1494,6 +1508,7 @@ export const useModelStore = create<ModelState>()(
           tableLayouts: data.tableLayouts || {},
           viewport: data.viewport || { x: 0, y: 0, zoom: 1 },
           selectedId: null,
+          selectedTableAttribute: null,
           multiSelectedEntityIds: [],
           multiSelectedTableIds: [],
           viewMode: data.viewMode || 'conceptual'
@@ -1530,6 +1545,7 @@ export const useModelStore = create<ModelState>()(
           nodeLayouts: {},
           tableLayouts: {},
           selectedId: null,
+          selectedTableAttribute: null,
           multiSelectedEntityIds: [],
         });
       },
