@@ -1,34 +1,15 @@
 {
   "examples": [
     {
-      "id": "library",
-      "name": "Library Management",
-      "description": "Library system with borrowers, loans, and books",
-      "icon": "Database",
-      "entityCount": 3,
-      "tableCount": 3,
-      "tags": ["Education", "Nonprofit"],
-      "file": "library.json"
-    },
-    {
-      "id": "blog",
-      "name": "Blog Platform",
-      "description": "Content management with authors, posts, comments, and categories",
+      "id": "applicant-data-model",
+      "name": "Applicant Data Model",
+      "description": "A full example of SQLModel with a data model, conceptual entities, and physical representation.",
       "icon": "FileText",
+      "dataModelCount": 2,
       "entityCount": 4,
       "tableCount": 4,
-      "tags": ["Media", "Publishing"],
-      "file": "blog.json"
-    },
-    {
-      "id": "project",
-      "name": "Project Management",
-      "description": "Project tracking with tasks, team members, and milestones",
-      "icon": "FolderKanban",
-      "entityCount": 4,
-      "tableCount": 4,
-      "tags": ["Enterprise", "SaaS"],
-      "file": "project.json"
+      "tags": ["Education", "Admissions", "SaaS"],
+      "file": "applicant_data_model.json"
     }
   ]
 }

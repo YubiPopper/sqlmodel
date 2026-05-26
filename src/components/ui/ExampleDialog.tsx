@@ -13,6 +13,7 @@ interface ExampleMetadata {
   name: string;
   description: string;
   icon: string;
+  dataModelCount: number;
   entityCount: number;
   tableCount: number;
   tags: string[];
@@ -405,6 +406,8 @@ export const ExampleDialog: React.FC<ExampleDialogProps> = ({ isOpen, onClose })
                           flexShrink: 0,
                         }}
                       >
+                        <span>{example.dataModelCount}D</span>
+                        <span>•</span>
                         <span>{example.entityCount}E</span>
                         <span>•</span>
                         <span>{example.tableCount}T</span>

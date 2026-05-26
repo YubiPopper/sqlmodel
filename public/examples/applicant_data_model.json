@@ -1,0 +1,822 @@
+{
+  "name": "Applicant Data Model",
+  "description": "A full example of SQLModel with a Data Model, Conceptual entities and Physical Representation",
+  "conceptual": {
+    "dataModels": [
+      {
+        "id": "3ff2a15a-56a5-46ef-89cc-317a46435686",
+        "name": "Student Data Model",
+        "description": ""
+      },
+      {
+        "id": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "name": "Applicant Data Model",
+        "description": ""
+      }
+    ],
+    "entities": [
+      {
+        "id": "4fb89bb8-6ef4-44c9-b6a1-7572b9205932",
+        "dataModelId": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "name": "Applicant",
+        "description": "Single person across many applications with a unique ID from the source."
+      },
+      {
+        "id": "beaa9573-3b12-402d-bbeb-75b183f2d945",
+        "dataModelId": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "name": "Application",
+        "description": "Represents a single application submitted by an applicant for a specific programme and intake."
+      },
+      {
+        "id": "8c990fcf-53b4-410d-bdca-8b28d163eeb3",
+        "dataModelId": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "name": "Address",
+        "description": "Represents a postal address associated with an applicant. An applicant may have multiple addresses of different types."
+      },
+      {
+        "id": "39b22b7c-035c-4c6d-bb48-1ba073e6e9a7",
+        "dataModelId": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "name": "Qualification",
+        "description": "Represents a qualifications associated with an application. An application may have multiple qualifications of different types."
+      }
+    ],
+    "relationships": [
+      {
+        "id": "c9d8daf2-9972-47d5-ad18-8f9ab54208c8",
+        "relationshipType": "dataModel",
+        "fromDataModelId": "2b542798-a2aa-482e-a6bb-f0062bd79275",
+        "toDataModelId": "3ff2a15a-56a5-46ef-89cc-317a46435686",
+        "label": "Becomes",
+        "fromCardinality": "1",
+        "toCardinality": "0..*",
+        "sourceHandle": "right",
+        "targetHandle": "left"
+      },
+      {
+        "id": "49058b8b-a1c3-450a-afb0-6603ee20054f",
+        "relationshipType": "entity",
+        "fromEntityId": "4fb89bb8-6ef4-44c9-b6a1-7572b9205932",
+        "toEntityId": "beaa9573-3b12-402d-bbeb-75b183f2d945",
+        "label": "Has many",
+        "fromCardinality": "1",
+        "toCardinality": "1..*"
+      },
+      {
+        "id": "d3b2c457-cce0-4055-bdd2-6232b7f236f1",
+        "relationshipType": "entity",
+        "fromEntityId": "4fb89bb8-6ef4-44c9-b6a1-7572b9205932",
+        "toEntityId": "8c990fcf-53b4-410d-bdca-8b28d163eeb3",
+        "label": "Has many",
+        "fromCardinality": "1",
+        "toCardinality": "0..*"
+      },
+      {
+        "id": "fd230dc9-5733-4b0e-b089-5de550b7ffc7",
+        "relationshipType": "entity",
+        "fromEntityId": "4fb89bb8-6ef4-44c9-b6a1-7572b9205932",
+        "toEntityId": "39b22b7c-035c-4c6d-bb48-1ba073e6e9a7",
+        "label": "Has many",
+        "fromCardinality": "1",
+        "toCardinality": "0..*"
+      }
+    ],
+    "groups": []
+  },
+  "physical": {
+    "tables": [
+      {
+        "id": "380ff459-280c-4a1d-8e8f-7439da220333",
+        "entityId": "4fb89bb8-6ef4-44c9-b6a1-7572b9205932",
+        "name": "Applicant",
+        "schema": "DM_ADM",
+        "attributes": [
+          {
+            "id": "8eac8a95-f565-40b1-928a-c2f6b5fd6a03",
+            "name": "applicant_id",
+            "dataType": "bigint",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": true,
+            "referencesTableId": "e3153d3d-8e82-487e-9903-8a5b8413ee8b",
+            "referencesAttributeId": "11db033e-4eb3-438b-b89f-27ee0058cc6d"
+          },
+          {
+            "id": "28b2c95f-9d12-4a2f-a713-9584a564867c",
+            "name": "sis_id",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "bcf5df86-d148-4607-b4ad-9795ba869ca9",
+            "name": "title",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "d196f588-7c66-4bdf-83d8-c5c339f2c1d0",
+            "name": "preferred_first_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "921037d5-7793-42bd-9106-276f528dee6f",
+            "name": "first_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "451dd59b-a42a-4cf9-8e62-50c6861ba547",
+            "name": "middle_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "a808288a-01d4-4eab-aace-b03ee7bc3153",
+            "name": "surname",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "f90504dc-8848-4ffd-b574-d2adf5bc09d3",
+            "name": "previous_surname",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "d7d3faac-3544-4833-a612-fa0ae016d50e",
+            "name": "legal_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "75f8340a-9ee7-4885-ad34-acf37accdb34",
+            "name": "gender",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "fd0c57e5-ed31-4ea1-a598-73ae98745139",
+            "name": "date_of_birth",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "f65a1b81-e842-4c8f-b26a-c5587558770c",
+            "name": "ethnicity",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "7e6aa3d9-af73-4cfb-a5cd-3b29ff016b90",
+            "name": "personal_email",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "fa1728b4-3169-4ac3-a2b7-bed283e2f722",
+            "name": "mobile_telephone_number",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "4cc4bbea-aea7-4cf6-af19-63c75b0d183d",
+            "name": "nationality_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "5fa1fdf5-1e13-473d-9337-53770f66acb7",
+            "name": "nationality_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "83a3babd-9305-4522-8f25-9655e9e3ba23",
+            "name": "dual_nationality_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "ef6cbf52-d3a5-4177-87e2-9619b6b2b991",
+            "name": "dual_nationality_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "7f78d56d-63dc-44ff-8b4a-e78919740b7f",
+            "name": "birth_country",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "e9ecee82-23cf-41ae-b7e3-b400bf8bbbe5",
+            "name": "country_of_domicile",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "b8685070-9c58-49cc-b97f-ae19e788e1a3",
+            "name": "passport_number",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "bb8015ec-ed64-4f9a-9886-63f291fb2b20",
+            "name": "passport_expiry_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "91fe8a58-1418-4b37-acb2-120fd4ec7127",
+            "name": "passport_issue_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "f4d8514d-27a0-4a5a-99f8-3eee6d628987",
+            "name": "passport_country_of_issue",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "86be3786-27da-4f30-b2ab-d968ca90b51f",
+            "name": "disability_indicator",
+            "dataType": "boolean",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ],
+        "database": "Integration Platform"
+      },
+      {
+        "id": "d0b4740d-5f3e-47d0-bcd4-af2784329f5d",
+        "entityId": "beaa9573-3b12-402d-bbeb-75b183f2d945",
+        "name": "Application",
+        "schema": "DM_ADM",
+        "attributes": [
+          {
+            "id": "9628ca64-af54-4e06-9129-a34fd4e20616",
+            "name": "application_id",
+            "dataType": "bigint",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "d583d354-2f25-4f87-9e65-4ef946ef654a",
+            "name": "applicant_id",
+            "dataType": "bigint",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "9a237c63-0358-45fb-804d-761c89155ab3",
+            "name": "ucas_application_number",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "357d6ae5-6462-4535-abc6-80fe0f27dcfa",
+            "name": "academic_year",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "063119b1-2373-436f-af0d-26aac2966f5f",
+            "name": "agent_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "30f5da84-9baf-41f0-9c7c-9e5b0b164e42",
+            "name": "agent_assigned_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "839d8e89-f0e0-440b-af61-62ef6c23ee5a",
+            "name": "application_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "f644abdf-cb19-4093-b946-c8d665e3aecc",
+            "name": "programme_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "6ada82d8-499d-4fc4-bc9c-0b490d2296f4",
+            "name": "programme_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "492adb5c-c4f4-4485-97eb-447d6e4fe79b",
+            "name": "student_type",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "ae4a3489-c7b1-4ce5-b274-a3f2dedea141",
+            "name": "study_level",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "818c283f-b56c-4420-ae6f-16329a552c0c",
+            "name": "department_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "c50a163e-5ff7-44ff-ac11-03d06f308c52",
+            "name": "department_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "e771f291-c02d-40ca-965c-00f0f08fc535",
+            "name": "college",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "d53b60f1-8682-42b7-9285-e9e5286eb38e",
+            "name": "attendance_mode",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "9078d4f5-fc12-461e-b39b-3ad048bc67eb",
+            "name": "attendance_mode_name",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "1d0e384b-0742-472d-9859-67b21dfac4ef",
+            "name": "expected_start_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "3bbcfc77-61a8-4784-8ead-161dd59df2f9",
+            "name": "expected_leave_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "a683bb02-768d-4761-8f29-1a42a01eb231",
+            "name": "location_of_study",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "81121931-00f2-4b7d-985a-ccf375a58f07",
+            "name": "highest_entry_qualification",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "17baface-da0c-429d-8bc3-8d89b068290b",
+            "name": "residence_residential_category",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "ff65cf7a-e949-452f-a888-277a1aa28129",
+            "name": "fee_status",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "dde5d984-cbb1-4229-8b95-5148685d0e44",
+            "name": "country_of_permanent_residence",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "5e540de5-f5c7-4d4d-bf4a-eb05a27d17c9",
+            "name": "offer_status_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "89caacf0-d066-43de-af9a-598014f92860",
+            "name": "application_status_code",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "e7bdb187-fa32-43fd-a8ee-90d569705f32",
+            "name": "offer_accepted_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "309b3ce2-3641-4dd6-9339-af50a8ef6fe2",
+            "name": "offer_declined_date",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "e435e1dd-52b2-4d53-bbb0-7809a23753ba",
+            "name": "cas_status",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "5f687417-ca83-404f-849d-36fd4ba5f59e",
+            "name": "parental_education",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "73c987e3-9889-4a4a-959a-dcb66ea20d0e",
+            "name": "atas_required",
+            "dataType": "boolean",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "478dc575-d68a-4e63-bad7-a6cd33c44693",
+            "name": "acorn",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "74143bb9-0195-4578-a1fe-a00a56fb3654",
+            "name": "polar",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "1d6ff5e9-b3c0-4ea6-b688-816fdfce02f9",
+            "name": "tundra",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ],
+        "database": "Integration Platform"
+      },
+      {
+        "id": "f67da6a9-7b47-4568-a309-5d3e8880ca7c",
+        "entityId": "8c990fcf-53b4-410d-bdca-8b28d163eeb3",
+        "name": "Address",
+        "schema": "DM_ADM",
+        "attributes": [
+          {
+            "id": "08b1d973-8451-4719-9796-88efdc9bf457",
+            "name": "address_id",
+            "dataType": "bigint",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "a963a312-21a6-41e0-9cc5-ab69342063ce",
+            "name": "applicant_id",
+            "dataType": "bigint",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "57deb4e6-b88a-47c6-969a-a24cc4d58007",
+            "name": "address_type",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "d0e0b70f-51aa-4cba-95d1-e944c2599df2",
+            "name": "address_line_1",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "cb39108a-7c25-492d-bb9e-a6d0af234393",
+            "name": "address_line_2",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "6f073757-6dce-46a6-9301-547ffb766336",
+            "name": "address_line_3",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "730c022b-ae02-46cf-b1a4-2f482d56471e",
+            "name": "address_line_4",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "b7d96d60-5be4-4e58-88e0-a1fc3d266783",
+            "name": "address_line_5",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "24a41da0-47b9-431f-98a3-4e6bbc5e41ef",
+            "name": "postcode",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "b84ec439-bf05-4a41-a38d-73a628412e04",
+            "name": "country",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "9ea9fec9-0e06-4e05-b6d8-e2eda85b0a2b",
+            "name": "phone_at_address",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ],
+        "database": "Integration Platform"
+      },
+      {
+        "id": "e3153d3d-8e82-487e-9903-8a5b8413ee8b",
+        "entityId": "39b22b7c-035c-4c6d-bb48-1ba073e6e9a7",
+        "name": "Qualification",
+        "schema": "DM_ADM",
+        "attributes": [
+          {
+            "id": "11db033e-4eb3-438b-b89f-27ee0058cc6d",
+            "name": "qualification_id",
+            "dataType": "bigint",
+            "isPrimaryKey": true,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "2c8d30b3-4fbe-436a-9d74-243436d2bf81",
+            "name": "applicant_id",
+            "dataType": "bigint",
+            "isPrimaryKey": false,
+            "isNullable": false,
+            "isForeignKey": false
+          },
+          {
+            "id": "886ca0c9-caae-415e-9a2b-e0f214e4d6d3",
+            "name": "institution",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "e5c57ac9-68cd-4bc1-99d7-32042e05b2c7",
+            "name": "qualification_type",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "ac3f0f5c-d456-44f6-99d7-7e31b30aa2a0",
+            "name": "date_of_result",
+            "dataType": "date",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "2b5f8728-5965-4e8f-8745-d9ad7d48e169",
+            "name": "award_outcome",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          },
+          {
+            "id": "8b4d7ef9-cd71-419c-8d79-1a7148c36515",
+            "name": "subject",
+            "dataType": "varchar",
+            "isPrimaryKey": false,
+            "isNullable": true,
+            "isForeignKey": false
+          }
+        ],
+        "database": "Integration Platform"
+      }
+    ],
+    "foreignKeys": [
+      {
+        "id": "7844417e-a6ae-45d2-b77d-51b16e49e66d",
+        "fromTableId": "380ff459-280c-4a1d-8e8f-7439da220333",
+        "toTableId": "d0b4740d-5f3e-47d0-bcd4-af2784329f5d",
+        "fromAttributeId": "8eac8a95-f565-40b1-928a-c2f6b5fd6a03",
+        "toAttributeId": "d583d354-2f25-4f87-9e65-4ef946ef654a",
+        "fromCardinality": "1",
+        "toCardinality": "1..*",
+        "edgeType": "curved"
+      },
+      {
+        "id": "150dafc2-c991-4421-8e4a-2a93a48ff76f",
+        "fromTableId": "380ff459-280c-4a1d-8e8f-7439da220333",
+        "toTableId": "f67da6a9-7b47-4568-a309-5d3e8880ca7c",
+        "fromAttributeId": "8eac8a95-f565-40b1-928a-c2f6b5fd6a03",
+        "toAttributeId": "08b1d973-8451-4719-9796-88efdc9bf457",
+        "fromCardinality": "1",
+        "toCardinality": "1..*"
+      },
+      {
+        "id": "7e713dd3-5ba1-47c0-a412-87b59b569839",
+        "fromTableId": "380ff459-280c-4a1d-8e8f-7439da220333",
+        "toTableId": "e3153d3d-8e82-487e-9903-8a5b8413ee8b",
+        "fromAttributeId": "8eac8a95-f565-40b1-928a-c2f6b5fd6a03",
+        "toAttributeId": "11db033e-4eb3-438b-b89f-27ee0058cc6d",
+        "fromCardinality": "1",
+        "toCardinality": "1..*"
+      }
+    ],
+    "tableGroups": []
+  },
+  "databaseDescriptions": {
+    "Integration Platform": "This is the main database within the Azure Integration Platform. It has many schemas which are used to logically group tables into different layers. For the model, we only show the 'DM_' schemas which are where the data model tables are physically created. "
+  },
+  "schemaDescriptions": {
+    "Integration Platform.DM_ADM": "This it the schema used to store all the physical Applicant Data Model tables. "
+  },
+  "nodeLayouts": {
+    "4fb89bb8-6ef4-44c9-b6a1-7572b9205932": {
+      "x": 444.28571428571433,
+      "y": -35.71428571428572
+    },
+    "beaa9573-3b12-402d-bbeb-75b183f2d945": {
+      "x": 137.06866254474448,
+      "y": 104.85174096973645
+    },
+    "8c990fcf-53b4-410d-bdca-8b28d163eeb3": {
+      "x": 444.2426293524243,
+      "y": 296.61438333875697
+    },
+    "39b22b7c-035c-4c6d-bb48-1ba073e6e9a7": {
+      "x": 776.7252847380411,
+      "y": 103.4742596810934
+    },
+    "3ff2a15a-56a5-46ef-89cc-317a46435686": {
+      "x": 539.5134396355352,
+      "y": 202.74806378132115
+    },
+    "2b542798-a2aa-482e-a6bb-f0062bd79275": {
+      "x": 16.469066059225554,
+      "y": 45.59088838268795
+    }
+  },
+  "tableLayouts": {
+    "380ff459-280c-4a1d-8e8f-7439da220333": {
+      "x": 96.82245068853365,
+      "y": -36.98049295102976
+    },
+    "d0b4740d-5f3e-47d0-bcd4-af2784329f5d": {
+      "x": 667.626628079572,
+      "y": 371.6441942889873
+    },
+    "f67da6a9-7b47-4568-a309-5d3e8880ca7c": {
+      "x": 650.3000783390053,
+      "y": -371.79438847307085
+    },
+    "e3153d3d-8e82-487e-9903-8a5b8413ee8b": {
+      "x": -453.0700412588449,
+      "y": -201.47814613916697
+    }
+  },
+  "viewport": {
+    "x": 446.5417025078944,
+    "y": 352.61708911740106,
+    "zoom": 0.8781776199318421
+  },
+  "viewMode": "physical"
+}
