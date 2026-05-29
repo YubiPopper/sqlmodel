@@ -693,6 +693,11 @@ const CanvasInner = () => {
   // Build edges based on view mode
   const edges: Edge[] = useMemo(() => {
     if (viewMode === 'conceptual') {
+      type EntityRelationship = (typeof relationships)[number] & {
+        fromEntityId: string;
+        toEntityId: string;
+      };
+
       const scopedEntityIdSet = new Set(
         entities
           .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
@@ -700,20 +705,24 @@ const CanvasInner = () => {
       );
 
       // Filter out relationships where either entity is hidden
-      return relationships
-        .filter(r => {
+      const visibleRelationships = relationships.filter((r): r is EntityRelationship => {
           const isEntityRelationship = r.relationshipType === 'entity' || r.relationshipType === undefined;
           if (!isEntityRelationship || !r.fromEntityId || !r.toEntityId) return false;
           if (!scopedEntityIdSet.has(r.fromEntityId) || !scopedEntityIdSet.has(r.toEntityId)) return false;
           return !safeHiddenEntityIds.has(r.fromEntityId) && !safeHiddenEntityIds.has(r.toEntityId);
-        })
+        });
+
+      return visibleRelationships
         .map(r => {
+        const fromEntityId = r.fromEntityId;
+        const toEntityId = r.toEntityId;
+
         let sourceHandle = r.sourceHandle || null;
         let targetHandle = r.targetHandle || null;
 
         // Smart handle selection based on relative positions
-        const sourceNode = nodeLayouts[r.fromEntityId];
-        const targetNode = nodeLayouts[r.toEntityId];
+        const sourceNode = nodeLayouts[fromEntityId];
+        const targetNode = nodeLayouts[toEntityId];
         
         if (sourceNode && targetNode) {
           const sourceCenterX = sourceNode.x + 110;
@@ -746,7 +755,7 @@ const CanvasInner = () => {
         }
 
         // Check if this relationship is connected to the selected entity (transitively)
-        const isConnectedToSelected = connectedEntityIds.has(r.fromEntityId) && connectedEntityIds.has(r.toEntityId);
+        const isConnectedToSelected = connectedEntityIds.has(fromEntityId) && connectedEntityIds.has(toEntityId);
         const isEdgeSelected = selectedId === r.id;
         
         // Default line color: grey in dark mode, darker grey in light mode
@@ -754,8 +763,8 @@ const CanvasInner = () => {
         
         return {
           id: r.id,
-          source: r.fromEntityId,
-          target: r.toEntityId,
+          source: fromEntityId,
+          target: toEntityId,
           label: showRelationshipLabels ? r.label : '',
           sourceHandle,
           targetHandle,

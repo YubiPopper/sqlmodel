@@ -124,6 +124,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     // Filter relationships - include if label matches OR if connected entities match
     const matchingRelationships = relationships.filter(rel => {
       if (rel.label && rel.label.toLowerCase().includes(query)) return true;
+      if (!rel.fromEntityId || !rel.toEntityId) return false;
       return matchingEntityIds.has(rel.fromEntityId) || matchingEntityIds.has(rel.toEntityId);
     });
     
