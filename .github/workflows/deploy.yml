@@ -33,26 +33,4 @@ jobs:
             restarted=0
 
             # Try systemd restart first (non-interactive sudo only)
-            if command -v systemctl >/dev/null 2>&1; then
-              if systemctl list-unit-files | grep -q '^sqlmodel.service'; then
-                if sudo -n systemctl restart sqlmodel; then
-                  echo 'systemd: restarted sqlmodel service'
-                  restarted=1
-                else
-                  echo 'WARNING: could not restart sqlmodel via systemd (passwordless sudo not configured)'
-                fi
-              fi
-            fi
-
-            # PM2 fallback if systemd restart did not happen
-            if [ "$restarted" -eq 0 ] && command -v pm2 >/dev/null 2>&1; then
-              if pm2 restart sqlmodel; then
-                echo 'pm2: restarted sqlmodel process'
-                restarted=1
-              fi
-            fi
-
-            if [ "$restarted" -eq 0 ]; then
-              echo 'WARNING: deploy completed, but app was not restarted automatically.'
-              echo 'Configure either passwordless sudo for systemctl or pm2 process named sqlmodel.'
-            fi
+            sudo -n systemctl restart sqlmodel
