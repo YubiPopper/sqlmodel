@@ -6,12 +6,16 @@ interface SearchBoxProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  shortcutLabel?: string;
+  onShortcutClick?: () => void;
 }
 
 export const SearchBox: React.FC<SearchBoxProps> = ({
   value,
   onChange,
   placeholder = 'Search...',
+  shortcutLabel,
+  onShortcutClick,
 }) => {
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
@@ -45,6 +49,26 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
             color: isDark ? '#e6edf3' : '#374151',
           }}
         />
+        {shortcutLabel && onShortcutClick && (
+          <button
+            type="button"
+            onClick={onShortcutClick}
+            style={{
+              flexShrink: 0,
+              padding: '4px 6px',
+              borderRadius: '6px',
+              border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+              background: isDark ? '#161b22' : '#ffffff',
+              color: isDark ? '#8b949e' : '#6b7280',
+              fontSize: '10px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Open jump search"
+          >
+            {shortcutLabel}
+          </button>
+        )}
       </div>
     </div>
   );

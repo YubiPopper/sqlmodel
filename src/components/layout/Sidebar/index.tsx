@@ -8,7 +8,11 @@ import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
 import { Tooltip } from '../../shared/Tooltip';
 import { DropdownButton, type DropdownItem } from '../../shared/Dropdown';
 
-export const LeftSidebar: React.FC = () => {
+interface LeftSidebarProps {
+  onOpenCommandPalette?: () => void;
+}
+
+export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenCommandPalette }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConceptualSettings, setShowConceptualSettings] = useState(false);
   const [presetName, setPresetName] = useState('');
@@ -207,6 +211,8 @@ export const LeftSidebar: React.FC = () => {
         value={searchQuery} 
         onChange={setSearchQuery} 
         placeholder={isPhysical ? 'Search tables...' : 'Search data models and entities...'}
+        shortcutLabel="⌘K"
+        onShortcutClick={onOpenCommandPalette}
       />
 
       <div style={{
