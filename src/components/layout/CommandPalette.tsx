@@ -36,7 +36,7 @@ const TYPE_META: Record<
   schema: { label: 'Schema', icon: <Layers size={14} />, color: '#6366f1' },
 };
 
-const formatNamespace = (value?: string) => value || 'unassigned';
+const normalizeNamespace = (value?: string) => value || 'unassigned';
 const displayNamespace = (value?: string) => (value && value.trim() ? value : 'Unassigned');
 
 const scoreItem = (item: PaletteItem, query: string) => {
@@ -146,8 +146,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
     const tableItems: PaletteItem[] = tables.map(table => {
       const entityName = table.entityId ? entityLookup.get(table.entityId)?.name : undefined;
-      const databaseName = formatNamespace(table.database);
-      const schemaName = formatNamespace(table.schema);
+      const databaseName = normalizeNamespace(table.database);
+      const schemaName = normalizeNamespace(table.schema);
 
       return {
         key: `table:${table.id}`,
@@ -176,8 +176,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     const schemaMap = new Map<string, { tableIds: string[]; databaseName: string; schemaName: string }>();
 
     tables.forEach(table => {
-      const databaseName = formatNamespace(table.database);
-      const schemaName = formatNamespace(table.schema);
+      const databaseName = normalizeNamespace(table.database);
+      const schemaName = normalizeNamespace(table.schema);
 
       const databaseEntry = databaseMap.get(databaseName) || { tableIds: [], schemaNames: new Set<string>() };
       databaseEntry.tableIds.push(table.id);
@@ -257,7 +257,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
     return nextItems.slice(0, 30);
   }, [items, query]);
-  const selectedIndex = filteredItems.length === 0 ? 0 : Math.min(activeIndex, filteredItems.length - 1);
+  const clampedActiveIndex = filteredItems.length === 0 ? 0 : Math.min(activeIndex, filteredItems.length - 1);
 
   const handleSelect = (item: PaletteItem) => {
     if (item.type === 'data-model' && item.nodeId) {
@@ -418,7 +418,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                 );
               } else if (event.key === 'Enter') {
                 event.preventDefault();
-                const activeItem = filteredItems[selectedIndex];
+                const activeItem = filteredItems[clampedActiveIndex];
                 if (activeItem) {
                   handleSelect(activeItem);
                 }
@@ -466,7 +466,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
           ) : (
             filteredItems.map((item, index) => {
               const meta = TYPE_META[item.type];
-              const isActive = index === selectedIndex;
+              const isActive = index === clampedActiveIndex;
 
               return (
                 <button

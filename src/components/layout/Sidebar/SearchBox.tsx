@@ -49,7 +49,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
             color: isDark ? '#e6edf3' : '#374151',
           }}
         />
-        {shortcutLabel && (
+        {shortcutLabel && onShortcutClick && (
           <button
             type="button"
             onClick={onShortcutClick}
@@ -62,7 +62,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
               color: isDark ? '#8b949e' : '#6b7280',
               fontSize: '10px',
               fontWeight: 600,
-              cursor: onShortcutClick ? 'pointer' : 'default',
+              cursor: 'pointer',
             }}
             title="Open jump search"
           >

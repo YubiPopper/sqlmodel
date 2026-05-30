@@ -185,19 +185,19 @@ const CanvasInner = () => {
 
   // Register navigation callback for sidebar
   useEffect(() => {
-    const navigateToNode = (nodeId: string, retries = 4) => {
+    const navigateToNode = (nodeId: string, attemptsRemaining = 4) => {
       const node = reactFlowInstance.getNode(nodeId);
       if (node) {
         reactFlowInstance.setCenter(node.position.x + (node.width || 200) / 2, node.position.y + (node.height || 100) / 2, {
           zoom: 0.7,
           duration: 400,
         });
-      } else if (retries > 0) {
-        requestAnimationFrame(() => navigateToNode(nodeId, retries - 1));
+      } else if (attemptsRemaining > 0) {
+        requestAnimationFrame(() => navigateToNode(nodeId, attemptsRemaining - 1));
       }
     };
 
-    const centerDataModel = (dataModelId: string, retries = 4) => {
+    const centerDataModel = (dataModelId: string, attemptsRemaining = 4) => {
       const state = useModelStore.getState();
       const hiddenEntitySet = state.hiddenEntityIds instanceof Set
         ? state.hiddenEntityIds
@@ -214,12 +214,12 @@ const CanvasInner = () => {
       const modelNodes = reactFlowInstance.getNodes().filter(node => modelEntityIds.has(node.id));
       if (modelNodes.length > 0) {
         reactFlowInstance.fitView({ nodes: modelNodes, padding: 0.25, duration: 400, maxZoom: 0.9 });
-      } else if (retries > 0) {
-        requestAnimationFrame(() => centerDataModel(dataModelId, retries - 1));
+      } else if (attemptsRemaining > 0) {
+        requestAnimationFrame(() => centerDataModel(dataModelId, attemptsRemaining - 1));
       }
     };
 
-    const centerTables = (tableIds: string[], retries = 4) => {
+    const centerTables = (tableIds: string[], attemptsRemaining = 4) => {
       if (tableIds.length === 0) return;
 
       const tableIdSet = new Set(tableIds);
@@ -227,16 +227,21 @@ const CanvasInner = () => {
 
       if (tableNodes.length > 0) {
         reactFlowInstance.fitView({ nodes: tableNodes, padding: 0.25, duration: 400, maxZoom: 0.9 });
-      } else if (retries > 0) {
-        requestAnimationFrame(() => centerTables(tableIds, retries - 1));
+      } else if (attemptsRemaining > 0) {
+        requestAnimationFrame(() => centerTables(tableIds, attemptsRemaining - 1));
       }
+    };
+
+    const getHiddenTableSet = () => {
+      const state = useModelStore.getState();
+      return state.hiddenTableIds instanceof Set
+        ? state.hiddenTableIds
+        : new Set(state.hiddenTableIds || []);
     };
 
     const centerDatabase = (databaseName: string) => {
       const state = useModelStore.getState();
-      const hiddenTableSet = state.hiddenTableIds instanceof Set
-        ? state.hiddenTableIds
-        : new Set(state.hiddenTableIds || []);
+      const hiddenTableSet = getHiddenTableSet();
 
       const matchingTableIds = state.tables
         .filter(table => (table.database || 'unassigned') === databaseName && !hiddenTableSet.has(table.id))
@@ -247,9 +252,7 @@ const CanvasInner = () => {
 
     const centerSchema = (databaseName: string, schemaName: string) => {
       const state = useModelStore.getState();
-      const hiddenTableSet = state.hiddenTableIds instanceof Set
-        ? state.hiddenTableIds
-        : new Set(state.hiddenTableIds || []);
+      const hiddenTableSet = getHiddenTableSet();
 
       const matchingTableIds = state.tables
         .filter(
