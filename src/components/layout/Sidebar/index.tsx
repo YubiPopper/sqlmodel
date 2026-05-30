@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Layers, Database, Box, Settings } from 'lucide-react';
+import { Layers, Database, Box, Settings, BookmarkPlus, Trash2 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { SearchBox } from './SearchBox';
 import { ModelTree } from './ModelTree';
 import { QuickActions } from './QuickActions';
 import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
 import { Tooltip } from '../../shared/Tooltip';
+import { DropdownButton } from '../../shared/Dropdown';
 
 export const LeftSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,9 +15,34 @@ export const LeftSidebar: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
   const physicalHierarchyMode = useModelStore(state => state.physicalHierarchyMode);
   const setPhysicalHierarchyMode = useModelStore(state => state.setPhysicalHierarchyMode);
+  const savedViewPresets = useModelStore(state => state.savedViewPresets);
+  const saveViewPreset = useModelStore(state => state.saveViewPreset);
+  const applyViewPreset = useModelStore(state => state.applyViewPreset);
+  const deleteViewPreset = useModelStore(state => state.deleteViewPreset);
+  const focusMode = useModelStore(state => state.focusMode);
+  const setFocusMode = useModelStore(state => state.setFocusMode);
 
   const isDark = colorMode === 'dark';
   const isPhysical = viewMode === 'physical';
+
+  const presetItems = savedViewPresets.flatMap((preset) => ([
+    {
+      label: preset.name,
+      onClick: () => applyViewPreset(preset.id),
+    },
+    {
+      label: `Delete ${preset.name}`,
+      icon: <Trash2 size={12} />,
+      onClick: () => deleteViewPreset(preset.id),
+    },
+    { label: '', divider: true, onClick: () => {} },
+  ])).slice(0, Math.max(savedViewPresets.length * 3 - 1, 0));
+
+  const handleSavePreset = () => {
+    const presetName = window.prompt('Save current filter as preset:', '');
+    if (!presetName) return;
+    saveViewPreset(presetName);
+  };
 
   return (
     <aside
@@ -171,6 +197,59 @@ export const LeftSidebar: React.FC = () => {
         onChange={setSearchQuery} 
         placeholder={isPhysical ? 'Search tables...' : 'Search data models and entities...'}
       />
+
+      <div style={{
+        padding: '10px 12px',
+        borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      }}>
+        <select
+          value={focusMode}
+          onChange={(event) => setFocusMode(event.target.value as 'none' | 'hide-unlinked-entities')}
+          style={{
+            flex: 1,
+            height: '30px',
+            borderRadius: '6px',
+            border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+            background: isDark ? '#0d1117' : '#ffffff',
+            color: isDark ? '#e6edf3' : '#1f2937',
+            fontSize: '12px',
+            padding: '0 8px',
+          }}
+        >
+          <option value="none">Focus: All entities</option>
+          <option value="hide-unlinked-entities">Focus: Hide unlinked entities</option>
+        </select>
+
+        <Tooltip content="Save current view/filter preset" placement="bottom">
+          <button
+            onClick={handleSavePreset}
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '6px',
+              border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+              background: isDark ? '#161b22' : '#ffffff',
+              color: isDark ? '#e6edf3' : '#374151',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <BookmarkPlus size={14} />
+          </button>
+        </Tooltip>
+
+        <DropdownButton
+          label="Presets"
+          items={presetItems.length > 0 ? presetItems : [{ label: 'No presets yet', onClick: () => {}, disabled: true }]}
+          compact={false}
+          title="Apply or remove saved presets"
+        />
+      </div>
 
       {/* Tree View */}
       <ModelTree searchQuery={searchQuery} />
