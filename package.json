@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "start": "node app-server.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -23,6 +24,7 @@
     "reactflow": "^11.11.4",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
+    "ws": "^8.21.0",
     "y-indexeddb": "^9.0.12",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.31",

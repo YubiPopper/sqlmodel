@@ -97,7 +97,7 @@ export function useCollaboration() {
     });
   }, [selectedId, session.isActive, session.userId, session.userName, session.userColor]);
 
-  const startSession = useCallback((roomId: string) => {
+  const startSession = useCallback((roomId: string, isJoining = false) => {
     const userId = getOrCreateUserId();
     const userName = getOrCreateUserName();
     const userColor = getUserColor(userId);
@@ -105,7 +105,7 @@ export function useCollaboration() {
     setRoomInUrl(roomId);
 
     const provider = initProviders(roomId);
-    initSync();
+    initSync(isJoining);
 
     // Set local awareness
     provider.awareness.setLocalStateField('user', {
@@ -174,7 +174,7 @@ export function useCollaboration() {
   // Auto-join if ?room= param present on mount
   useEffect(() => {
     if (initialRoomRef.current) {
-      startSession(initialRoomRef.current);
+      startSession(initialRoomRef.current, true); // isJoining=true: don't push local model into shared doc
     }
     return () => {
       teardownSync();

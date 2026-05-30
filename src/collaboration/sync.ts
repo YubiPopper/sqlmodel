@@ -146,11 +146,39 @@ function applyYjsToStore(): void {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 let unsubscribeStore: (() => void) | null = null;
+let ymapHandler: ((_evt: unknown) => void) | null = null;
 
-/** Push current Zustand state into Yjs then wire up bidirectional sync. */
-export function initSync(): void {
-  // Initial push of local state into the shared doc
-  pushStoreToYjs();
+/** Wire up bidirectional sync between Zustand and Yjs.
+ * @param isJoining - true when joining an existing room from a link.
+ *   Skips the initial local→Yjs push (which would pollute the shared doc with
+ *   the joiner's unrelated local model) and clears the local store so the
+ *   host's data flows in cleanly once WebRTC syncs.
+ */
+export function initSync(isJoining = false): void {
+  if (isJoining) {
+    // Clear local store so the host's Yjs state will replace it, not merge with it
+    isSyncingFromYjs = true;
+    try {
+      useModelStore.setState({
+        dataModels: [],
+        entities: [],
+        relationships: [],
+        entityGroups: [],
+        tables: [],
+        foreignKeys: [],
+        tableGroups: [],
+        nodeLayouts: {},
+        tableLayouts: {},
+        databaseDescriptions: {},
+        schemaDescriptions: {},
+      });
+    } finally {
+      isSyncingFromYjs = false;
+    }
+  } else {
+    // Host: push local model into the shared doc immediately
+    pushStoreToYjs();
+  }
 
   // Yjs → Zustand: observe all relevant maps
   const ymaps = [
@@ -160,8 +188,15 @@ export function initSync(): void {
     yDatabaseDescriptions, ySchemaDescriptions,
   ];
 
-  const handler = (_evt: unknown) => applyYjsToStore();
-  ymaps.forEach((m) => m.observe(handler));
+  // Unobserve any previous handler before re-registering (prevents accumulation
+  // on session restart or React StrictMode double-invoke).
+  if (ymapHandler) {
+    ymaps.forEach((m) => m.unobserve(ymapHandler!));
+    ymapHandler = null;
+  }
+
+  ymapHandler = (_evt: unknown) => applyYjsToStore();
+  ymaps.forEach((m) => m.observe(ymapHandler!));
 
   // Zustand → Yjs: subscribe to store changes
   unsubscribeStore = useModelStore.subscribe((state, prevState) => {
@@ -193,6 +228,16 @@ export function teardownSync(): void {
   if (unsubscribeStore) {
     unsubscribeStore();
     unsubscribeStore = null;
+  }
+  if (ymapHandler) {
+    const ymaps = [
+      yDataModels, yEntities, yRelationships, yEntityGroups,
+      yTables, yForeignKeys, yTableGroups,
+      yNodeLayouts, yTableLayouts,
+      yDatabaseDescriptions, ySchemaDescriptions,
+    ];
+    ymaps.forEach((m) => m.unobserve(ymapHandler!));
+    ymapHandler = null;
   }
   if (layoutDebounceTimer) {
     clearTimeout(layoutDebounceTimer);

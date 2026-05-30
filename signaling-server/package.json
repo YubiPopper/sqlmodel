@@ -1,0 +1,17 @@
+{
+  "name": "sqlmodel-signaling-server",
+  "version": "1.0.0",
+  "description": "y-webrtc signaling server for sqlmodel.org real-time collaboration",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "lib0": "^0.2.99",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
