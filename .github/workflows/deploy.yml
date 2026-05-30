@@ -19,7 +19,7 @@ jobs:
           port: ${{ secrets.PORT }}
 
           script: |
-            cd /sqlmodel
+            cd ~/sqlmodel
 
             git pull origin main
 
