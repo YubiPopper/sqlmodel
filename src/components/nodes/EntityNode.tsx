@@ -136,9 +136,15 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
   const addEntityToGroup = useModelStore(state => state.addEntityToGroup);
   const showEntityDescriptions = useModelStore(state => state.showEntityDescriptions);
   const viewMode = useModelStore(state => state.viewMode);
+  const collaboratorSelections = useModelStore(state => state.collaboratorSelections);
 
   // Check if this entity is multi-selected (determines color: green for multi, blue for single)
   const isMultiSelected = multiSelectedEntityIds.includes(data.id);
+
+  // Find any collaborator who has this entity selected
+  const collaboratorHighlight = Object.values(collaboratorSelections).find(
+    (u) => u.selectedId === data.id
+  ) ?? null;
 
   const handleCreateLinkedEntity = useCallback((side: HoverSide) => {
     if (viewMode !== 'conceptual') return;
@@ -761,9 +767,11 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
           }}
           style={{
             background: getEntityColorStyles(data.color, colorMode === 'dark', selected).background,
-            border: colorMode === 'dark'
-              ? (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, true, selected).border}`)
-              : (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, false, selected).border}`),
+            border: collaboratorHighlight
+              ? `2px solid ${collaboratorHighlight.color}`
+              : colorMode === 'dark'
+                ? (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, true, selected).border}`)
+                : (isMultiSelected ? '2px solid #22c55e' : selected ? '2px solid #3b82f6' : `2px solid ${getEntityColorStyles(data.color, false, selected).border}`),
             borderRadius: '12px',
             width: `${nodeSize.width}px`,
             minHeight: `${nodeSize.height}px`,
@@ -773,17 +781,19 @@ const EntityNode = memo(({ data, selected }: NodeProps<Entity>) => {
             justifyContent: 'center',
             alignItems: 'center',
             gap: entityCardSize === 'compact' ? '6px' : '10px',
-            boxShadow: selected
-              ? (colorMode === 'dark'
-                  ? isMultiSelected
-                    ? '0 0 0 1px rgba(34, 197, 94, 0.3), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(34, 197, 94, 0.2)'
-                    : '0 0 0 1px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(59, 130, 246, 0.2)'
-                  : isMultiSelected
-                    ? '0 0 0 1px rgba(34, 197, 94, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(34, 197, 94, 0.15)'
-                    : '0 0 0 1px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(59, 130, 246, 0.15)')
-              : (colorMode === 'dark'
-                  ? '0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)'
-                  : '0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04)'),
+            boxShadow: collaboratorHighlight
+              ? `0 0 0 3px ${collaboratorHighlight.color}55, 0 4px 16px rgba(0,0,0,0.3)`
+              : selected
+                ? (colorMode === 'dark'
+                    ? isMultiSelected
+                      ? '0 0 0 1px rgba(34, 197, 94, 0.3), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(34, 197, 94, 0.2)'
+                      : '0 0 0 1px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(59, 130, 246, 0.2)'
+                    : isMultiSelected
+                      ? '0 0 0 1px rgba(34, 197, 94, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(34, 197, 94, 0.15)'
+                      : '0 0 0 1px rgba(59, 130, 246, 0.3), 0 8px 24px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(59, 130, 246, 0.15)')
+                : (colorMode === 'dark'
+                    ? '0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3)'
+                    : '0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04)'),
             cursor: isResizing ? 'default' : (isEditing ? 'text' : 'move'),
             transition: isResizing ? 'none' : 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             position: 'relative',

@@ -13,6 +13,8 @@ import { AISettingsDialog } from '../ui/AISettingsDialog';
 import { AddTableDialog } from '../ui/AddTableDialog';
 import { useUrlImport } from '../../hooks/useUrlImport';
 import { CommandPalette } from './CommandPalette';
+import { useCollaboration } from '../../collaboration/useCollaboration';
+import { CollaborationContext } from '../../collaboration/CollaborationContext';
 
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -35,6 +37,9 @@ export const AppLayout: React.FC = () => {
   const [commandPaletteSession, setCommandPaletteSession] = useState(0);
   
   const isDark = colorMode === 'dark';
+
+  // Collaboration — initialized once at layout level, shared via context
+  const collaboration = useCollaboration();
 
   // URL import: auto-import schema from ?url= or /p/ path on startup
   const urlImport = useUrlImport();
@@ -95,6 +100,7 @@ export const AppLayout: React.FC = () => {
   // User toggles it manually via the navbar sidebar icon
 
   return (
+    <CollaborationContext.Provider value={collaboration}>
     <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -248,6 +254,7 @@ export const AppLayout: React.FC = () => {
         onClose={() => setShowCommandPalette(false)}
       />
     </div>
+    </CollaborationContext.Provider>
   );
 };
 

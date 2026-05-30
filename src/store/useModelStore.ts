@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import dagre from 'dagre';
+import type { CollaborationUser } from '../collaboration/types';
 import type { 
   DataModel,
   Entity, 
@@ -180,6 +181,10 @@ interface ModelState {
   loadEcommerceExample: () => void;
   loadBlogExample: () => void;
   loadProjectExample: () => void;
+
+  // Collaboration: per-peer selections (not persisted)
+  collaboratorSelections: Record<number, CollaborationUser & { selectedId: string | null }>;
+  setCollaboratorSelections: (selections: Record<number, CollaborationUser & { selectedId: string | null }>) => void;
 }
 
 interface ViewFilterPreset {
@@ -245,6 +250,10 @@ export const useModelStore = create<ModelState>()(
       setShowExampleDialog: (show) => set({ showExampleDialog: show }),
       showAISettingsDialog: false,
       setShowAISettingsDialog: (show) => set({ showAISettingsDialog: show }),
+
+      // Collaboration (not persisted)
+      collaboratorSelections: {},
+      setCollaboratorSelections: (selections) => set({ collaboratorSelections: selections }),
 
       // === Data Model Actions ===
       addDataModel: () => {
@@ -2132,6 +2141,8 @@ export const useModelStore = create<ModelState>()(
           centerDatabaseCallback,
           centerSchemaCallback,
           fitViewCallback,
+          collaboratorSelections,
+          setCollaboratorSelections,
           ...persistedState 
         } = state;
         
