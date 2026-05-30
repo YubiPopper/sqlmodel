@@ -245,7 +245,7 @@ export const CollaborationDialog = ({
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', color: isDark ? '#e6edf3' : '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', color: isDark ? '#e6edf3' : '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {room.roomId}
                       </div>
                       <div style={{ fontSize: '11px', color: isDark ? '#8b949e' : '#6b7280' }}>
