@@ -80,6 +80,7 @@ export function useCollaboration() {
   });
 
   const setCollaboratorSelections = useModelStore((s) => s.setCollaboratorSelections);
+  const clearModel = useModelStore((s) => s.clearModel);
   const selectedId = useModelStore((s) => s.selectedId);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
@@ -150,13 +151,14 @@ export function useCollaboration() {
     teardownProviders();
     removeRoomFromUrl();
     setCollaboratorSelections({});
+    clearModel();
     setSession((prev) => ({
       ...prev,
       roomId: '',
       isActive: false,
       connectedUsers: [],
     }));
-  }, [setCollaboratorSelections]);
+  }, [clearModel, setCollaboratorSelections]);
 
   const startCollaboration = useCallback(() => {
     const roomId = uuidv4();
