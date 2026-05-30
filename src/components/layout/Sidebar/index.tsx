@@ -36,7 +36,10 @@ export const LeftSidebar: React.FC = () => {
       onClick: () => deleteViewPreset(preset.id),
     },
     { label: '', divider: true, onClick: () => {} },
-  ])).slice(0, Math.max(savedViewPresets.length * 3 - 1, 0));
+  ]));
+  if (presetItems.length > 0) {
+    presetItems.pop();
+  }
 
   const handleSavePreset = () => {
     const presetName = window.prompt('Save current filter as preset:', '');

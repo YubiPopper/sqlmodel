@@ -30,6 +30,7 @@ import { AddTableDialog } from './ui/AddTableDialog';
 import { AISettingsDialog } from './ui/AISettingsDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
 import { Plus, Trash2, Copy, ArrowDownUp, Group, Pencil, Code } from 'lucide-react';
+import { getLinkedEntityIds, shouldIncludeEntityForFocus } from '../utils/focusMode';
 
 // Define nodeTypes and edgeTypes outside component to prevent React Flow warnings
 const nodeTypes = {
@@ -250,18 +251,7 @@ const CanvasInner = () => {
   const safeHiddenTableIds = hiddenTableIds instanceof Set ? hiddenTableIds : new Set(hiddenTableIds || []);
   const hideUnlinkedEntities = focusMode === 'hide-unlinked-entities';
 
-  const linkedEntityIds = useMemo(() => {
-    const linkedIds = new Set<string>();
-
-    relationships.forEach((relationship) => {
-      const isEntityRelationship = relationship.relationshipType === 'entity' || relationship.relationshipType === undefined;
-      if (!isEntityRelationship || !relationship.fromEntityId || !relationship.toEntityId) return;
-      linkedIds.add(relationship.fromEntityId);
-      linkedIds.add(relationship.toEntityId);
-    });
-
-    return linkedIds;
-  }, [relationships]);
+  const linkedEntityIds = useMemo(() => getLinkedEntityIds(relationships), [relationships]);
 
   // Compute directly connected entity IDs (1-hop only, matching Liam ERD behavior)
   const connectedEntityIds = useMemo(() => {
@@ -415,11 +405,9 @@ const CanvasInner = () => {
 
     if (isConceptualLikeView) {
       // Filter out hidden entities
-      const scopedEntities = entities.filter(e => {
-        if (activeDataModelId && e.dataModelId !== activeDataModelId) return false;
-        if (hideUnlinkedEntities && !linkedEntityIds.has(e.id)) return false;
-        return true;
-      });
+      const scopedEntities = entities.filter(entity =>
+        shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+      );
       const visibleEntities = scopedEntities.filter(e => !safeHiddenEntityIds.has(e.id));
       const visibleEntityIdSet = new Set(visibleEntities.map(entity => entity.id));
       
@@ -538,11 +526,9 @@ const CanvasInner = () => {
       // Filter out hidden tables
       const scopedEntityIds = new Set(
         entities
-          .filter(entity => {
-            if (activeDataModelId && entity.dataModelId !== activeDataModelId) return false;
-            if (hideUnlinkedEntities && !linkedEntityIds.has(entity.id)) return false;
-            return true;
-          })
+          .filter(entity =>
+            shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+          )
           .map(entity => entity.id)
       );
       const visibleTables = tables.filter(t => {
@@ -572,11 +558,9 @@ const CanvasInner = () => {
 
       // Create entity group nodes as background containers (independent positioning)
       const entityGroupNodes: Node[] = entities
-      .filter(entity => {
-        if (activeDataModelId && entity.dataModelId !== activeDataModelId) return false;
-        if (hideUnlinkedEntities && !linkedEntityIds.has(entity.id)) return false;
-        return true;
-      })
+      .filter(entity =>
+        shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+      )
       .map(entity => {
         // Find all visible tables belonging to this entity
         const entityTables = visibleTables.filter(t => t.entityId === entity.id);
@@ -727,11 +711,9 @@ const CanvasInner = () => {
 
       const scopedEntityIdSet = new Set(
         entities
-          .filter(entity => {
-            if (activeDataModelId && entity.dataModelId !== activeDataModelId) return false;
-            if (hideUnlinkedEntities && !linkedEntityIds.has(entity.id)) return false;
-            return true;
-          })
+          .filter(entity =>
+            shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+          )
           .map(entity => entity.id)
       );
 

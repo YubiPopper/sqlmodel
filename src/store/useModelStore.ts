@@ -970,13 +970,20 @@ export const useModelStore = create<ModelState>()(
         if (!trimmedName) return null;
 
         const state = get();
-        const existing = state.savedViewPresets.find(
-          preset => preset.name.toLowerCase() === trimmedName.toLowerCase()
+        const existingNames = new Set(
+          state.savedViewPresets.map(preset => preset.name.toLowerCase())
         );
+        let resolvedName = trimmedName;
+        let suffix = 2;
+
+        while (existingNames.has(resolvedName.toLowerCase())) {
+          resolvedName = `${trimmedName} (${suffix})`;
+          suffix += 1;
+        }
 
         const preset: ViewFilterPreset = {
-          id: existing?.id || uuidv4(),
-          name: trimmedName,
+          id: uuidv4(),
+          name: resolvedName,
           viewMode: state.viewMode,
           physicalHierarchyMode: state.physicalHierarchyMode,
           hiddenEntityIds: Array.from(state.hiddenEntityIds),
@@ -984,17 +991,7 @@ export const useModelStore = create<ModelState>()(
           focusMode: state.focusMode,
         };
 
-        set((currentState) => {
-          if (existing) {
-            return {
-              savedViewPresets: currentState.savedViewPresets.map(item =>
-                item.id === existing.id ? preset : item
-              ),
-            };
-          }
-
-          return { savedViewPresets: [...currentState.savedViewPresets, preset] };
-        });
+        set((currentState) => ({ savedViewPresets: [...currentState.savedViewPresets, preset] }));
 
         return preset.id;
       },

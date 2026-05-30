@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import type { PhysicalTable } from '../../../model/schemas';
+import { getLinkedEntityIds } from '../../../utils/focusMode';
 
 // Type aliases for the database hierarchy
 type SchemaMap = Record<string, PhysicalTable[]>;
@@ -91,18 +92,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const isDark = colorMode === 'dark';
   const hideUnlinkedEntities = focusMode === 'hide-unlinked-entities';
 
-  const linkedEntityIds = useMemo(() => {
-    const linkedIds = new Set<string>();
-
-    relationships.forEach((relationship) => {
-      const isEntityRelationship = relationship.relationshipType === 'entity' || relationship.relationshipType === undefined;
-      if (!isEntityRelationship || !relationship.fromEntityId || !relationship.toEntityId) return;
-      linkedIds.add(relationship.fromEntityId);
-      linkedIds.add(relationship.toEntityId);
-    });
-
-    return linkedIds;
-  }, [relationships]);
+  const linkedEntityIds = useMemo(() => getLinkedEntityIds(relationships), [relationships]);
 
   // Conceptual View - Filter data models, entities, groups, and relationships based on search
   const filteredConceptualData = useMemo(() => {
