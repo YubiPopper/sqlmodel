@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Users, Copy, Check, X, Wifi, WifiOff } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import type { CollaborationSession } from '../../collaboration/types';
+import type { RecentCollaborationRoom } from '../../collaboration/CollaborationContext';
 
 interface CollaborationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   session: CollaborationSession;
   inviteLink: string | null;
+  recentRooms: RecentCollaborationRoom[];
   onStart: () => void;
+  onReopenRoom: (roomId: string) => void;
   onStop: () => void;
 }
 
@@ -17,7 +20,9 @@ export const CollaborationDialog = ({
   onClose,
   session,
   inviteLink,
+  recentRooms,
   onStart,
+  onReopenRoom,
   onStop,
 }: CollaborationDialogProps) => {
   const [copied, setCopied] = useState(false);
@@ -32,6 +37,9 @@ export const CollaborationDialog = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const formatLastVisited = (timestamp: number): string =>
+    new Date(timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <div
@@ -212,6 +220,57 @@ export const CollaborationDialog = ({
                   {copied ? <Check size={14} /> : <Copy size={14} />}
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {!session.isActive && recentRooms.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: isDark ? '#8b949e' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Recent rooms
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {recentRooms.map((room) => (
+                  <div
+                    key={room.roomId}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
+                      background: isDark ? '#0d1117' : '#f8fafc',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', color: isDark ? '#e6edf3' : '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {room.roomId}
+                      </div>
+                      <div style={{ fontSize: '11px', color: isDark ? '#8b949e' : '#6b7280' }}>
+                        Last visited {formatLastVisited(room.lastVisitedAt)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onReopenRoom(room.roomId)}
+                      style={{
+                        border: 'none',
+                        outline: 'none',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '7px 10px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Reopen
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
