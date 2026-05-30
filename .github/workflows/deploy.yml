@@ -33,4 +33,4 @@ jobs:
             restarted=0
 
             # Try systemd restart first (non-interactive sudo only)
-            sudo -n systemctl restart sqlmodel
+            sudo /usr/bin/systemctl restart sqlmodel.service
