@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import { Navbar } from './Navbar';
@@ -12,10 +12,7 @@ import { AIDialog } from '../ui/AIDialog';
 import { AISettingsDialog } from '../ui/AISettingsDialog';
 import { AddTableDialog } from '../ui/AddTableDialog';
 import { useUrlImport } from '../../hooks/useUrlImport';
-import { getShareStateFromLocation } from '../../hooks/shareUrlState';
-
-const MAX_NAVIGATION_RETRIES = 8;
-const NAVIGATION_RETRY_DELAY_MS = 75;
+import { CommandPalette } from './CommandPalette';
 
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -23,12 +20,8 @@ export const AppLayout: React.FC = () => {
   const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
-  const viewMode = useModelStore(state => state.viewMode);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const loadDiagramFromCloud = useModelStore(state => state.loadDiagramFromCloud);
-  const setViewMode = useModelStore(state => state.setViewMode);
-  const setSelected = useModelStore(state => state.setSelected);
-  const setRightPanelMobileOpen = useModelStore(state => state.setRightPanelMobileOpen);
   
   // Dialog states from store
   const showExampleDialog = useModelStore(state => state.showExampleDialog);
@@ -46,10 +39,6 @@ export const AppLayout: React.FC = () => {
 
   // URL import: auto-import schema from ?url= or /p/ path on startup
   const urlImport = useUrlImport();
-  const shareState = useMemo(() => getShareStateFromLocation(), []);
-  const diagramLoadAttemptedRef = useRef(false);
-  const shareOverridesAppliedRef = useRef(false);
-  const [isInitialDataResolved, setIsInitialDataResolved] = useState(false);
 
   // Auto-dismiss toast after a few seconds
   const [toastVisible, setToastVisible] = useState(false);
@@ -64,89 +53,42 @@ export const AppLayout: React.FC = () => {
     }
   }, [urlImport.status, urlImport.message]);
 
-  const hasUrlImportParam = Boolean(shareState.schemaUrl);
+  // Check if a URL import was requested (before the hook effect runs)
+  const hasUrlImportParam = Boolean(
+    new URLSearchParams(window.location.search).get('url') ||
+    window.location.pathname.startsWith('/p/')
+  );
 
   // Load diagram from URL or default example
   useEffect(() => {
     const loadInitialData = async () => {
-      if (hasUrlImportParam) {
-        if (urlImport.status === 'loading' || urlImport.status === 'idle') return;
-        setIsInitialDataResolved(true);
-        return;
-      }
+      // Skip loading defaults if a URL import is pending, in progress, or completed
+      if (hasUrlImportParam || urlImport.status === 'loading' || urlImport.status === 'success') return;
 
-      const diagramId = shareState.diagramId;
+      // Check for diagram ID in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const diagramId = urlParams.get('diagram');
+      
       if (diagramId) {
-        if (diagramLoadAttemptedRef.current) return;
-        diagramLoadAttemptedRef.current = true;
-
         try {
           await loadDiagramFromCloud(diagramId);
+          return; // Don't load default example if URL diagram loads
         } catch (error) {
           console.error('Failed to load diagram from URL:', error);
         }
-
-        setIsInitialDataResolved(true);
-        return;
       }
-
+      
+      // Load default example only if nothing is loaded and no URL import
       if (entities.length === 0 && tables.length === 0) {
         fetch('/examples/library.json')
           .then(res => res.json())
           .then(data => loadModelFromJSON(data))
           .catch(err => console.error('Failed to load default example:', err));
       }
-
-      setIsInitialDataResolved(true);
     };
     
     loadInitialData();
-  }, [entities.length, hasUrlImportParam, loadDiagramFromCloud, loadModelFromJSON, shareState.diagramId, tables.length, urlImport.status]);
-
-  useEffect(() => {
-    if (!isInitialDataResolved || shareOverridesAppliedRef.current) return;
-
-    if (shareState.view && shareState.view !== viewMode) {
-      setViewMode(shareState.view);
-    }
-
-    const focusTarget = shareState.focus;
-    if (focusTarget) {
-      const state = useModelStore.getState();
-      const normalizedFocus = focusTarget.startsWith('entity:') || focusTarget.startsWith('table:')
-        ? focusTarget.split(':').slice(1).join(':')
-        : focusTarget;
-      const hasEntity = state.entities.some(entity => entity.id === normalizedFocus);
-      const hasTable = state.tables.some(table => table.id === normalizedFocus);
-
-      if (hasEntity || hasTable) {
-        setSelected(normalizedFocus);
-
-        const navigateToNode = (targetId: string, retries = MAX_NAVIGATION_RETRIES) => {
-          const callback = useModelStore.getState().navigateToNodeCallback;
-          if (callback) {
-            callback(targetId);
-            return;
-          }
-
-          if (retries > 0) {
-            setTimeout(() => navigateToNode(targetId, retries - 1), NAVIGATION_RETRY_DELAY_MS);
-            return;
-          }
-
-          console.warn('Unable to focus shared node because canvas navigation is unavailable yet:', targetId);
-        };
-
-        navigateToNode(normalizedFocus);
-      }
-    }
-
-    if (shareState.inspector) {
-      setRightPanelMobileOpen(true);
-    }
-
-    shareOverridesAppliedRef.current = true;
-  }, [isInitialDataResolved, setRightPanelMobileOpen, setSelected, setViewMode, shareState.focus, shareState.inspector, shareState.view, viewMode]);
+  }, [urlImport.status]); // Re-run when URL import status changes
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
