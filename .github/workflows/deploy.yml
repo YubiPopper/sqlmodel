@@ -33,7 +33,10 @@ jobs:
             # Restart services if they exist on the server.
             if command -v systemctl >/dev/null 2>&1; then
               if systemctl list-unit-files | grep -q '^sqlmodel.service'; then
-                sudo systemctl restart sqlmodel
+                sudo -n systemctl restart sqlmodel || {
+                  echo 'ERROR: passwordless sudo is required for restarting sqlmodel service';
+                  exit 1;
+                }
               fi
             fi
 
