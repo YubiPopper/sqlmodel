@@ -28,8 +28,8 @@ function mapToArray<T>(ymap: ReturnType<typeof ydoc.getMap<string>>): T[] {
   ymap.forEach((value) => {
     try {
       result.push(JSON.parse(value) as T);
-    } catch {
-      // skip malformed entries
+    } catch (err) {
+      console.warn('[sqlmodel] Failed to parse Yjs map entry:', err);
     }
   });
   return result;
@@ -40,8 +40,8 @@ function recordFromMap(ymap: ReturnType<typeof ydoc.getMap<string>>): Record<str
   ymap.forEach((value, key) => {
     try {
       result[key] = JSON.parse(value);
-    } catch {
-      // skip malformed entries
+    } catch (err) {
+      console.warn('[sqlmodel] Failed to parse Yjs map entry for key', key, ':', err);
     }
   });
   return result;

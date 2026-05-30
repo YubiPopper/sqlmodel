@@ -25,7 +25,8 @@ function getOrCreateUserName(): string {
   const key = 'sqlmodel-collab-user-name';
   let name = localStorage.getItem(key);
   if (!name) {
-    name = `User ${Math.floor(Math.random() * 900) + 100}`;
+    const randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0] % 900 + 100;
+    name = `User ${randomSuffix}`;
     localStorage.setItem(key, name);
   }
   return name;
@@ -59,6 +60,7 @@ function removeRoomFromUrl(): void {
 
 export function useCollaboration() {
   const roomFromUrl = getRoomFromUrl();
+  const initialRoomRef = useRef(roomFromUrl);
   const [session, setSession] = useState<CollaborationSession>({
     roomId: roomFromUrl ?? '',
     userId: getOrCreateUserId(),
@@ -162,15 +164,14 @@ export function useCollaboration() {
 
   // Auto-join if ?room= param present on mount
   useEffect(() => {
-    if (roomFromUrl) {
-      startSession(roomFromUrl);
+    if (initialRoomRef.current) {
+      startSession(initialRoomRef.current);
     }
     return () => {
       teardownSync();
       teardownProviders();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startSession]);
 
   return {
     session,
