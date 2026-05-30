@@ -21,6 +21,8 @@ import type {
 import { clearSchemaUrl } from '../hooks/schemaUrlState';
 
 interface ModelState {
+  savedViewPresets: ViewFilterPreset[];
+  focusMode: 'none' | 'hide-unlinked-entities';
   // Authentication
   user: User | null;
   session: Session | null;
@@ -124,6 +126,10 @@ interface ModelState {
   setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
   centerDataModelCallback: ((dataModelId: string) => void) | null;
   setCenterDataModelCallback: (callback: ((dataModelId: string) => void) | null) => void;
+  centerDatabaseCallback: ((databaseName: string) => void) | null;
+  setCenterDatabaseCallback: (callback: ((databaseName: string) => void) | null) => void;
+  centerSchemaCallback: ((databaseName: string, schemaName: string) => void) | null;
+  setCenterSchemaCallback: (callback: ((databaseName: string, schemaName: string) => void) | null) => void;
   fitViewCallback: (() => void) | null;
   setFitViewCallback: (callback: (() => void) | null) => void;
   setEditingGroupId: (id: string | null) => void;
@@ -135,6 +141,10 @@ interface ModelState {
   setShowEntityOverlay: (show: boolean) => void;
   setTableFieldsDisplay: (mode: 'all' | 'name' | 'keys') => void;
   setPhysicalHierarchyMode: (mode: 'entity' | 'database') => void;
+  setFocusMode: (mode: 'none' | 'hide-unlinked-entities') => void;
+  saveViewPreset: (name: string) => string | null;
+  applyViewPreset: (presetId: string) => void;
+  deleteViewPreset: (presetId: string) => void;
   setLayoutAlgorithm: (algorithm: 'left-right' | 'snowflake' | 'compact') => void;
   setShowEntityDescriptions: (show: boolean) => void;
   setShowRelationshipLabels: (show: boolean) => void;
@@ -189,6 +199,16 @@ interface ModelState {
   loadProjectExample: () => void;
 }
 
+interface ViewFilterPreset {
+  id: string;
+  name: string;
+  viewMode: 'data-model' | 'conceptual' | 'physical';
+  physicalHierarchyMode: 'entity' | 'database';
+  hiddenEntityIds: string[];
+  hiddenTableIds: string[];
+  focusMode: 'none' | 'hide-unlinked-entities';
+}
+
 export const useModelStore = create<ModelState>()(
   persist(
     (set, get) => ({
@@ -206,6 +226,8 @@ export const useModelStore = create<ModelState>()(
       dataModels: [],
       relationships: [],
       entityGroups: [],
+      savedViewPresets: [],
+      focusMode: 'none',
       tables: [],
       foreignKeys: [],
       tableGroups: [],
@@ -217,6 +239,8 @@ export const useModelStore = create<ModelState>()(
       multiSelectedEntityIds: [],
       navigateToNodeCallback: null,
       centerDataModelCallback: null,
+      centerDatabaseCallback: null,
+      centerSchemaCallback: null,
       fitViewCallback: null,
       multiSelectedTableIds: [],
       editingGroupId: null,
@@ -856,6 +880,10 @@ export const useModelStore = create<ModelState>()(
       setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
 
       setCenterDataModelCallback: (callback) => set({ centerDataModelCallback: callback }),
+
+      setCenterDatabaseCallback: (callback) => set({ centerDatabaseCallback: callback }),
+
+      setCenterSchemaCallback: (callback) => set({ centerSchemaCallback: callback }),
       
       setFitViewCallback: (callback) => set({ fitViewCallback: callback }),
       
@@ -944,6 +972,59 @@ export const useModelStore = create<ModelState>()(
       },
       
       setPhysicalHierarchyMode: (mode) => set({ physicalHierarchyMode: mode }),
+
+      setFocusMode: (mode) => set({ focusMode: mode }),
+
+      saveViewPreset: (name) => {
+        const trimmedName = name.trim();
+        if (!trimmedName) return null;
+
+        const state = get();
+        const existingNames = new Set(
+          state.savedViewPresets.map(preset => preset.name.toLowerCase())
+        );
+        let resolvedName = trimmedName;
+        let suffix = 2;
+
+        while (existingNames.has(resolvedName.toLowerCase())) {
+          resolvedName = `${trimmedName} (${suffix})`;
+          suffix += 1;
+        }
+
+        const preset: ViewFilterPreset = {
+          id: uuidv4(),
+          name: resolvedName,
+          viewMode: state.viewMode,
+          physicalHierarchyMode: state.physicalHierarchyMode,
+          hiddenEntityIds: Array.from(state.hiddenEntityIds),
+          hiddenTableIds: Array.from(state.hiddenTableIds),
+          focusMode: state.focusMode,
+        };
+
+        set((currentState) => ({ savedViewPresets: [...currentState.savedViewPresets, preset] }));
+
+        return preset.id;
+      },
+
+      applyViewPreset: (presetId) => {
+        const preset = get().savedViewPresets.find(item => item.id === presetId);
+        if (!preset) return;
+
+        set({
+          viewMode: preset.viewMode,
+          physicalHierarchyMode: preset.physicalHierarchyMode,
+          hiddenEntityIds: new Set(preset.hiddenEntityIds),
+          hiddenTableIds: new Set(preset.hiddenTableIds),
+          focusMode: preset.focusMode,
+          multiSelectedEntityIds: [],
+          multiSelectedTableIds: [],
+        });
+      },
+
+      deleteViewPreset: (presetId) =>
+        set((state) => ({
+          savedViewPresets: state.savedViewPresets.filter(preset => preset.id !== presetId),
+        })),
       
       setLayoutAlgorithm: (algorithm) => set({ layoutAlgorithm: algorithm }),
       
@@ -2233,6 +2314,9 @@ export const useModelStore = create<ModelState>()(
           showExampleDialog, 
           showAISettingsDialog,
           navigateToNodeCallback,
+          centerDataModelCallback,
+          centerDatabaseCallback,
+          centerSchemaCallback,
           fitViewCallback,
           ...persistedState 
         } = state;
@@ -2261,6 +2345,13 @@ export const useModelStore = create<ModelState>()(
           // This ensures users with old localStorage get the new default (false)
           if (state.showEntityDescriptions === undefined || state.showEntityDescriptions === true) {
             state.showEntityDescriptions = false;
+          }
+          state.savedViewPresets = (state.savedViewPresets || []).map((preset: any) => ({
+            ...preset,
+            focusMode: preset.focusMode || 'none',
+          }));
+          if (!state.focusMode) {
+            state.focusMode = 'none';
           }
         }
       },

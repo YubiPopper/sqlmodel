@@ -5,12 +5,12 @@
 <h1 align="center">SQLModel</h1>
 
 <p align="center">
-  <strong>Visual Data Modeling for Modern Teams</strong>
+  <strong>Visual data modeling for modern teams</strong>
 </p>
 
 <p align="center">
-  Design conceptual and physical database models with an intuitive canvas-based interface.<br/>
-  Open source. No account required. Your data stays local.
+  Design data models, conceptual ERDs, and physical schemas with an intuitive canvas-based interface.<br/>
+  Open source. Local-first by default. Optional cloud save and sharing when you want it.
 </p>
 
 <p align="center">
@@ -25,15 +25,16 @@
 
 ## ✨ What is SQLModel?
 
-SQLModel is a **free, open-source data modeling tool** that helps you design database schemas visually. Whether you're architecting a new application, documenting an existing database, or collaborating with your team on data design, SQLModel provides an intuitive canvas for bringing your ideas to life. Try it at [sqlmodel.org](https://sqlmodel.org).
+SQLModel is a **free, open-source data modeling tool** that helps you design data structures visually. Whether you're architecting a new application, documenting an existing database, or collaborating with your team on data design, SQLModel gives you a single workspace for data models, conceptual relationships, and physical database schemas. Try it at [sqlmodel.org](https://sqlmodel.org).
 
 ### Why SQLModel?
 
 | Feature | Benefit |
 |---------|---------|
-| **Dual-Layer Modeling** | Design at the conceptual level (entities & relationships) then refine to physical tables with columns, types, and foreign keys |
-| **AI-Powered Generation** | Describe your system in plain English and let AI generate complete data models — understands OLTP vs Analytics/Star Schema patterns |
-| **Privacy-First** | Works entirely offline in your browser. Optional cloud save for sharing diagrams with your team. Your data, your control. |
+| **Three Modeling Views** | Move between data model, conceptual ERD, and physical schema views as your design evolves |
+| **AI-Powered Generation** | Describe your system in plain English or provide an image, then let AI generate or enhance complete models |
+| **Privacy-First** | Works locally in your browser by default. Optional cloud save and diagram sharing for authenticated workflows. |
+| **Flexible AI Providers** | Use OpenAI, Anthropic, or a custom compatible endpoint from the AI settings dialog |
 | **Export Ready** | Generate SQL DDL scripts for PostgreSQL, MySQL, and more. Export diagrams as images. |
 | **Modern UX** | Built with React Flow for smooth pan, zoom, and drag interactions. Dark/light mode. Keyboard shortcuts. |
 
@@ -67,21 +68,21 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### AI Configuration (Optional)
 
-SQLModel includes AI-powered model generation using OpenAI's GPT-4o-Mini by default.
+SQLModel includes AI-powered model generation with a default OpenAI-compatible setup.
 
 1. Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
 
-2. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Get an API key from your chosen provider. SQLModel supports OpenAI, Anthropic, and compatible custom endpoints.
 
 3. Add your key to `.env`:
    ```env
    VITE_OPENAI_API_KEY=sk-your-key-here
    ```
 
-**Note**: The AI key can be configured at runtime via the AI Settings dialog (⚙️ icon in navbar). Environment variables are just a convenience default.
+**Note**: The AI key, provider, and model can be configured at runtime via the AI Settings dialog in the app. Environment variables are just a convenience default.
 
 ### Build for Production
 
@@ -96,48 +97,57 @@ npm run preview
 
 ### 1. Create Entities (Conceptual View)
 
+- Start in **Data Model** or **Conceptual** view, depending on how early you are in the design
 - Click **+ Entity** or right-click the canvas to add entities
 - Double-click an entity to edit its name and description
 - Drag from entity edges to create relationships
 - Use the arrow buttons on entity sides to quickly create linked entities
 
-### 2. Define Relationships
+### 2. Organize Your Model
+
+- Group related entities and tables with model groups
+- Use the sidebar hierarchy to navigate databases, schemas, and model sections
+- Select a data model, entity, group, table, or relationship in the right panel to edit its properties
+
+### 3. Define Relationships
 
 - Connect entities by dragging from one to another
 - Set cardinality (1, 0..1, 1..*, 0..*) in the right panel
 - Double-click relationship lines to add labels
 
-### 3. Generate Physical Tables
+### 4. Generate Physical Tables
 
 - Switch to **Physical View** using the toggle in the navbar
 - Use **AI → Generate Tables** to auto-create tables from your conceptual model
 - Or manually add tables with columns, primary keys, and data types
 
-### 4. Import Existing Schemas
+### 5. Import Existing Schemas
 
 Import database schemas from various sources:
 - **From URL**: Paste any GitHub/GitLab schema URL (Rails schema.rb, SQL files, Prisma, etc.)
   - GitHub blob URLs are automatically converted to raw URLs
   - Example: `github.com/user/repo/blob/main/db/schema.rb` works directly
-- **From File**: Upload local SQL, Rails, or Prisma schema files
+- **From File**: Upload local SQL, Rails, Prisma, and other supported schema files
 - **Shareable Import Links**: Use `?url=` query params to share auto-importing diagrams
 
-### 5. Create Foreign Keys
+### 6. Create Foreign Keys
 
 - In Physical View, drag from a column to another table's column
 - Configure cardinality and relationship type in the inspector
 
-### 6. Export Your Work
+### 7. Save and Export Your Work
 
 - **Save JSON**: Export your complete model for backup or sharing
+- **Cloud Diagrams**: Save and reopen diagrams from the cloud when signed in
 - **Export SQL**: Generate CREATE TABLE statements
 - **Export Image**: Save your diagram as PNG
 
-### 7. AI-Powered Modeling
+### 8. AI-Powered Modeling
 
 Click the **AI** button (✨) to:
 - **Generate New Model**: Describe your system and AI creates entities, relationships, and tables
 - **Enhance Model**: Add features to an existing model
+- **Use Images**: Paste or upload a screenshot or diagram and let AI extract the structure
 - **Smart Detection**: AI recognizes if you need OLTP (normalized) or Analytics (star schema) patterns
 
 ---
