@@ -124,6 +124,10 @@ interface ModelState {
   setNavigateToNodeCallback: (callback: ((nodeId: string) => void) | null) => void;
   centerDataModelCallback: ((dataModelId: string) => void) | null;
   setCenterDataModelCallback: (callback: ((dataModelId: string) => void) | null) => void;
+  centerDatabaseCallback: ((databaseName: string) => void) | null;
+  setCenterDatabaseCallback: (callback: ((databaseName: string) => void) | null) => void;
+  centerSchemaCallback: ((databaseName: string, schemaName: string) => void) | null;
+  setCenterSchemaCallback: (callback: ((databaseName: string, schemaName: string) => void) | null) => void;
   fitViewCallback: (() => void) | null;
   setFitViewCallback: (callback: (() => void) | null) => void;
   setEditingGroupId: (id: string | null) => void;
@@ -217,6 +221,8 @@ export const useModelStore = create<ModelState>()(
       multiSelectedEntityIds: [],
       navigateToNodeCallback: null,
       centerDataModelCallback: null,
+      centerDatabaseCallback: null,
+      centerSchemaCallback: null,
       fitViewCallback: null,
       multiSelectedTableIds: [],
       editingGroupId: null,
@@ -856,6 +862,10 @@ export const useModelStore = create<ModelState>()(
       setNavigateToNodeCallback: (callback) => set({ navigateToNodeCallback: callback }),
 
       setCenterDataModelCallback: (callback) => set({ centerDataModelCallback: callback }),
+
+      setCenterDatabaseCallback: (callback) => set({ centerDatabaseCallback: callback }),
+
+      setCenterSchemaCallback: (callback) => set({ centerSchemaCallback: callback }),
       
       setFitViewCallback: (callback) => set({ fitViewCallback: callback }),
       
@@ -2233,6 +2243,9 @@ export const useModelStore = create<ModelState>()(
           showExampleDialog, 
           showAISettingsDialog,
           navigateToNodeCallback,
+          centerDataModelCallback,
+          centerDatabaseCallback,
+          centerSchemaCallback,
           fitViewCallback,
           ...persistedState 
         } = state;

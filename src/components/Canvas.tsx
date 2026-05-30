@@ -121,6 +121,8 @@ const CanvasInner = () => {
     removeEntityFromGroup,
     setNavigateToNodeCallback,
     setCenterDataModelCallback,
+    setCenterDatabaseCallback,
+    setCenterSchemaCallback,
   } = useModelStore();
 
   const selectedDataModelId = dataModels.some(model => model.id === selectedId)
@@ -217,14 +219,68 @@ const CanvasInner = () => {
       }
     };
 
+    const centerTables = (tableIds: string[], retries = 4) => {
+      if (tableIds.length === 0) return;
+
+      const tableIdSet = new Set(tableIds);
+      const tableNodes = reactFlowInstance.getNodes().filter(node => tableIdSet.has(node.id));
+
+      if (tableNodes.length > 0) {
+        reactFlowInstance.fitView({ nodes: tableNodes, padding: 0.25, duration: 400, maxZoom: 0.9 });
+      } else if (retries > 0) {
+        requestAnimationFrame(() => centerTables(tableIds, retries - 1));
+      }
+    };
+
+    const centerDatabase = (databaseName: string) => {
+      const state = useModelStore.getState();
+      const hiddenTableSet = state.hiddenTableIds instanceof Set
+        ? state.hiddenTableIds
+        : new Set(state.hiddenTableIds || []);
+
+      const matchingTableIds = state.tables
+        .filter(table => (table.database || 'unassigned') === databaseName && !hiddenTableSet.has(table.id))
+        .map(table => table.id);
+
+      centerTables(matchingTableIds);
+    };
+
+    const centerSchema = (databaseName: string, schemaName: string) => {
+      const state = useModelStore.getState();
+      const hiddenTableSet = state.hiddenTableIds instanceof Set
+        ? state.hiddenTableIds
+        : new Set(state.hiddenTableIds || []);
+
+      const matchingTableIds = state.tables
+        .filter(
+          table =>
+            (table.database || 'unassigned') === databaseName &&
+            (table.schema || 'unassigned') === schemaName &&
+            !hiddenTableSet.has(table.id)
+        )
+        .map(table => table.id);
+
+      centerTables(matchingTableIds);
+    };
+
     setNavigateToNodeCallback(navigateToNode);
     setCenterDataModelCallback(centerDataModel);
+    setCenterDatabaseCallback(centerDatabase);
+    setCenterSchemaCallback(centerSchema);
 
     return () => {
       setNavigateToNodeCallback(null);
       setCenterDataModelCallback(null);
+      setCenterDatabaseCallback(null);
+      setCenterSchemaCallback(null);
     };
-  }, [reactFlowInstance, setNavigateToNodeCallback, setCenterDataModelCallback]);
+  }, [
+    reactFlowInstance,
+    setNavigateToNodeCallback,
+    setCenterDataModelCallback,
+    setCenterDatabaseCallback,
+    setCenterSchemaCallback,
+  ]);
 
   // Register fitView callback for auto-fit after loading/importing
   useEffect(() => {

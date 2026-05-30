@@ -12,6 +12,7 @@ import { AIDialog } from '../ui/AIDialog';
 import { AISettingsDialog } from '../ui/AISettingsDialog';
 import { AddTableDialog } from '../ui/AddTableDialog';
 import { useUrlImport } from '../../hooks/useUrlImport';
+import { CommandPalette } from './CommandPalette';
 
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -31,6 +32,8 @@ export const AppLayout: React.FC = () => {
   const setShowAISettingsDialog = useModelStore(state => state.setShowAISettingsDialog);
   const showAddTableDialog = useModelStore(state => state.showAddTableDialog);
   const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandPaletteSession, setCommandPaletteSession] = useState(0);
   
   const isDark = colorMode === 'dark';
 
@@ -87,6 +90,21 @@ export const AppLayout: React.FC = () => {
     loadInitialData();
   }, [urlImport.status]); // Re-run when URL import status changes
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCommandPaletteSession(session => session + 1);
+        setShowCommandPalette(true);
+      } else if (event.key === 'Escape') {
+        setShowCommandPalette(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Sidebar is hidden by default (leftSidebarCollapsed: true in store)
   // User toggles it manually via the navbar sidebar icon
 
@@ -110,7 +128,14 @@ export const AppLayout: React.FC = () => {
         position: 'relative',
       }}>
         {/* Left Sidebar - Model Tree */}
-        {!leftSidebarCollapsed && <LeftSidebar />}
+        {!leftSidebarCollapsed && (
+          <LeftSidebar
+            onOpenCommandPalette={() => {
+              setCommandPaletteSession(session => session + 1);
+              setShowCommandPalette(true);
+            }}
+          />
+        )}
         
         {/* Sidebar toggle - always visible outside the sidebar */}
         <Tooltip content={leftSidebarCollapsed ? 'Open sidebar' : 'Close sidebar'} placement="right">
@@ -230,6 +255,11 @@ export const AppLayout: React.FC = () => {
           setShowAddTableDialog(false);
           setShowAISettingsDialog(true);
         }}
+      />
+      <CommandPalette
+        key={commandPaletteSession}
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
       />
     </div>
   );
