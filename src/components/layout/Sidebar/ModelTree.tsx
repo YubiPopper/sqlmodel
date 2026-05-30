@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import type { PhysicalTable } from '../../../model/schemas';
+import { getLinkedEntityIds } from '../../../utils/focusMode';
 
 // Type aliases for the database hierarchy
 type SchemaMap = Record<string, PhysicalTable[]>;
@@ -36,6 +37,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     viewMode,
     setViewMode,
     colorMode,
+    focusMode,
     physicalHierarchyMode,
     hiddenEntityIds,
     hiddenTableIds,
@@ -88,13 +90,20 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   }, [schemaDescriptions]);
 
   const isDark = colorMode === 'dark';
+  const hideUnlinkedEntities = focusMode === 'hide-unlinked-entities';
+
+  const linkedEntityIds = useMemo(() => getLinkedEntityIds(relationships), [relationships]);
 
   // Conceptual View - Filter data models, entities, groups, and relationships based on search
   const filteredConceptualData = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     
+    const focusFilteredEntities = hideUnlinkedEntities
+      ? entities.filter(entity => linkedEntityIds.has(entity.id))
+      : entities;
+
     if (!query) {
-      return { dataModels, entities, entityGroups, relationships };
+      return { dataModels, entities: focusFilteredEntities, entityGroups, relationships };
     }
 
     const matchingDataModels = dataModels.filter(model =>
@@ -104,7 +113,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     const matchingDataModelIds = new Set(matchingDataModels.map(model => model.id));
     
     // Filter entities by name or description
-    const matchingEntities = entities.filter(e => 
+    const matchingEntities = focusFilteredEntities.filter(e => 
       e.name.toLowerCase().includes(query) ||
       (e.description && e.description.toLowerCase().includes(query))
     );
@@ -134,7 +143,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       entityGroups: matchingGroups,
       relationships: matchingRelationships 
     };
-  }, [dataModels, entities, entityGroups, relationships, searchQuery]);
+  }, [dataModels, entities, entityGroups, relationships, searchQuery, hideUnlinkedEntities, linkedEntityIds]);
 
   const activeDataModelId = useMemo(() => {
     if (dataModels.length === 0) return undefined;
@@ -179,12 +188,18 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const filteredTablesAndEntities = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     
+    const focusFilteredEntities = hideUnlinkedEntities
+      ? entities.filter(entity => linkedEntityIds.has(entity.id))
+      : entities;
+    const focusEntityIdSet = new Set(focusFilteredEntities.map(entity => entity.id));
+    const scopedTables = tables.filter(table => !table.entityId || focusEntityIdSet.has(table.entityId));
+
     if (!query) {
-      return { tables, entities };
+      return { tables: scopedTables, entities: focusFilteredEntities };
     }
     
     // Filter tables by table name plus namespace name/description.
-    const matchingTables = tables.filter(t => 
+    const matchingTables = scopedTables.filter(t => 
       t.name.toLowerCase().includes(query) ||
       (t.database || 'unassigned').toLowerCase().includes(query) ||
       (t.schema || 'unassigned').toLowerCase().includes(query) ||
@@ -197,19 +212,19 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     matchingTables.forEach(t => {
       if (t.entityId) matchingEntityIds.add(t.entityId);
     });
-    entities.forEach(e => {
+    focusFilteredEntities.forEach(e => {
       if (e.name.toLowerCase().includes(query)) {
         matchingEntityIds.add(e.id);
       }
     });
     
-    const matchingEntities = entities.filter(e => matchingEntityIds.has(e.id));
+    const matchingEntities = focusFilteredEntities.filter(e => matchingEntityIds.has(e.id));
     
     return { 
       tables: matchingTables, 
       entities: matchingEntities 
     };
-  }, [tables, entities, searchQuery, databaseDescriptions, schemaDescriptions]);
+  }, [tables, entities, searchQuery, databaseDescriptions, schemaDescriptions, hideUnlinkedEntities, linkedEntityIds]);
 
   // Group tables by entity
   const entitiesWithTables = useMemo(() => {

@@ -30,6 +30,7 @@ import { AddTableDialog } from './ui/AddTableDialog';
 import { AISettingsDialog } from './ui/AISettingsDialog';
 import { ContextMenu, type ContextMenuItem } from './ui/ContextMenu';
 import { Plus, Trash2, Copy, ArrowDownUp, Group, Pencil, Code } from 'lucide-react';
+import { getLinkedEntityIds, shouldIncludeEntityForFocus } from '../utils/focusMode';
 
 // Define nodeTypes and edgeTypes outside component to prevent React Flow warnings
 const nodeTypes = {
@@ -93,6 +94,7 @@ const CanvasInner = () => {
     multiSelectedTableIds,
     hiddenEntityIds,
     hiddenTableIds,
+    focusMode,
     showRelationshipLabels,
     relationshipLabelSize,
     showEntityDescriptions,
@@ -247,6 +249,9 @@ const CanvasInner = () => {
   // Ensure hiddenEntityIds and hiddenTableIds are Sets (fallback for localStorage migration)
   const safeHiddenEntityIds = hiddenEntityIds instanceof Set ? hiddenEntityIds : new Set(hiddenEntityIds || []);
   const safeHiddenTableIds = hiddenTableIds instanceof Set ? hiddenTableIds : new Set(hiddenTableIds || []);
+  const hideUnlinkedEntities = focusMode === 'hide-unlinked-entities';
+
+  const linkedEntityIds = useMemo(() => getLinkedEntityIds(relationships), [relationships]);
 
   // Compute directly connected entity IDs (1-hop only, matching Liam ERD behavior)
   const connectedEntityIds = useMemo(() => {
@@ -400,7 +405,9 @@ const CanvasInner = () => {
 
     if (isConceptualLikeView) {
       // Filter out hidden entities
-      const scopedEntities = entities.filter(e => !activeDataModelId || e.dataModelId === activeDataModelId);
+      const scopedEntities = entities.filter(entity =>
+        shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+      );
       const visibleEntities = scopedEntities.filter(e => !safeHiddenEntityIds.has(e.id));
       const visibleEntityIdSet = new Set(visibleEntities.map(entity => entity.id));
       
@@ -519,7 +526,9 @@ const CanvasInner = () => {
       // Filter out hidden tables
       const scopedEntityIds = new Set(
         entities
-          .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+          .filter(entity =>
+            shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+          )
           .map(entity => entity.id)
       );
       const visibleTables = tables.filter(t => {
@@ -549,7 +558,9 @@ const CanvasInner = () => {
 
       // Create entity group nodes as background containers (independent positioning)
       const entityGroupNodes: Node[] = entities
-      .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+      .filter(entity =>
+        shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+      )
       .map(entity => {
         // Find all visible tables belonging to this entity
         const entityTables = visibleTables.filter(t => t.entityId === entity.id);
@@ -681,7 +692,7 @@ const CanvasInner = () => {
       // Return group nodes first (lower z-index), then table nodes on top
       return [...entityGroupNodes, ...tableNodes];
     }
-  }, [entities, entityGroups, tables, dataModels, nodeLayouts, tableLayouts, selectedId, isConceptualLikeView, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize, viewMode, activeDataModelId]);
+  }, [entities, entityGroups, tables, dataModels, nodeLayouts, tableLayouts, selectedId, isConceptualLikeView, showEntityOverlay, tableFieldsDisplay, multiSelectedEntityIds, multiSelectedTableIds, dragHoverEntityGroupId, dragHoverGroupId, hiddenEntityIds, hiddenTableIds, showEntityDescriptions, entityCardSize, viewMode, activeDataModelId, hideUnlinkedEntities, linkedEntityIds]);
 
   // Local display nodes - mirrors store nodes but gets fast position updates during drag
   // This avoids the Zustand → useMemo → all nodes rebuild cycle on every drag pixel
@@ -700,7 +711,9 @@ const CanvasInner = () => {
 
       const scopedEntityIdSet = new Set(
         entities
-          .filter(entity => !activeDataModelId || entity.dataModelId === activeDataModelId)
+          .filter(entity =>
+            shouldIncludeEntityForFocus(entity, activeDataModelId, hideUnlinkedEntities, linkedEntityIds)
+          )
           .map(entity => entity.id)
       );
 
@@ -956,7 +969,7 @@ const CanvasInner = () => {
         };
       });
     }
-  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedDataModelIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize, entities, tables, activeDataModelId]);
+  }, [relationships, foreignKeys, selectedId, hoveredNodeId, viewMode, nodeLayouts, tableLayouts, connectedEntityIds, connectedDataModelIds, connectedTableIds, colorMode, tableFieldsDisplay, hiddenEntityIds, hiddenTableIds, showRelationshipLabels, relationshipLabelSize, entities, tables, activeDataModelId, hideUnlinkedEntities, linkedEntityIds]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     // Apply ALL changes (position, select, etc.) to local display nodes immediately
