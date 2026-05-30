@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import dagre from 'dagre';
-import type { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../services/supabaseClient';
 import type { 
   DataModel,
   Entity, 
@@ -23,12 +21,6 @@ import { clearSchemaUrl } from '../hooks/schemaUrlState';
 interface ModelState {
   savedViewPresets: ViewFilterPreset[];
   focusMode: 'none' | 'hide-unlinked-entities';
-  // Authentication
-  user: User | null;
-  session: Session | null;
-  setUser: (user: User | null) => void;
-  setSession: (session: Session | null) => void;
-  signOut: () => Promise<void>;
   
   // Conceptual layer
   dataModels: DataModel[];
@@ -179,15 +171,6 @@ interface ModelState {
   loadModelFromJSON: (data: any) => void;
   clearModel: () => void;
   
-  // Diagram Management (Supabase)
-  saveDiagramToCloud: (name: string, description?: string, isPublic?: boolean) => Promise<string | null>;
-  loadDiagramFromCloud: (id: string) => Promise<void>;
-  getUserDiagrams: () => Promise<any[]>;
-  getPublicDiagrams: () => Promise<any[]>;
-  deleteDiagramFromCloud: (id: string) => Promise<void>;
-  currentDiagramId: string | null;
-  setCurrentDiagramId: (id: string | null) => void;
-  
   // Helper methods
   getTablesForEntity: (entityId: string) => PhysicalTable[];
   getEntityForTable: (tableId: string) => Entity | undefined;
@@ -212,16 +195,6 @@ interface ViewFilterPreset {
 export const useModelStore = create<ModelState>()(
   persist(
     (set, get) => ({
-      // Authentication
-      user: null,
-      session: null,
-      setUser: (user) => set({ user }),
-      setSession: (session) => set({ session }),
-      signOut: async () => {
-        await supabase.auth.signOut();
-        set({ user: null, session: null });
-      },
-      
       entities: [],
       dataModels: [],
       relationships: [],
@@ -262,8 +235,6 @@ export const useModelStore = create<ModelState>()(
       relationshipLabelSize: 'large',
       leftSidebarCollapsed: true,
       rightPanelMobileOpen: false,
-      currentDiagramId: null,
-      setCurrentDiagramId: (id) => set({ currentDiagramId: id }),
       
       // Dialog visibility states
       showAddTableDialog: false,
@@ -2146,163 +2117,6 @@ export const useModelStore = create<ModelState>()(
         get().autoLayout();
         set({ viewMode: 'conceptual' });
       },
-      
-      // Diagram Cloud Management
-      saveDiagramToCloud: async (name: string, description?: string, isPublic: boolean = false) => {
-        const state = get();
-        if (!state.user) {
-          console.error('User must be logged in to save diagrams');
-          return null;
-        }
-        
-        const diagramData = {
-          conceptual: {
-            dataModels: state.dataModels,
-            entities: state.entities,
-            relationships: state.relationships,
-            groups: state.entityGroups,
-          },
-          physical: {
-            tables: state.tables,
-            foreignKeys: state.foreignKeys,
-            tableGroups: state.tableGroups,
-          },
-          databaseDescriptions: state.databaseDescriptions,
-          schemaDescriptions: state.schemaDescriptions,
-          nodeLayouts: state.nodeLayouts,
-          tableLayouts: state.tableLayouts,
-          viewport: state.viewport,
-          viewMode: state.viewMode,
-        };
-        
-        try {
-          if (state.currentDiagramId) {
-            // Update existing diagram
-            const { error } = await supabase
-              .from('diagrams')
-              .update({
-                name,
-                description,
-                data: diagramData,
-                is_public: isPublic,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', state.currentDiagramId);
-            
-            if (error) throw error;
-            return state.currentDiagramId;
-          } else {
-            // Create new diagram
-            const { data, error } = await supabase
-              .from('diagrams')
-              .insert({
-                user_id: state.user.id,
-                name,
-                description,
-                data: diagramData,
-                is_public: isPublic,
-              })
-              .select()
-              .single();
-            
-            if (error) throw error;
-            set({ currentDiagramId: data.id });
-            return data.id;
-          }
-        } catch (error) {
-          console.error('Error saving diagram:', error);
-          return null;
-        }
-      },
-      
-      loadDiagramFromCloud: async (id: string) => {
-        try {
-          const { data, error } = await supabase
-            .from('diagrams')
-            .select('*')
-            .eq('id', id)
-            .single();
-          
-          if (error) throw error;
-          if (!data) throw new Error('Diagram not found');
-          
-          const diagramData = data.data;
-          set({
-            dataModels: diagramData.conceptual?.dataModels || [],
-            entities: diagramData.conceptual?.entities || [],
-            relationships: diagramData.conceptual?.relationships || [],
-            entityGroups: diagramData.conceptual?.groups || [],
-            tables: diagramData.physical?.tables || [],
-            foreignKeys: diagramData.physical?.foreignKeys || [],
-            tableGroups: diagramData.physical?.tableGroups || [],
-            databaseDescriptions: diagramData.databaseDescriptions || {},
-            schemaDescriptions: diagramData.schemaDescriptions || {},
-            nodeLayouts: diagramData.nodeLayouts || {},
-            tableLayouts: diagramData.tableLayouts || {},
-            viewport: diagramData.viewport || { x: 0, y: 0, zoom: 1 },
-            viewMode: diagramData.viewMode || 'conceptual',
-            currentDiagramId: id,
-          });
-        } catch (error) {
-          console.error('Error loading diagram:', error);
-          throw error;
-        }
-      },
-      
-      getUserDiagrams: async () => {
-        const state = get();
-        if (!state.user) return [];
-        
-        try {
-          const { data, error } = await supabase
-            .from('diagrams')
-            .select('id, name, description, is_public, created_at, updated_at')
-            .eq('user_id', state.user.id)
-            .order('updated_at', { ascending: false });
-          
-          if (error) throw error;
-          return data || [];
-        } catch (error) {
-          console.error('Error fetching user diagrams:', error);
-          return [];
-        }
-      },
-      
-      getPublicDiagrams: async () => {
-        try {
-          const { data, error } = await supabase
-            .from('diagrams')
-            .select('id, name, description, created_at, updated_at')
-            .eq('is_public', true)
-            .order('updated_at', { ascending: false })
-            .limit(20);
-          
-          if (error) throw error;
-          return data || [];
-        } catch (error) {
-          console.error('Error fetching public diagrams:', error);
-          return [];
-        }
-      },
-      
-      deleteDiagramFromCloud: async (id: string) => {
-        try {
-          const { error } = await supabase
-            .from('diagrams')
-            .delete()
-            .eq('id', id);
-          
-          if (error) throw error;
-          
-          const state = get();
-          if (state.currentDiagramId === id) {
-            set({ currentDiagramId: null });
-          }
-        } catch (error) {
-          console.error('Error deleting diagram:', error);
-          throw error;
-        }
-      }
     }),
     {
       name: 'sqlmodel-storage',
