@@ -1,7 +1,10 @@
-name: Deploy Node App
+name: Deploy SQLModel
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -17,6 +20,8 @@ jobs:
           port: ${{ secrets.PORT }}
 
           script: |
+            set -e
+
             cd ~/sqlmodel
 
             git pull origin main
@@ -24,3 +29,24 @@ jobs:
             npm ci
 
             npm run build
+
+            # Install signaling server runtime deps
+            cd signaling-server
+            npm ci --omit=dev
+            cd ..
+
+            # Restart services if they exist on the server.
+            if command -v systemctl >/dev/null 2>&1; then
+              if systemctl list-unit-files | grep -q '^sqlmodel.service'; then
+                sudo systemctl restart sqlmodel
+              fi
+              if systemctl list-unit-files | grep -q '^sqlmodel-signaling.service'; then
+                sudo systemctl restart sqlmodel-signaling
+              fi
+            fi
+
+            # PM2 fallback if systemd units are not used
+            if command -v pm2 >/dev/null 2>&1; then
+              pm2 restart sqlmodel || true
+              pm2 restart sqlmodel-signaling || true
+            fi
