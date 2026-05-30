@@ -7,15 +7,15 @@ interface PresenceAvatarsProps {
   onClick: () => void;
 }
 
-const MAX_VISIBLE = 3;
+const MAX_VISIBLE_AVATARS = 3;
 
 export const PresenceAvatars = ({ users, selfColor, selfName, onClick }: PresenceAvatarsProps) => {
   const allUsers = [
     { id: 'self', name: selfName, color: selfColor, selectedId: null } as CollaborationUser,
     ...users,
   ];
-  const visible = allUsers.slice(0, MAX_VISIBLE);
-  const overflow = allUsers.length - MAX_VISIBLE;
+  const visible = allUsers.slice(0, MAX_VISIBLE_AVATARS);
+  const overflow = allUsers.length - MAX_VISIBLE_AVATARS;
 
   return (
     <button
@@ -47,7 +47,7 @@ export const PresenceAvatars = ({ users, selfColor, selfName, onClick }: Presenc
             fontWeight: 700,
             color: '#fff',
             marginLeft: i === 0 ? 0 : '-6px',
-            zIndex: MAX_VISIBLE - i,
+            zIndex: MAX_VISIBLE_AVATARS - i,
             position: 'relative',
             flexShrink: 0,
             boxShadow: '0 1px 3px rgba(0,0,0,0.25)',

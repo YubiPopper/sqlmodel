@@ -128,7 +128,7 @@ export const CollaborationDialog = ({
             }
             <span style={{ fontSize: '13px', color: session.isActive ? '#10b981' : isDark ? '#8b949e' : '#6b7280' }}>
               {session.isActive
-                ? `Live session · ${session.connectedUsers.length + 1} user${session.connectedUsers.length !== 0 ? 's' : ''} connected`
+                ? `Live session · ${session.connectedUsers.length + 1} user${session.connectedUsers.length + 1 !== 1 ? 's' : ''} connected`
                 : 'Not in a collaborative session'}
             </span>
           </div>

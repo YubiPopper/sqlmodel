@@ -112,9 +112,11 @@ function pushStoreToYjs(): void {
   }
 }
 
+const LAYOUT_SYNC_DEBOUNCE_MS = 80;
+
 function pushStoreToYjsDebounced(): void {
   if (layoutDebounceTimer) clearTimeout(layoutDebounceTimer);
-  layoutDebounceTimer = setTimeout(pushStoreToYjs, 80);
+  layoutDebounceTimer = setTimeout(pushStoreToYjs, LAYOUT_SYNC_DEBOUNCE_MS);
 }
 
 // ─── Yjs → Zustand ──────────────────────────────────────────────────────────

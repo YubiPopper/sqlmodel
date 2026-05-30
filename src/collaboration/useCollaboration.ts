@@ -21,12 +21,21 @@ function getOrCreateUserId(): string {
   return id;
 }
 
+// ─── Suffix generation (unbiased, no modulo on crypto output) ────────────────
+// Rejection sampling: generate a 10-bit value (0-1023), reject if >= 1000.
+function getUnbiasedUserSuffix(): number {
+  let value: number;
+  do {
+    value = crypto.getRandomValues(new Uint16Array(1))[0] & 0x3ff; // 0–1023
+  } while (value >= 1000);
+  return value;
+}
+
 function getOrCreateUserName(): string {
   const key = 'sqlmodel-collab-user-name';
   let name = localStorage.getItem(key);
   if (!name) {
-    const randomSuffix = crypto.getRandomValues(new Uint32Array(1))[0] % 900 + 100;
-    name = `User ${randomSuffix}`;
+    name = `User ${String(getUnbiasedUserSuffix()).padStart(3, '0')}`;
     localStorage.setItem(key, name);
   }
   return name;
