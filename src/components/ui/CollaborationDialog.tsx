@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Users, Copy, Check, X, Wifi, WifiOff } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 import type { CollaborationSession } from '../../collaboration/types';
+import type { RecentCollaborationRoom } from '../../collaboration/CollaborationContext';
 
 interface CollaborationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   session: CollaborationSession;
   inviteLink: string | null;
+  recentRooms: RecentCollaborationRoom[];
   onStart: () => void;
+  onReopenRoom: (roomId: string) => void;
   onStop: () => void;
 }
 
@@ -17,11 +20,15 @@ export const CollaborationDialog = ({
   onClose,
   session,
   inviteLink,
+  recentRooms,
   onStart,
+  onReopenRoom,
   onStop,
 }: CollaborationDialogProps) => {
   const [copied, setCopied] = useState(false);
   const colorMode = useModelStore((s) => s.colorMode);
+  const clearModel = useModelStore((s) => s.clearModel);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const isDark = colorMode === 'dark';
 
   if (!isOpen) return null;
@@ -31,6 +38,33 @@ export const CollaborationDialog = ({
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatLastVisited = (timestamp: number): string =>
+    new Date(timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+  const handleClose = () => {
+    setShowLeaveConfirm(false);
+    onClose();
+  };
+
+  const handleBackdropClick = () => {
+    if (showLeaveConfirm) {
+      setShowLeaveConfirm(false);
+      return;
+    }
+    handleClose();
+  };
+
+  const handleLeaveKeepLocal = () => {
+    setShowLeaveConfirm(false);
+    onStop();
+  };
+
+  const handleLeaveStartNew = () => {
+    setShowLeaveConfirm(false);
+    onStop();
+    clearModel();
   };
 
   return (
@@ -45,7 +79,7 @@ export const CollaborationDialog = ({
         zIndex: 9999,
         padding: '16px',
       }}
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       <div
         style={{
@@ -58,6 +92,7 @@ export const CollaborationDialog = ({
             : '0 20px 60px rgba(0, 0, 0, 0.15)',
           border: isDark ? '1px solid #30363d' : '1px solid #e2e8f0',
           overflow: 'hidden',
+          position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -89,7 +124,7 @@ export const CollaborationDialog = ({
               </h3>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -216,6 +251,57 @@ export const CollaborationDialog = ({
             </div>
           )}
 
+          {!session.isActive && recentRooms.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: isDark ? '#8b949e' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Recent rooms
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {recentRooms.map((room) => (
+                  <div
+                    key={room.roomId}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
+                      background: isDark ? '#0d1117' : '#f8fafc',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontFamily: 'ui-monospace, monospace', color: isDark ? '#e6edf3' : '#1f2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {room.roomId}
+                      </div>
+                      <div style={{ fontSize: '11px', color: isDark ? '#8b949e' : '#6b7280' }}>
+                        Last visited {formatLastVisited(room.lastVisitedAt)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onReopenRoom(room.roomId)}
+                      style={{
+                        border: 'none',
+                        outline: 'none',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#fff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '7px 10px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Reopen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: '8px' }}>
             {!session.isActive ? (
@@ -241,7 +327,7 @@ export const CollaborationDialog = ({
               </button>
             ) : (
               <button
-                onClick={onStop}
+                onClick={() => setShowLeaveConfirm(true)}
                 style={{
                   padding: '10px 16px',
                   border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
@@ -262,7 +348,7 @@ export const CollaborationDialog = ({
             )}
 
             <button
-              onClick={onClose}
+              onClick={handleClose}
               style={{
                 padding: '10px 16px',
                 border: isDark ? '1px solid rgba(48, 54, 61, 0.8)' : '1px solid rgba(226, 232, 240, 0.8)',
@@ -288,6 +374,90 @@ export const CollaborationDialog = ({
             </button>
           </div>
         </div>
+        {showLeaveConfirm && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: isDark ? 'rgba(13, 17, 23, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '360px',
+                borderRadius: '10px',
+                border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
+                background: isDark ? '#161b22' : '#ffffff',
+                padding: '16px',
+              }}
+            >
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: isDark ? '#e6edf3' : '#1f2937' }}>
+                Leave collaboration?
+              </h4>
+              <p style={{ margin: '0 0 14px 0', fontSize: '13px', lineHeight: 1.5, color: isDark ? '#8b949e' : '#6b7280' }}>
+                Do you want to keep a local copy of this model, or leave and start a new blank model?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  onClick={handleLeaveKeepLocal}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  Keep local copy
+                </button>
+                <button
+                  onClick={handleLeaveStartNew}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    background: 'transparent',
+                    color: isDark ? '#f85149' : '#dc2626',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  Start new model
+                </button>
+                <button
+                  onClick={() => setShowLeaveConfirm(false)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: isDark ? '1px solid #30363d' : '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    background: 'transparent',
+                    color: isDark ? '#8b949e' : '#64748b',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

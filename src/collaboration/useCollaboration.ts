@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { CollaborationSession, CollaborationUser } from './types';
+import type { RecentCollaborationRoom } from './CollaborationContext';
 import { initProviders, teardownProviders, getWebrtcProvider } from './ydoc';
 import { initSync, teardownSync } from './sync';
 import { useModelStore } from '../store/useModelStore';
@@ -10,6 +11,8 @@ const USER_COLORS = [
   '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
   '#ec4899', '#ef4444', '#14b8a6', '#f97316',
 ];
+const RECENT_ROOMS_KEY = 'sqlmodel-collab-recent-rooms';
+const MAX_RECENT_ROOMS = 8;
 
 function getOrCreateUserId(): string {
   const key = 'sqlmodel-collab-user-id';
@@ -65,11 +68,35 @@ function removeRoomFromUrl(): void {
   window.history.pushState({}, '', url.toString());
 }
 
+function getRecentRooms(): RecentCollaborationRoom[] {
+  const saved = localStorage.getItem(RECENT_ROOMS_KEY);
+  if (!saved) return [];
+  try {
+    const parsed = JSON.parse(saved) as RecentCollaborationRoom[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((room) => room && typeof room.roomId === 'string' && typeof room.lastVisitedAt === 'number')
+      .slice(0, MAX_RECENT_ROOMS);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentRoom(roomId: string): RecentCollaborationRoom[] {
+  const updatedRooms = [
+    { roomId, lastVisitedAt: Date.now() },
+    ...getRecentRooms().filter((room) => room.roomId !== roomId),
+  ].slice(0, MAX_RECENT_ROOMS);
+  localStorage.setItem(RECENT_ROOMS_KEY, JSON.stringify(updatedRooms));
+  return updatedRooms;
+}
+
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useCollaboration() {
   const roomFromUrl = getRoomFromUrl();
   const initialRoomRef = useRef(roomFromUrl);
+  const [recentRooms, setRecentRooms] = useState<RecentCollaborationRoom[]>(() => getRecentRooms());
   const [session, setSession] = useState<CollaborationSession>({
     roomId: roomFromUrl ?? '',
     userId: getOrCreateUserId(),
@@ -80,7 +107,6 @@ export function useCollaboration() {
   });
 
   const setCollaboratorSelections = useModelStore((s) => s.setCollaboratorSelections);
-  const clearModel = useModelStore((s) => s.clearModel);
   const selectedId = useModelStore((s) => s.selectedId);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
@@ -104,6 +130,7 @@ export function useCollaboration() {
     const userColor = getUserColor(userId);
 
     setRoomInUrl(roomId);
+    setRecentRooms(saveRecentRoom(roomId));
 
     const provider = initProviders(roomId);
     initSync(isJoining);
@@ -151,17 +178,20 @@ export function useCollaboration() {
     teardownProviders();
     removeRoomFromUrl();
     setCollaboratorSelections({});
-    clearModel();
     setSession((prev) => ({
       ...prev,
       roomId: '',
       isActive: false,
       connectedUsers: [],
     }));
-  }, [clearModel, setCollaboratorSelections]);
+  }, [setCollaboratorSelections]);
 
   const startCollaboration = useCallback(() => {
     const roomId = uuidv4();
+    startSession(roomId);
+  }, [startSession]);
+
+  const reopenRoom = useCallback((roomId: string) => {
     startSession(roomId);
   }, [startSession]);
 
@@ -190,7 +220,9 @@ export function useCollaboration() {
     roomId: session.roomId,
     connectedUsers: session.connectedUsers,
     inviteLink,
+    recentRooms,
     startCollaboration,
+    reopenRoom,
     stopSession,
   };
 }

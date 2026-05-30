@@ -20,7 +20,7 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
 
-  const { session, isActive, inviteLink, startCollaboration, stopSession } = useCollaborationContext();
+  const { session, isActive, inviteLink, recentRooms, startCollaboration, reopenRoom, stopSession } = useCollaborationContext();
 
   const handleShare = () => {
     setShowShareDialog(true);
@@ -281,8 +281,12 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
         onClose={() => setShowCollabDialog(false)}
         session={session}
         inviteLink={inviteLink}
+        recentRooms={recentRooms}
         onStart={() => {
           startCollaboration();
+        }}
+        onReopenRoom={(roomId) => {
+          reopenRoom(roomId);
         }}
         onStop={() => {
           stopSession();
