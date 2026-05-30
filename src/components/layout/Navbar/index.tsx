@@ -6,6 +6,9 @@ import { ViewModeToggle } from './ViewModeToggle';
 import { NavbarActions } from './NavbarActions';
 import { GlobalSettings } from './GlobalSettings';
 import { SaveShareButtons } from './SaveShareButtons';
+import { PresenceAvatars } from './PresenceAvatars';
+import { CollaborationDialog } from '../../ui/CollaborationDialog';
+import { useCollaborationContext } from '../../../collaboration/CollaborationContext';
 
 export const Navbar: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -13,6 +16,8 @@ export const Navbar: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isDark = colorMode === 'dark';
+  const { isActive, session, inviteLink, startCollaboration, stopSession } = useCollaborationContext();
+  const [showCollabDialog, setShowCollabDialog] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -95,6 +100,14 @@ export const Navbar: React.FC = () => {
         }}>
           {!isMobile && (
             <>
+              {isActive && (
+                <PresenceAvatars
+                  users={session.connectedUsers}
+                  selfColor={session.userColor}
+                  selfName={session.userName}
+                  onClick={() => setShowCollabDialog(true)}
+                />
+              )}
               <SaveShareButtons />
               <GlobalSettings />
             </>
@@ -186,6 +199,15 @@ export const Navbar: React.FC = () => {
           </div>
         </>
       )}
+      {/* Collaboration Dialog (desktop presence avatars click) */}
+      <CollaborationDialog
+        isOpen={showCollabDialog}
+        onClose={() => setShowCollabDialog(false)}
+        session={session}
+        inviteLink={inviteLink}
+        onStart={startCollaboration}
+        onStop={() => { stopSession(); setShowCollabDialog(false); }}
+      />
     </>
   );
 };

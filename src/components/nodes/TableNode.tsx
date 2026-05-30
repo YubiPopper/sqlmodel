@@ -155,6 +155,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
   const selectedTableAttribute = useModelStore(state => state.selectedTableAttribute);
   const tableFieldsDisplay = useModelStore(state => state.tableFieldsDisplay);
   const selectedId = useModelStore(state => state.selectedId);
+  const collaboratorSelections = useModelStore(state => state.collaboratorSelections);
 
   // Memoize color styles to avoid recomputing on every render
   const isDark = colorMode === 'dark';
@@ -162,6 +163,11 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
 
   // Check if this table is multi-selected
   const isMultiSelected = multiSelectedTableIds.includes(data.id);
+
+  // Find any collaborator who has this table selected
+  const collaboratorHighlight = Object.values(collaboratorSelections).find(
+    (u) => u.selectedId === data.id
+  ) ?? null;
 
   // Compute highlight state locally - only this component re-renders when its highlight changes
   const isActiveHighlighted = useMemo(() => {
@@ -564,6 +570,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
         style={{
           background: colors.background,
           border: (() => {
+            if (collaboratorHighlight) return `2px solid ${collaboratorHighlight.color}`;
             if (isMultiSelected) return '2px solid #22c55e';
             if (isActiveHighlighted) return `2px solid ${colors.borderSelected}`;
             if (isHovered || isHighlighted) return `1.5px solid ${colors.borderSelected}`;
@@ -572,6 +579,7 @@ const TableNode = memo(({ data, selected }: NodeProps<PhysicalTable>) => {
           borderRadius: '8px',
           minWidth: '280px',
           boxShadow: (() => {
+            if (collaboratorHighlight) return `0 0 0 3px ${collaboratorHighlight.color}55, 0 4px 12px rgba(0,0,0,0.3)`;
             if (isActiveHighlighted || isMultiSelected) {
               return isDark
                 ? '0 0 20px rgba(34, 197, 94, 0.4), 0 0 40px rgba(34, 197, 94, 0.15)'
