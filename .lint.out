@@ -1,0 +1,539 @@
+
+> sqlmodel@0.0.0 lint
+> eslint .
+
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/Canvas.tsx
+   684:6   warning  React Hook useMemo has missing dependencies: 'safeHiddenEntityIds' and 'safeHiddenTableIds'. Either include them or remove the dependency array                                                               react-hooks/exhaustive-deps
+   959:6   warning  React Hook useMemo has missing dependencies: 'safeHiddenEntityIds' and 'safeHiddenTableIds'. Either include them or remove the dependency array                                                               react-hooks/exhaustive-deps
+  1056:6   warning  React Hook useCallback has unnecessary dependencies: 'addEntityToGroup', 'dragHoverGroupId', and 'multiSelectedEntityIds'. Either exclude them or remove the dependency array                                 react-hooks/exhaustive-deps
+  1130:45  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1131:31  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1132:31  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1139:51  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1140:53  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1164:38  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1164:49  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1281:42  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1281:53  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1303:37  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1303:52  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1329:77  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1552:6   warning  React Hook useCallback has missing dependencies: 'foreignKeys', 'handleCloseContextMenu', 'removeEntityFromGroup', 'updateForeignKey', and 'updateTable'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  1727:43  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+  1727:54  error    Unexpected any. Specify a different type                                                                                                                                                                      @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/CanvasControls.tsx
+  40:6  warning  React Hook useEffect has a missing dependency: 'getZoom'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  40:7  warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked  react-hooks/exhaustive-deps
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/edges/AnimatedEdge.tsx
+   10:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  152:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  177:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  197:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/Navbar/AuthButton.tsx
+   84:6   warning  React Hook useEffect has a missing dependency: 'handleQuickSave'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  103:14  error    'error' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+  136:14  error    'error' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/DataModelInspector.tsx
+  117:19  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/DataModelInspector.tsx:117:19
+  115 |         title="Data Model"
+  116 |         subtitle={dataModel.name}
+> 117 |         actions={<ActionsMenu />}
+      |                   ^^^^^^^^^^^ This component is created during render
+  118 |       />
+  119 |
+  120 |       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/DataModelInspector.tsx:40:23
+   38 |   };
+   39 |
+>  40 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+>  41 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  42 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 108 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 109 |   );
+      | ^^^^ The component is created during render here
+  110 |
+  111 |   return (
+  112 |     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>  react-hooks/static-components
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/EntityInspector.tsx
+  148:19  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/EntityInspector.tsx:148:19
+  146 |         title="Entity"
+  147 |         subtitle={entity.name}
+> 148 |         actions={<ActionsMenu />}
+      |                   ^^^^^^^^^^^ This component is created during render
+  149 |       />
+  150 |
+  151 |       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/EntityInspector.tsx:42:23
+   40 |   };
+   41 |
+>  42 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+>  43 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  44 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 139 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 140 |   );
+      | ^^^^ The component is created during render here
+  141 |
+  142 |   return (
+  143 |     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>  react-hooks/static-components
+  230:80  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/ForeignKeyInspector.tsx
+  126:19  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/ForeignKeyInspector.tsx:126:19
+  124 |         title="Foreign Key"
+  125 |         subtitle={`${fromTable?.name || '?'} → ${toTable?.name || '?'}`}
+> 126 |         actions={<ActionsMenu />}
+      |                   ^^^^^^^^^^^ This component is created during render
+  127 |       />
+  128 |
+  129 |       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/ForeignKeyInspector.tsx:46:23
+   44 |   };
+   45 |
+>  46 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+>  47 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  48 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 117 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 118 |   );
+      | ^^^^ The component is created during render here
+  119 |
+  120 |   return (
+  121 |     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>  react-hooks/static-components
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/FormComponents.tsx
+  199:6  warning  React Hook React.useEffect has a missing dependency: 'savedCustomColors'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/GroupInspector.tsx
+  113:19  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/GroupInspector.tsx:113:19
+  111 |         title="Entity Group"
+  112 |         subtitle={`${groupEntities.length} entities`}
+> 113 |         actions={<ActionsMenu />}
+      |                   ^^^^^^^^^^^ This component is created during render
+  114 |       />
+  115 |
+  116 |       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/GroupInspector.tsx:33:23
+   31 |   };
+   32 |
+>  33 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+>  34 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  35 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 104 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 105 |   );
+      | ^^^^ The component is created during render here
+  106 |
+  107 |   return (
+  108 |     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>  react-hooks/static-components
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/RelationshipInspector.tsx
+  123:19  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/RelationshipInspector.tsx:123:19
+  121 |         title={isDataModelRelationship ? 'Model Relationship' : 'Relationship'}
+  122 |         subtitle={`${fromLabel || '?'} → ${toLabel || '?'}`}
+> 123 |         actions={<ActionsMenu />}
+      |                   ^^^^^^^^^^^ This component is created during render
+  124 |       />
+  125 |
+  126 |       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/RelationshipInspector.tsx:43:23
+   41 |   };
+   42 |
+>  43 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+>  44 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  45 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 114 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 115 |   );
+      | ^^^^ The component is created during render here
+  116 |
+  117 |   return (
+  118 |     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>  react-hooks/static-components
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/TableInspector.tsx
+   57:16  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   58:16  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   80:74  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+   88:74  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  168:39  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  590:14  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/TableInspector.tsx:590:14
+  588 |               <Sparkles size={16} />
+  589 |             </button>
+> 590 |             <ActionsMenu />
+      |              ^^^^^^^^^^^ This component is created during render
+  591 |           </div>
+  592 |         }
+  593 |       />
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/TableInspector.tsx:327:23
+  325 |   };
+  326 |
+> 327 |   const ActionsMenu = () => (
+      |                       ^^^^^^^
+> 328 |     <div style={{ position: 'relative' }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 329 |       <button
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 445 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 446 |   );
+      | ^^^^ The component is created during render here
+  447 |
+  448 |   // Simplified read-only column row
+  449 |   const ColumnRow: React.FC<{ attr: Attribute; isSelected?: boolean }> = ({ attr, isSelected }) => {  react-hooks/static-components
+  666:78  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/index.tsx
+  356:233  error  Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/index.tsx:356:233
+  354 |         {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
+  355 |         {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
+> 356 |         {!selectedDataModel && !selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
+      |                                                                                                                                                                                                                                         ^^^^^^^^^^ This component is created during render
+  357 |       </aside>
+  358 |     </>
+  359 |   );
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/RightPanel/index.tsx:126:22
+  124 |
+  125 |   // Empty state (nothing selected)
+> 126 |   const EmptyState = () => (
+      |                      ^^^^^^^
+> 127 |     <div style={{
+      | ^^^^^^^^^^^^^^^^^
+> 128 |       display: 'flex',
+      …
+      | ^^^^^^^^^^^^^^^^^
+> 196 |     </div>
+      | ^^^^^^^^^^^^^^^^^
+> 197 |   );
+      | ^^^^ The component is created during render here
+  198 |
+  199 |   return (
+  200 |     <>  react-hooks/static-components
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/Sidebar/ModelTree.tsx
+  869:174  error  '_onRename' is defined but never used     @typescript-eslint/no-unused-vars
+  869:260  error  '_onDragStart' is defined but never used  @typescript-eslint/no-unused-vars
+  869:286  error  '_onDragOver' is defined but never used   @typescript-eslint/no-unused-vars
+  869:312  error  '_onDragLeave' is defined but never used  @typescript-eslint/no-unused-vars
+  869:334  error  '_onDrop' is defined but never used       @typescript-eslint/no-unused-vars
+  905:26   error  '_e' is defined but never used            @typescript-eslint/no-unused-vars
+  970:30   error  '_e' is defined but never used            @typescript-eslint/no-unused-vars
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/index.tsx
+  57:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/layout/index.tsx:57:7
+  55 |     // Only show toast when there's an actual message (skip session-guard cache hits)
+  56 |     if (urlImport.status === 'loading' && urlImport.message) {
+> 57 |       setToastVisible(true);
+     |       ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |     } else if ((urlImport.status === 'success' || urlImport.status === 'error') && urlImport.message) {
+  59 |       setToastVisible(true);
+  60 |       const timer = setTimeout(() => setToastVisible(false), 4000);  react-hooks/set-state-in-effect
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/nodes/ConceptualGroupNode.tsx
+  36:16  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/nodes/ConceptualGroupNode.tsx:36:16
+  34 |     setEditName(data.name);
+  35 |     setEditingGroupId(null); // Clear the trigger
+> 36 |     setTimeout(() => nameInputRef.current?.focus(), 0);
+     |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  37 |   }
+  38 |
+  39 |   // Handle clicking on group to select it  react-hooks/refs
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/nodes/EntityNode.tsx
+  118:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/nodes/EntityNode.tsx:118:7
+  116 |   useEffect(() => {
+  117 |     if (storedLayout?.width && storedLayout?.height && !isResizing) {
+> 118 |       setNodeSizeLocal({ width: storedLayout.width, height: storedLayout.height });
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  119 |     }
+  120 |   }, [storedLayout?.width, storedLayout?.height, isResizing]);
+  121 |                                                                                                                                                                                                                                                                                                                                      react-hooks/set-state-in-effect
+  143:48  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `data.dataModelId`, but the source dependencies were [viewMode, data.id, nodeLayouts, addEntity, addRelationship, setNodePosition, entityGroups, addEntityToGroup]. Inferred different dependency than source.
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/nodes/EntityNode.tsx:143:48
+  141 |   const isMultiSelected = multiSelectedEntityIds.includes(data.id);
+  142 |
+> 143 |   const handleCreateLinkedEntity = useCallback((side: HoverSide) => {
+      |                                                ^^^^^^^^^^^^^^^^^^^^^^
+> 144 |     if (viewMode !== 'conceptual') return;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 145 |     if (!side) return;
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 173 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 174 |   }, [viewMode, data.id, nodeLayouts, addEntity, addRelationship, setNodePosition, entityGroups, addEntityToGroup]);
+      | ^^^^ Could not preserve existing manual memoization
+  175 |
+  176 |   const handleResizeStart = useCallback((e: React.MouseEvent, corner: string) => {
+  177 |     e.stopPropagation();  react-hooks/preserve-manual-memoization
+  174:6   warning  React Hook useCallback has a missing dependency: 'data.dataModelId'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  259:9   error    'endX' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           prefer-const
+  259:19  error    'endY' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           prefer-const
+  472:17  error    'sourceHandle' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   prefer-const
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/panels/Sidebar.tsx
+  50:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/panels/Sidebar.tsx:50:5
+  48 |   // Auto-expand newly created groups
+  49 |   useEffect(() => {
+> 50 |     setExpandedGroups(prev => {
+     |     ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  51 |       const newExpanded = new Set(prev);
+  52 |       entityGroups.forEach(g => {
+  53 |         if (g.entityIds.length > 0) {  react-hooks/set-state-in-effect
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/shared/Dropdown.tsx
+  61:6  warning  React Hook useEffect has a missing dependency: 'handleOpenChange'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  75:6  warning  React Hook useEffect has a missing dependency: 'handleOpenChange'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/shared/Tooltip.tsx
+  75:6   warning  React Hook useEffect has a missing dependency: 'updatePosition'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+  83:52  error    Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/shared/Tooltip.tsx:83:52
+  81 |   // Clone child and add handlers
+  82 |   const childProps = children.props as { onMouseEnter?: (e: React.MouseEvent) => void; onMouseLeave?: (e: React.MouseEvent) => void };
+> 83 |   const clonedChild = React.cloneElement(children, {
+     |                                                    ^
+> 84 |     ref: triggerRef,
+     | ^^^^^^^^^^^^^^^^^^^^
+> 85 |     onMouseEnter: (e: React.MouseEvent) => {
+     …
+     | ^^^^^^^^^^^^^^^^^^^^
+> 92 |     },
+     | ^^^^^^^^^^^^^^^^^^^^
+> 93 |   } as any);
+     | ^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  94 |
+  95 |   return (
+  96 |     <>  react-hooks/refs
+  93:8   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/AIDialog.tsx
+    38:50   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   232:22   error  'parseError' is defined but never used    @typescript-eslint/no-unused-vars
+   238:58   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   250:64   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   255:29   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   260:78   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   493:60   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1256:132  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1411:49   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/AISettingsDialog.tsx
+  131:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/AddTableDialog.tsx
+  269:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  376:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/AuthDialog.tsx
+   85:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/DiagramsDialog.tsx
+  12:48  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  13:56  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  32:6   warning  React Hook useEffect has a missing dependency: 'loadDiagrams'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  57:14  error    'error' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  76:14  error    'error' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/ExportDialog.tsx
+  283:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/ExportDialog.tsx:283:7
+  281 |     if (isOpen) {
+  282 |       const savedDialect = getSavedDialect();
+> 283 |       setExportDialect(savedDialect);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  284 |     }
+  285 |   }, [isOpen]);
+  286 |  react-hooks/set-state-in-effect
+  292:6  warning  React Hook useMemo has unnecessary dependencies: 'foreignKeys' and 'tables'. Either exclude them or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/ImportDialog.tsx
+  63:11  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/ImportDialog.tsx:63:11
+  61 |         console.log('[ImportDialog] Dialog opened, reading localStorage:', saved);
+  62 |         if (saved && configs.some(c => c.id === saved)) {
+> 63 |           setSelectedFormat(saved);
+     |           ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  64 |         }
+  65 |       } catch (e) {
+  66 |         console.warn('Failed to read preferred format from localStorage:', e);  react-hooks/set-state-in-effect
+
+/tmp/workspace/YubiPopper/sqlmodel/src/components/ui/SchemaDialog.tsx
+  252:6  warning  React Hook useEffect has a missing dependency: 'exportDialect'. Either include it or remove the dependency array. You can also replace multiple useState variables with useReducer if 'setSchemaText' needs the current value of 'exportDialect'  react-hooks/exhaustive-deps
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/aiService.ts
+  541:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  620:82  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  628:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  635:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  640:80  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  649:67  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  651:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  671:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  677:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  678:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  683:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  729:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  950:67  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  954:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  972:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/parsers/mysqlParser.ts
+  55:7  error  'normalizedDDL' is never reassigned. Use 'const' instead  prefer-const
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/parsers/oracleParser.ts
+  48:7  error  'normalizedDDL' is never reassigned. Use 'const' instead  prefer-const
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/parsers/postgresParser.ts
+  37:7  error  'normalizedDDL' is never reassigned. Use 'const' instead  prefer-const
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/parsers/snowflakeDDLParser.ts
+  59:9  error  'endIdx' is never reassigned. Use 'const' instead  prefer-const
+
+/tmp/workspace/YubiPopper/sqlmodel/src/services/supabaseClient.ts
+  13:9  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/tmp/workspace/YubiPopper/sqlmodel/src/store/useModelStore.ts
+   169:29  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+   175:34  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+   176:36  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+   357:25  error  '_' is assigned a value but never used                       @typescript-eslint/no-unused-vars
+   574:25  error  '_' is assigned a value but never used                       @typescript-eslint/no-unused-vars
+  1134:21  error  'maxWidth' is never reassigned. Use 'const' instead          prefer-const
+  1281:75  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  1295:19  error  'globalMinY' is never reassigned. Use 'const' instead        prefer-const
+  2231:11  error  'showAddTableDialog' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  2232:11  error  'showAIDialog' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  2233:11  error  'showExampleDialog' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  2234:11  error  'showAISettingsDialog' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  2235:11  error  'navigateToNodeCallback' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  2236:11  error  'fitViewCallback' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  2251:68  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  2252:66  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  2253:66  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  2254:62  error  Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+
+✖ 134 problems (119 errors, 15 warnings)
+  8 errors and 0 warnings potentially fixable with the `--fix` option.
+
