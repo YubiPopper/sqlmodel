@@ -201,6 +201,7 @@ interface DropdownButtonProps {
   compact?: boolean;
   title?: string;
   variant?: 'default' | 'ghost';
+  align?: 'left' | 'right';
   onOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -212,6 +213,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   compact = false,
   title,
   variant = 'default',
+  align = 'left',
   onOpenChange,
 }) => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -225,6 +227,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   return (
     <Dropdown
       items={items}
+      align={align}
       onOpenChange={onOpenChange}
       trigger={
         <button
