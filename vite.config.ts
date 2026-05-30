@@ -23,4 +23,7 @@ function spaFallback(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), spaFallback()],
+  build: {
+    chunkSizeWarningLimit: 1500,
+  },
 })
