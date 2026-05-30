@@ -1,6 +1,7 @@
 import type { Entity, ForeignKey, PhysicalTable, Relationship } from './schemas';
 
 export type ModelHealthSeverity = 'error' | 'warning';
+const DUPLICATE_KEY_SEPARATOR = '::';
 
 export interface ModelHealthIssue {
   id: string;
@@ -53,7 +54,7 @@ export const getModelHealthIssues = ({
 
   const duplicateTables = new Map<string, PhysicalTable[]>();
   tables.forEach((table) => {
-    const key = [normalizeKey(table.database), normalizeKey(table.schema), normalizeKey(table.name)].join('::');
+    const key = [normalizeKey(table.database), normalizeKey(table.schema), normalizeKey(table.name)].join(DUPLICATE_KEY_SEPARATOR);
     const existing = duplicateTables.get(key) || [];
     existing.push(table);
     duplicateTables.set(key, existing);

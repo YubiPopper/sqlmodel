@@ -3,6 +3,10 @@ import { AlertTriangle, ArrowRight, ShieldAlert, ShieldCheck } from 'lucide-reac
 import { useModelStore } from '../../../store/useModelStore';
 import { getModelHealthIssues } from '../../../model/modelHealth';
 
+const DATABASE_NODE_PREFIX = 'db-';
+const SCHEMA_NODE_PREFIX = 'schema-';
+const pluralize = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
 export const QuickActions: React.FC = () => {
   const entities = useModelStore(state => state.entities);
   const relationships = useModelStore(state => state.relationships);
@@ -33,8 +37,8 @@ export const QuickActions: React.FC = () => {
 
     if (
       navigateToNodeCallback &&
-      !targetId.startsWith('db-') &&
-      !targetId.startsWith('schema-') &&
+      !targetId.startsWith(DATABASE_NODE_PREFIX) &&
+      !targetId.startsWith(SCHEMA_NODE_PREFIX) &&
       targetViewMode !== 'physical'
     ) {
       navigateToNodeCallback(targetId);
@@ -74,7 +78,7 @@ export const QuickActions: React.FC = () => {
               fontSize: '11px',
               color: isDark ? '#8b949e' : '#6b7280',
             }}>
-              {issues.length === 0 ? 'No issues detected' : `${issues.length} issue${issues.length === 1 ? '' : 's'} detected`}
+              {issues.length === 0 ? 'No issues detected' : `${pluralize(issues.length, 'issue')} detected`}
             </div>
           </div>
         </div>
@@ -86,8 +90,8 @@ export const QuickActions: React.FC = () => {
             fontSize: '10px',
             color: isDark ? '#8b949e' : '#6b7280',
           }}>
-            {errorCount > 0 && <span>{errorCount} error{errorCount === 1 ? '' : 's'}</span>}
-            {warningCount > 0 && <span>{warningCount} warning{warningCount === 1 ? '' : 's'}</span>}
+            {errorCount > 0 && <span>{pluralize(errorCount, 'error')}</span>}
+            {warningCount > 0 && <span>{pluralize(warningCount, 'warning')}</span>}
           </div>
         )}
       </div>
