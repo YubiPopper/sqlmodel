@@ -7,6 +7,7 @@ import { Tooltip } from '../../shared/Tooltip';
 import { Toast } from '../../ui/Toast';
 import { DropdownButton } from '../../shared/Dropdown';
 import type { DropdownItem } from '../../shared/Dropdown';
+import { buildShareLink } from '../../../hooks/shareUrlState';
 
 interface SaveShareButtonsProps {
   onSaveClick?: () => void;
@@ -23,7 +24,26 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
   const user = useModelStore(state => state.user);
   const colorMode = useModelStore(state => state.colorMode);
   const currentDiagramId = useModelStore(state => state.currentDiagramId);
+  const viewMode = useModelStore(state => state.viewMode);
+  const selectedId = useModelStore(state => state.selectedId);
+  const entities = useModelStore(state => state.entities);
+  const tables = useModelStore(state => state.tables);
   const isDark = colorMode === 'dark';
+  const [includeView, setIncludeView] = useState(true);
+  const [includeFocus, setIncludeFocus] = useState(true);
+  const [includeInspector, setIncludeInspector] = useState(false);
+
+  const hasFocusTarget = Boolean(
+    selectedId &&
+    (entities.some(entity => entity.id === selectedId) || tables.some(table => table.id === selectedId))
+  );
+
+  const shareUrl = buildShareLink({
+    diagramId: currentDiagramId,
+    view: includeView ? viewMode : null,
+    focus: includeFocus && hasFocusTarget ? selectedId : null,
+    inspector: includeInspector && includeFocus && hasFocusTarget,
+  });
 
   const handleShare = () => {
     if (!user) {
@@ -40,9 +60,7 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
   };
 
   const copyShareLink = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('diagram', currentDiagramId!);
-    navigator.clipboard.writeText(url.toString());
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setShowShareDialog(false);
     setShowToast(true);
@@ -248,7 +266,7 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
                 <input
                   type="text"
                   readOnly
-                  value={`${window.location.origin}${window.location.pathname}?diagram=${currentDiagramId}`}
+                  value={shareUrl}
                   style={{
                     flex: 1,
                     padding: '9px 12px',
@@ -281,6 +299,42 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
                 >
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
+              </div>
+
+              <div
+                style={{
+                  marginBottom: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: isDark ? '#8b949e' : '#64748b' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeView}
+                    onChange={(e) => setIncludeView(e.target.checked)}
+                  />
+                  Include current view ({viewMode})
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: isDark ? '#8b949e' : '#64748b' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeFocus}
+                    disabled={!hasFocusTarget}
+                    onChange={(e) => setIncludeFocus(e.target.checked)}
+                  />
+                  Focus selected node{!hasFocusTarget ? ' (select an entity/table first)' : ''}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: isDark ? '#8b949e' : '#64748b' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeInspector}
+                    disabled={!includeFocus || !hasFocusTarget}
+                    onChange={(e) => setIncludeInspector(e.target.checked)}
+                  />
+                  Auto-open inspector
+                </label>
               </div>
 
               <button

@@ -20,6 +20,7 @@ import { parse } from '../services/parsers';
 import { importParsedSchema } from '../services/parsers/importSchema';
 import { SESSION_KEY } from './schemaUrlState';
 import type { SupportedFormat } from '../services/parsers/types';
+import { buildShareLink, getSchemaUrlFromLocation } from './shareUrlState';
 
 export { clearSchemaUrl } from './schemaUrlState';
 
@@ -75,31 +76,6 @@ const EXT_FORMAT_MAP: Record<string, SupportedFormat[]> = {
   '.schema': ['prisma'],
   '.ddl':    ['postgres', 'snowflake'],
 };
-
-/**
- * Extract the schema URL from the current browser location.
- * Returns `null` if no URL import was requested.
- */
-function getSchemaUrlFromLocation(): string | null {
-  // 1. Query-param approach: ?url=https://...
-  const params = new URLSearchParams(window.location.search);
-  const urlParam = params.get('url');
-  if (urlParam) return urlParam;
-
-  // 2. Path-based approach: /p/https://... or /p/raw.githubusercontent.com/...
-  const pathMatch = window.location.pathname.match(/^\/p\/(.+)/);
-  if (pathMatch) {
-    const captured = decodeURIComponent(pathMatch[1]);
-    // If the captured part already starts with a scheme, use it as-is
-    if (captured.startsWith('http://') || captured.startsWith('https://')) {
-      return captured;
-    }
-    // Otherwise prepend https://
-    return `https://${captured}${window.location.search}`;
-  }
-
-  return null;
-}
 
 /** Guess parser format(s) from the URL / file name. */
 function guessFormats(url: string): SupportedFormat[] {
@@ -211,7 +187,5 @@ export function useUrlImport(): UrlImportState {
  * @returns           The app URL with `?url=` query parameter
  */
 export function buildShareableUrl(rawFileUrl: string): string {
-  const base = window.location.origin;
-  const encoded = encodeURIComponent(rawFileUrl);
-  return `${base}?url=${encoded}`;
+  return buildShareLink({ schemaUrl: rawFileUrl });
 }
