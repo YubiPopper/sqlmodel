@@ -8,7 +8,7 @@ export interface ShareState {
   inspector: boolean;
 }
 
-const SHARE_PARAM_KEYS = ['diagram', 'view', 'focus', 'inspector'];
+const SHARE_PARAM_KEYS = ['diagram', 'view', 'focus', 'inspector', 'url'];
 
 function isShareViewMode(value: string | null): value is ShareViewMode {
   return value === 'data-model' || value === 'conceptual' || value === 'physical';
@@ -30,7 +30,6 @@ function getPathBasedSchemaUrlFromLocation(): string | null {
 
   const passthroughParams = new URLSearchParams(window.location.search);
   SHARE_PARAM_KEYS.forEach((param) => passthroughParams.delete(param));
-  passthroughParams.delete('url');
 
   const passthroughQuery = passthroughParams.toString();
   if (!passthroughQuery) return baseUrl;

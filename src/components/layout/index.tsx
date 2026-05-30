@@ -12,7 +12,10 @@ import { AIDialog } from '../ui/AIDialog';
 import { AISettingsDialog } from '../ui/AISettingsDialog';
 import { AddTableDialog } from '../ui/AddTableDialog';
 import { useUrlImport } from '../../hooks/useUrlImport';
-import { getShareStateFromLocation, type ShareViewMode } from '../../hooks/shareUrlState';
+import { getShareStateFromLocation } from '../../hooks/shareUrlState';
+
+const MAX_NAVIGATION_RETRIES = 8;
+const NAVIGATION_RETRY_DELAY_MS = 75;
 
 export const AppLayout: React.FC = () => {
   const colorMode = useModelStore(state => state.colorMode);
@@ -102,7 +105,7 @@ export const AppLayout: React.FC = () => {
     if (!isInitialDataResolved || shareOverridesAppliedRef.current) return;
 
     if (shareState.view && shareState.view !== viewMode) {
-      setViewMode(shareState.view as ShareViewMode);
+      setViewMode(shareState.view);
     }
 
     const focusTarget = shareState.focus;
@@ -117,7 +120,7 @@ export const AppLayout: React.FC = () => {
       if (hasEntity || hasTable) {
         setSelected(normalizedFocus);
 
-        const navigateToNode = (targetId: string, retries = 8) => {
+        const navigateToNode = (targetId: string, retries = MAX_NAVIGATION_RETRIES) => {
           const callback = useModelStore.getState().navigateToNodeCallback;
           if (callback) {
             callback(targetId);
@@ -125,8 +128,11 @@ export const AppLayout: React.FC = () => {
           }
 
           if (retries > 0) {
-            setTimeout(() => navigateToNode(targetId, retries - 1), 75);
+            setTimeout(() => navigateToNode(targetId, retries - 1), NAVIGATION_RETRY_DELAY_MS);
+            return;
           }
+
+          console.warn('Unable to focus shared node because canvas navigation is unavailable yet:', targetId);
         };
 
         navigateToNode(normalizedFocus);
