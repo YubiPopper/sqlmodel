@@ -1,156 +1,71 @@
 import { useState } from 'react';
-import { Save, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
-import { AuthDialog } from '../../ui/AuthDialog';
 import { IconButton } from '../../shared/IconButton';
 import { Tooltip } from '../../shared/Tooltip';
 import { Toast } from '../../ui/Toast';
-import { DropdownButton } from '../../shared/Dropdown';
-import type { DropdownItem } from '../../shared/Dropdown';
 
 interface SaveShareButtonsProps {
-  onSaveClick?: () => void;
-  onSaveAsClick?: () => void;
   isMobile?: boolean;
 }
 
-export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false }: SaveShareButtonsProps) => {
-  const [showAuthDialog, setShowAuthDialog] = useState(false);
+export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) => {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showToast, setShowToast] = useState(false);
   
-  const user = useModelStore(state => state.user);
   const colorMode = useModelStore(state => state.colorMode);
-  const currentDiagramId = useModelStore(state => state.currentDiagramId);
   const isDark = colorMode === 'dark';
 
   const handleShare = () => {
-    if (!user) {
-      setShowAuthDialog(true);
-      return;
-    }
-    
-    if (!currentDiagramId) {
-      alert('Please save your diagram first before sharing');
-      return;
-    }
-    
     setShowShareDialog(true);
   };
 
   const copyShareLink = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('diagram', currentDiagramId!);
-    navigator.clipboard.writeText(url.toString());
+    navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setShowShareDialog(false);
     setShowToast(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const saveItems: DropdownItem[] = [
-    {
-      label: 'Save',
-      icon: <Save size={14} />,
-      onClick: () => onSaveClick?.(),
-      disabled: !currentDiagramId,
-    },
-    {
-      label: 'Save as...',
-      icon: <Save size={14} />,
-      onClick: () => onSaveAsClick?.(),
-    },
-  ];
-
   return (
     <>
       {isMobile ? (
-        <>
-          {user && (
-            <button
-              onClick={() => {
-                if (currentDiagramId) {
-                  onSaveClick?.();
-                } else {
-                  onSaveAsClick?.();
-                }
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                minHeight: '48px',
-                height: '48px',
-                boxSizing: 'border-box',
-                background: isDark ? '#21262d' : '#f3f4f6',
-                border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-                borderRadius: '8px',
-                color: isDark ? '#e6edf3' : '#374151',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                width: '100%',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseDown={(e) => {
-                e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
-              }}
-            >
-              <Save size={18} style={{ flexShrink: 0 }} />
-              <span>Save</span>
-            </button>
-          )}
-          
-          <button
-            onClick={handleShare}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              minHeight: '48px',
-              height: '48px',
-              boxSizing: 'border-box',
-              background: isDark ? '#21262d' : '#f3f4f6',
-              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              color: isDark ? '#e6edf3' : '#374151',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
-            }}
-          >
-            <Share2 size={18} style={{ flexShrink: 0 }} />
-            <span>Share</span>
-          </button>
-        </>
+        <button
+          onClick={handleShare}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: '12px 14px',
+            minHeight: '48px',
+            height: '48px',
+            boxSizing: 'border-box',
+            background: isDark ? '#21262d' : '#f3f4f6',
+            border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+            borderRadius: '8px',
+            color: isDark ? '#e6edf3' : '#374151',
+            fontSize: '14px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            width: '100%',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.background = isDark ? '#30363d' : '#e5e7eb';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.background = isDark ? '#21262d' : '#f3f4f6';
+          }}
+        >
+          <Share2 size={18} style={{ flexShrink: 0 }} />
+          <span>Share</span>
+        </button>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {user && (
-            <DropdownButton
-              label=""
-              items={saveItems}
-              icon={<Save size={18} />}
-              variant="ghost"
-            />
-          )}
-          
-          <Tooltip content={user ? "Share diagram" : "Sign in to share"}>
+          <Tooltip content="Share diagram">
             <div>
               <IconButton
                 icon={<Share2 size={18} />}
@@ -171,9 +86,6 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
           onClose={() => setShowToast(false)}
         />
       )}
-
-      {/* Auth Dialog for non-logged-in users */}
-      <AuthDialog isOpen={showAuthDialog} onClose={() => setShowAuthDialog(false)} />
 
       {/* Share Dialog */}
       {showShareDialog && (
@@ -248,7 +160,7 @@ export const SaveShareButtons = ({ onSaveClick, onSaveAsClick, isMobile = false 
                 <input
                   type="text"
                   readOnly
-                  value={`${window.location.origin}${window.location.pathname}?diagram=${currentDiagramId}`}
+                  value={window.location.href}
                   style={{
                     flex: 1,
                     padding: '9px 12px',

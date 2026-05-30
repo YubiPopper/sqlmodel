@@ -21,7 +21,6 @@ export const AppLayout: React.FC = () => {
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
-  const loadDiagramFromCloud = useModelStore(state => state.loadDiagramFromCloud);
   
   // Dialog states from store
   const showExampleDialog = useModelStore(state => state.showExampleDialog);
@@ -61,23 +60,10 @@ export const AppLayout: React.FC = () => {
 
   // Load diagram from URL or default example
   useEffect(() => {
-    const loadInitialData = async () => {
-      // Skip loading defaults if a URL import is pending, in progress, or completed
+    const loadInitialData = () => {
+      // Check for URL import
       if (hasUrlImportParam || urlImport.status === 'loading' || urlImport.status === 'success') return;
 
-      // Check for diagram ID in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const diagramId = urlParams.get('diagram');
-      
-      if (diagramId) {
-        try {
-          await loadDiagramFromCloud(diagramId);
-          return; // Don't load default example if URL diagram loads
-        } catch (error) {
-          console.error('Failed to load diagram from URL:', error);
-        }
-      }
-      
       // Load default example only if nothing is loaded and no URL import
       if (entities.length === 0 && tables.length === 0) {
         fetch('/examples/library.json')
