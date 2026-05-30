@@ -1005,7 +1005,7 @@ export const useModelStore = create<ModelState>()(
           physicalHierarchyMode: preset.physicalHierarchyMode,
           hiddenEntityIds: new Set(preset.hiddenEntityIds),
           hiddenTableIds: new Set(preset.hiddenTableIds),
-          focusMode: preset.focusMode || 'none',
+          focusMode: preset.focusMode,
           multiSelectedEntityIds: [],
           multiSelectedTableIds: [],
         });

@@ -6,11 +6,12 @@ import { ModelTree } from './ModelTree';
 import { QuickActions } from './QuickActions';
 import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
 import { Tooltip } from '../../shared/Tooltip';
-import { DropdownButton } from '../../shared/Dropdown';
+import { DropdownButton, type DropdownItem } from '../../shared/Dropdown';
 
 export const LeftSidebar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showConceptualSettings, setShowConceptualSettings] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
   const physicalHierarchyMode = useModelStore(state => state.physicalHierarchyMode);
@@ -25,26 +26,33 @@ export const LeftSidebar: React.FC = () => {
   const isDark = colorMode === 'dark';
   const isPhysical = viewMode === 'physical';
 
-  const presetItems = savedViewPresets.flatMap((preset) => ([
-    {
+  const presetItems = savedViewPresets.reduce<DropdownItem[]>((items, preset, index) => {
+    if (index > 0) {
+      items.push({ label: '', divider: true, onClick: () => {} });
+    }
+
+    items.push({
       label: preset.name,
       onClick: () => applyViewPreset(preset.id),
-    },
-    {
+    });
+    items.push({
       label: `Delete ${preset.name}`,
       icon: <Trash2 size={12} />,
-      onClick: () => deleteViewPreset(preset.id),
-    },
-    { label: '', divider: true, onClick: () => {} },
-  ]));
-  if (presetItems.length > 0) {
-    presetItems.pop();
-  }
+      onClick: () => {
+        if (window.confirm(`Delete preset "${preset.name}"?`)) {
+          deleteViewPreset(preset.id);
+        }
+      },
+    });
+
+    return items;
+  }, []);
 
   const handleSavePreset = () => {
-    const presetName = window.prompt('Save current filter as preset:', '');
-    if (!presetName) return;
-    saveViewPreset(presetName);
+    const trimmedName = presetName.trim();
+    if (!trimmedName) return;
+    saveViewPreset(trimmedName);
+    setPresetName('');
   };
 
   return (
@@ -205,14 +213,14 @@ export const LeftSidebar: React.FC = () => {
         padding: '10px 12px',
         borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
         display: 'flex',
-        alignItems: 'center',
+        flexDirection: 'column',
         gap: '8px',
       }}>
         <select
           value={focusMode}
           onChange={(event) => setFocusMode(event.target.value as 'none' | 'hide-unlinked-entities')}
           style={{
-            flex: 1,
+            width: '100%',
             height: '30px',
             borderRadius: '6px',
             border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
@@ -226,32 +234,55 @@ export const LeftSidebar: React.FC = () => {
           <option value="hide-unlinked-entities">Focus: Hide unlinked entities</option>
         </select>
 
-        <Tooltip content="Save current view/filter preset" placement="bottom">
-          <button
-            onClick={handleSavePreset}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+          <input
+            value={presetName}
+            onChange={(event) => setPresetName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleSavePreset();
+              }
+            }}
+            placeholder="Preset name"
             style={{
-              width: '30px',
+              flex: 1,
               height: '30px',
               borderRadius: '6px',
               border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
-              background: isDark ? '#161b22' : '#ffffff',
-              color: isDark ? '#e6edf3' : '#374151',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
+              background: isDark ? '#0d1117' : '#ffffff',
+              color: isDark ? '#e6edf3' : '#1f2937',
+              fontSize: '12px',
+              padding: '0 8px',
             }}
-          >
-            <BookmarkPlus size={14} />
-          </button>
-        </Tooltip>
+          />
 
-        <DropdownButton
-          label="Presets"
-          items={presetItems.length > 0 ? presetItems : [{ label: 'No presets yet', onClick: () => {}, disabled: true }]}
-          compact={false}
-          title="Apply or remove saved presets"
-        />
+          <Tooltip content="Save current view/filter preset" placement="bottom">
+            <button
+              onClick={handleSavePreset}
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '6px',
+                border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
+                background: isDark ? '#161b22' : '#ffffff',
+                color: isDark ? '#e6edf3' : '#374151',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <BookmarkPlus size={14} />
+            </button>
+          </Tooltip>
+
+          <DropdownButton
+            label="Presets"
+            items={presetItems.length > 0 ? presetItems : [{ label: 'No presets yet', onClick: () => {}, disabled: true }]}
+            compact={false}
+            title="Apply or remove saved presets"
+          />
+        </div>
       </div>
 
       {/* Tree View */}
