@@ -123,11 +123,20 @@ export function useCollaboration() {
   }, [userId]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void refreshRooms();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [refreshRooms]);
+    let cancelled = false;
+    void listCollaborationRooms(userId)
+      .then((persistedRooms) => {
+        if (!cancelled) {
+          setRooms(persistedRooms.map(toPersistedRoom));
+        }
+      })
+      .catch((error) => {
+        console.warn('[sqlmodel] Failed to fetch collaboration rooms:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!session.isActive) return;

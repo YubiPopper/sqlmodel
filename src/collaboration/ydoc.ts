@@ -66,9 +66,8 @@ type ServerMessage = JoinedServerMessage | UpdateServerMessage | PresenceServerM
 
 const encodeBase64Update = (update: Uint8Array): string => {
   let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < update.length; i += chunkSize) {
-    binary += String.fromCharCode(...update.subarray(i, i + chunkSize));
+  for (let i = 0; i < update.length; i++) {
+    binary += String.fromCharCode(update[i]);
   }
   return btoa(binary);
 };
@@ -180,6 +179,10 @@ class ProviderAwareness {
     return new Map(this.states);
   }
 
+  getLocalUser(): AwarenessUser | null {
+    return this.localState.user ?? null;
+  }
+
   on(event: 'change', handler: AwarenessChangeHandler): void {
     if (event === 'change') this.listeners.add(handler);
   }
@@ -225,10 +228,8 @@ class ServerCollaborationProvider {
 
   private connect(): void {
     const wsUrlFromEnv = import.meta.env.VITE_COLLAB_WS_URL as string | undefined;
-    const wsUrl = wsUrlFromEnv || (() => {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${wsProtocol}//${window.location.host}/collaboration`;
-    })();
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = wsUrlFromEnv || `${wsProtocol}//${window.location.host}/collaboration`;
 
     this.ws = new WebSocket(wsUrl);
 
@@ -264,11 +265,9 @@ class ServerCollaborationProvider {
         }
 
         this.flushPendingUpdates();
-        if (this.awareness.getStates().size > 0) {
-          const localState = Array.from(this.awareness.getStates().values())[0]?.user;
-          if (localState) {
-            this.sendMessage({ type: 'presence', user: localState });
-          }
+        const localUser = this.awareness.getLocalUser();
+        if (localUser) {
+          this.sendMessage({ type: 'presence', user: localUser });
         }
         return;
       }

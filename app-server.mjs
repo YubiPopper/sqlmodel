@@ -34,6 +34,8 @@ const rooms = new Map();
 
 /** @type {Map<string, Y.Doc>} */
 const roomDocs = new Map();
+/** @type {Set<string>} */
+const roomDocListeners = new Set();
 /** @type {Map<string, Set<any>>} */
 const roomConnections = new Map();
 /** @type {Map<string, Map<number, { id: string, name: string, color: string, selectedId: string | null }>>} */
@@ -109,24 +111,9 @@ const loadStore = () => {
   }
 };
 
-const getRoomDoc = (roomId) => {
-  const existing = roomDocs.get(roomId);
-  if (existing) return existing;
-
-  const room = rooms.get(roomId);
-  if (!room) return null;
-
-  const doc = new Y.Doc();
-  try {
-    if (room.snapshot) {
-      Y.applyUpdate(doc, fromBase64(room.snapshot), 'server-load');
-    }
-    room.updates.forEach((encodedUpdate) => {
-      Y.applyUpdate(doc, fromBase64(encodedUpdate), 'server-load');
-    });
-  } catch (err) {
-    console.error(`[sqlmodel] Failed to rehydrate room ${roomId}:`, err);
-  }
+const attachRoomDocListener = (roomId, doc) => {
+  if (roomDocListeners.has(roomId)) return;
+  roomDocListeners.add(roomId);
 
   doc.on('update', (update, origin) => {
     const currentRoom = rooms.get(roomId);
@@ -156,8 +143,40 @@ const getRoomDoc = (roomId) => {
       send(conn, { type: 'update', update: encoded });
     });
   });
+};
 
+const getRoomDoc = (roomId) => {
+  const existing = roomDocs.get(roomId);
+  if (existing) return existing;
+
+  const room = rooms.get(roomId);
+  if (!room) return null;
+
+  const doc = new Y.Doc();
+  try {
+    if (room.snapshot) {
+      Y.applyUpdate(doc, fromBase64(room.snapshot), 'server-load');
+    }
+    room.updates.forEach((encodedUpdate) => {
+      Y.applyUpdate(doc, fromBase64(encodedUpdate), 'server-load');
+    });
+  } catch (err) {
+    console.error(`[sqlmodel] Failed to rehydrate room ${roomId}:`, err);
+  }
+
+  attachRoomDocListener(roomId, doc);
   roomDocs.set(roomId, doc);
+  return doc;
+};
+
+const createRoomDoc = (roomId) => {
+  const existing = roomDocs.get(roomId);
+  if (existing) return existing;
+
+  const doc = new Y.Doc();
+  roomDocs.set(roomId, doc);
+  attachRoomDocListener(roomId, doc);
+
   return doc;
 };
 
@@ -229,6 +248,7 @@ const cleanupRooms = () => {
       roomPresence.delete(roomId);
       roomDocs.get(roomId)?.destroy();
       roomDocs.delete(roomId);
+      roomDocListeners.delete(roomId);
       rooms.delete(roomId);
       changed = true;
     }
@@ -243,16 +263,34 @@ setInterval(cleanupRooms, roomCleanupMs);
 
 const parseJsonBody = (req) => new Promise((resolve, reject) => {
   let body = '';
+  let settled = false;
 
-  req.on('data', (chunk) => {
+  const cleanup = () => {
+    req.off('data', onData);
+    req.off('end', onEnd);
+    req.off('error', onError);
+  };
+
+  const fail = (error) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    reject(error);
+  };
+
+  const onData = (chunk) => {
+    if (settled) return;
     body += chunk;
     if (body.length > 1024 * 1024) {
-      reject(new Error('Request body too large'));
+      fail(new Error('Request body too large'));
       req.destroy();
     }
-  });
+  };
 
-  req.on('end', () => {
+  const onEnd = () => {
+    if (settled) return;
+    settled = true;
+    cleanup();
     if (!body) {
       resolve({});
       return;
@@ -262,14 +300,24 @@ const parseJsonBody = (req) => new Promise((resolve, reject) => {
     } catch {
       reject(new Error('Invalid JSON'));
     }
-  });
+  };
 
-  req.on('error', reject);
+  const onError = (error) => fail(error);
+
+  req.on('data', onData);
+  req.on('end', onEnd);
+  req.on('error', onError);
 });
 
 const sendJson = (res, statusCode, payload) => {
   res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(payload));
+};
+
+const isJsonRequest = (req) => {
+  const contentType = req.headers['content-type'];
+  if (typeof contentType !== 'string') return false;
+  return contentType.toLowerCase().includes('application/json');
 };
 
 const onCollaborationConnection = (conn) => {
@@ -461,6 +509,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (urlPath === '/api/collaboration/rooms' && method === 'POST') {
+    if (!isJsonRequest(req)) {
+      sendJson(res, 415, { error: 'Content-Type must be application/json.' });
+      return;
+    }
     try {
       const body = await parseJsonBody(req);
       const userId = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : null;
@@ -471,8 +523,8 @@ const server = http.createServer(async (req, res) => {
 
       const now = Date.now();
       const roomId = crypto.randomUUID();
-      const roomKey = crypto.randomBytes(16).toString('hex');
-      const doc = new Y.Doc();
+      const roomKey = crypto.randomBytes(32).toString('hex');
+      const doc = createRoomDoc(roomId);
 
       const room = {
         roomId,
@@ -487,37 +539,6 @@ const server = http.createServer(async (req, res) => {
       };
 
       rooms.set(roomId, room);
-      roomDocs.set(roomId, doc);
-
-      doc.on('update', (update, origin) => {
-        const currentRoom = rooms.get(roomId);
-        if (!currentRoom) return;
-
-        const encoded = toBase64(update);
-        currentRoom.updates.push(encoded);
-        currentRoom.lastActiveAt = Date.now();
-        currentRoom.archivedAt = null;
-
-        if (currentRoom.updates.length >= roomCompactThreshold) {
-          currentRoom.snapshot = toBase64(Y.encodeStateAsUpdate(doc));
-          currentRoom.updates = [];
-        }
-
-        schedulePersist();
-
-        const sourceClientId = typeof origin === 'object' && origin && 'clientId' in origin
-          ? Number(origin.clientId)
-          : null;
-
-        const subscribers = roomConnections.get(roomId);
-        if (!subscribers) return;
-        subscribers.forEach((conn) => {
-          const session = connectionSessions.get(conn);
-          if (sourceClientId && session?.clientId === sourceClientId) return;
-          send(conn, { type: 'update', update: encoded });
-        });
-      });
-
       schedulePersist();
       sendJson(res, 201, getRoomSummary(room));
       return;
@@ -545,6 +566,10 @@ const server = http.createServer(async (req, res) => {
 
   const joinMatch = urlPath.match(/^\/api\/collaboration\/rooms\/([^/]+)\/join$/);
   if (joinMatch && method === 'POST') {
+    if (!isJsonRequest(req)) {
+      sendJson(res, 415, { error: 'Content-Type must be application/json.' });
+      return;
+    }
     try {
       const roomId = joinMatch[1];
       const body = await parseJsonBody(req);
