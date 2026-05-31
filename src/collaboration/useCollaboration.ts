@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { CollaborationSession, CollaborationUser } from './types';
-import type { RecentCollaborationRoom } from './CollaborationContext';
-import { initProviders, teardownProviders, getWebrtcProvider } from './ydoc';
+import type { CollaborationSession, CollaborationUser, PersistedCollaborationRoom } from './types';
+import { initProviders, teardownProviders, getCollaborationProvider } from './ydoc';
 import { initSync, teardownSync } from './sync';
 import { useModelStore } from '../store/useModelStore';
+import {
+  createCollaborationRoom,
+  joinCollaborationRoom,
+  listCollaborationRooms,
+  type CollaborationRoom,
+} from './api';
 
-// ─── Palette of user colors ─────────────────────────────────────────────────
 const USER_COLORS = [
   '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
   '#ec4899', '#ef4444', '#14b8a6', '#f97316',
 ];
-const RECENT_ROOMS_KEY = 'sqlmodel-collab-recent-rooms';
-const MAX_RECENT_ROOMS = 8;
 
 function getOrCreateUserId(): string {
   const key = 'sqlmodel-collab-user-id';
@@ -24,12 +26,10 @@ function getOrCreateUserId(): string {
   return id;
 }
 
-// ─── Suffix generation (unbiased, no modulo on crypto output) ────────────────
-// Rejection sampling: generate a 10-bit value (0-1023), reject if >= 1000.
 function getUnbiasedUserSuffix(): number {
   let value: number;
   do {
-    value = crypto.getRandomValues(new Uint16Array(1))[0] & 0x3ff; // 0–1023
+    value = crypto.getRandomValues(new Uint16Array(1))[0] & 0x3ff;
   } while (value >= 1000);
   return value;
 }
@@ -52,70 +52,97 @@ function getUserColor(userId: string): string {
   return USER_COLORS[Math.abs(hash) % USER_COLORS.length];
 }
 
-function getRoomFromUrl(): string | null {
-  return new URLSearchParams(window.location.search).get('room');
+function getRoomFromUrl(): { roomId: string; roomKey: string } | null {
+  const params = new URLSearchParams(window.location.search);
+  const roomId = params.get('room');
+  const roomKey = params.get('key');
+  if (!roomId || !roomKey) return null;
+  return { roomId, roomKey };
 }
 
-function setRoomInUrl(roomId: string): void {
+function setRoomInUrl(roomId: string, roomKey: string): void {
   const url = new URL(window.location.href);
   url.searchParams.set('room', roomId);
+  url.searchParams.set('key', roomKey);
   window.history.pushState({}, '', url.toString());
 }
 
 function removeRoomFromUrl(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete('room');
+  url.searchParams.delete('key');
   window.history.pushState({}, '', url.toString());
 }
 
-function getRecentRooms(): RecentCollaborationRoom[] {
-  const saved = localStorage.getItem(RECENT_ROOMS_KEY);
-  if (!saved) return [];
-  try {
-    const parsed = JSON.parse(saved) as RecentCollaborationRoom[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((room) => room && typeof room.roomId === 'string' && typeof room.lastVisitedAt === 'number')
-      .slice(0, MAX_RECENT_ROOMS);
-  } catch {
-    return [];
-  }
+function toPersistedRoom(room: CollaborationRoom): PersistedCollaborationRoom {
+  return {
+    roomId: room.roomId,
+    roomKey: room.roomKey,
+    createdAt: room.createdAt,
+    lastActiveAt: room.lastActiveAt,
+    archivedAt: room.archivedAt,
+    expiresAt: room.expiresAt,
+  };
 }
-
-function saveRecentRoom(roomId: string): RecentCollaborationRoom[] {
-  const updatedRooms = [
-    { roomId, lastVisitedAt: Date.now() },
-    ...getRecentRooms().filter((room) => room.roomId !== roomId),
-  ].slice(0, MAX_RECENT_ROOMS);
-  localStorage.setItem(RECENT_ROOMS_KEY, JSON.stringify(updatedRooms));
-  return updatedRooms;
-}
-
-// ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useCollaboration() {
   const roomFromUrl = getRoomFromUrl();
   const initialRoomRef = useRef(roomFromUrl);
-  const [recentRooms, setRecentRooms] = useState<RecentCollaborationRoom[]>(() => getRecentRooms());
+
+  const userId = getOrCreateUserId();
+  const userName = getOrCreateUserName();
+  const userColor = getUserColor(userId);
+
+  const [rooms, setRooms] = useState<PersistedCollaborationRoom[]>([]);
   const [session, setSession] = useState<CollaborationSession>({
-    roomId: roomFromUrl ?? '',
-    userId: getOrCreateUserId(),
-    userName: getOrCreateUserName(),
-    userColor: getUserColor(getOrCreateUserId()),
+    roomId: roomFromUrl?.roomId ?? '',
+    roomKey: roomFromUrl?.roomKey ?? '',
+    userId,
+    userName,
+    userColor,
     isActive: false,
     connectedUsers: [],
+    isServerBacked: false,
   });
 
   const setCollaboratorSelections = useModelStore((s) => s.setCollaboratorSelections);
   const selectedId = useModelStore((s) => s.selectedId);
   const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
 
-  // Keep awareness up-to-date whenever local selection changes
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const refreshRooms = useCallback(async () => {
+    try {
+      const persistedRooms = await listCollaborationRooms(userId);
+      setRooms(persistedRooms.map(toPersistedRoom));
+    } catch (error) {
+      console.warn('[sqlmodel] Failed to fetch collaboration rooms:', error);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listCollaborationRooms(userId)
+      .then((persistedRooms) => {
+        if (!cancelled) {
+          setRooms(persistedRooms.map(toPersistedRoom));
+        }
+      })
+      .catch((error) => {
+        console.warn('[sqlmodel] Failed to fetch collaboration rooms:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
   useEffect(() => {
     if (!session.isActive) return;
-    const provider = getWebrtcProvider();
+    const provider = getCollaborationProvider();
     if (!provider) return;
+
     provider.awareness.setLocalStateField('user', {
       id: session.userId,
       name: session.userName,
@@ -124,34 +151,38 @@ export function useCollaboration() {
     });
   }, [selectedId, session.isActive, session.userId, session.userName, session.userColor]);
 
-  const startSession = useCallback((roomId: string, isJoining = false) => {
-    const userId = getOrCreateUserId();
-    const userName = getOrCreateUserName();
-    const userColor = getUserColor(userId);
+  const startSession = useCallback(async (roomId: string, roomKey: string, isJoining = false) => {
+    const userIdForSession = getOrCreateUserId();
+    const userNameForSession = getOrCreateUserName();
+    const userColorForSession = getUserColor(userIdForSession);
 
-    setRoomInUrl(roomId);
-    setRecentRooms(saveRecentRoom(roomId));
+    await joinCollaborationRoom(roomId, roomKey, userIdForSession);
 
-    const provider = initProviders(roomId);
+    setRoomInUrl(roomId, roomKey);
+
+    const provider = initProviders(roomId, roomKey, {
+      id: userIdForSession,
+      name: userNameForSession,
+      color: userColorForSession,
+    });
+
     initSync(isJoining);
 
-    // Set local awareness
     provider.awareness.setLocalStateField('user', {
-      id: userId,
-      name: userName,
-      color: userColor,
+      id: userIdForSession,
+      name: userNameForSession,
+      color: userColorForSession,
       selectedId: selectedIdRef.current,
     });
 
-    // Listen for awareness changes from peers
     const handleAwareness = () => {
       const states = provider.awareness.getStates();
       const users: CollaborationUser[] = [];
-      const selections: Record<number, CollaborationUser & { selectedId: string | null }> = {};
+      const selections: Record<number, { id: string; name: string; color: string; selectedId: string | null }> = {};
 
       states.forEach((state, clientId) => {
-        const u = state.user as (CollaborationUser & { selectedId: string | null }) | undefined;
-        if (!u || u.id === userId) return;
+        const u = state.user;
+        if (!u || u.id === userIdForSession) return;
         users.push({ id: u.id, name: u.name, color: u.color, selectedId: u.selectedId });
         selections[clientId] = { ...u };
       });
@@ -165,13 +196,17 @@ export function useCollaboration() {
 
     setSession({
       roomId,
-      userId,
-      userName,
-      userColor,
+      roomKey,
+      userId: userIdForSession,
+      userName: userNameForSession,
+      userColor: userColorForSession,
       isActive: true,
       connectedUsers: [],
+      isServerBacked: true,
     });
-  }, [setCollaboratorSelections]);
+
+    await refreshRooms();
+  }, [refreshRooms, setCollaboratorSelections]);
 
   const stopSession = useCallback(() => {
     teardownSync();
@@ -181,32 +216,35 @@ export function useCollaboration() {
     setSession((prev) => ({
       ...prev,
       roomId: '',
+      roomKey: '',
       isActive: false,
       connectedUsers: [],
+      isServerBacked: false,
     }));
   }, [setCollaboratorSelections]);
 
-  const startCollaboration = useCallback(() => {
-    const roomId = uuidv4();
-    startSession(roomId);
+  const startCollaboration = useCallback(async () => {
+    const userIdForSession = getOrCreateUserId();
+    const room = await createCollaborationRoom(userIdForSession);
+    await startSession(room.roomId, room.roomKey, false);
   }, [startSession]);
 
-  const reopenRoom = useCallback((roomId: string) => {
-    startSession(roomId);
+  const reopenRoom = useCallback(async (roomId: string, roomKey: string) => {
+    await startSession(roomId, roomKey, true);
   }, [startSession]);
 
   const inviteLink = session.isActive
     ? (() => {
         const url = new URL(window.location.href);
         url.searchParams.set('room', session.roomId);
+        url.searchParams.set('key', session.roomKey);
         return url.toString();
       })()
     : null;
 
-  // Auto-join if ?room= param present on mount
   useEffect(() => {
     if (initialRoomRef.current) {
-      startSession(initialRoomRef.current, true); // isJoining=true: don't push local model into shared doc
+      void startSession(initialRoomRef.current.roomId, initialRoomRef.current.roomKey, true);
     }
     return () => {
       teardownSync();
@@ -220,7 +258,7 @@ export function useCollaboration() {
     roomId: session.roomId,
     connectedUsers: session.connectedUsers,
     inviteLink,
-    recentRooms,
+    recentRooms: rooms,
     startCollaboration,
     reopenRoom,
     stopSession,

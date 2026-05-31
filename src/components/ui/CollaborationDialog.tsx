@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { Users, Copy, Check, X, Wifi, WifiOff } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
-import type { CollaborationSession } from '../../collaboration/types';
-import type { RecentCollaborationRoom } from '../../collaboration/CollaborationContext';
+import type { CollaborationSession, PersistedCollaborationRoom } from '../../collaboration/types';
 
 interface CollaborationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   session: CollaborationSession;
   inviteLink: string | null;
-  recentRooms: RecentCollaborationRoom[];
+  recentRooms: PersistedCollaborationRoom[];
   onStart: () => void;
-  onReopenRoom: (roomId: string) => void;
+  onReopenRoom: (roomId: string, roomKey: string) => void;
   onStop: () => void;
 }
 
@@ -163,7 +162,7 @@ export const CollaborationDialog = ({
             }
             <span style={{ fontSize: '13px', color: session.isActive ? '#10b981' : isDark ? '#8b949e' : '#6b7280' }}>
               {session.isActive
-                ? `Live session · ${session.connectedUsers.length + 1} user${session.connectedUsers.length + 1 !== 1 ? 's' : ''} connected`
+                ? `Live server sync · ${session.connectedUsers.length + 1} user${session.connectedUsers.length + 1 !== 1 ? 's' : ''} connected`
                 : 'Not in a collaborative session'}
             </span>
           </div>
@@ -202,7 +201,7 @@ export const CollaborationDialog = ({
           {session.isActive && inviteLink && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: isDark ? '#8b949e' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Invite link
+                Server room link
               </p>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -254,7 +253,7 @@ export const CollaborationDialog = ({
           {!session.isActive && recentRooms.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: isDark ? '#8b949e' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Recent rooms
+                Server rooms
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {recentRooms.map((room) => (
@@ -276,11 +275,16 @@ export const CollaborationDialog = ({
                         {room.roomId}
                       </div>
                       <div style={{ fontSize: '11px', color: isDark ? '#8b949e' : '#6b7280' }}>
-                        Last visited {formatLastVisited(room.lastVisitedAt)}
+                        Last active {formatLastVisited(room.lastActiveAt)}
                       </div>
+                      {room.archivedAt && (
+                        <div style={{ fontSize: '11px', color: isDark ? '#d29922' : '#b45309' }}>
+                          Archived
+                        </div>
+                      )}
                     </div>
                     <button
-                      onClick={() => onReopenRoom(room.roomId)}
+                      onClick={() => onReopenRoom(room.roomId, room.roomKey)}
                       style={{
                         border: 'none',
                         outline: 'none',
