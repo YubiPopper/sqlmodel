@@ -191,6 +191,10 @@ class ProviderAwareness {
     if (event === 'change') this.listeners.delete(handler);
   }
 
+  clearListeners(): void {
+    this.listeners.clear();
+  }
+
   private emitChange(): void {
     this.listeners.forEach((listener) => listener());
   }
@@ -250,18 +254,24 @@ class ServerCollaborationProvider {
 
       if (message.type === 'joined') {
         this.isJoined = true;
+        console.log('[sqlmodel] Joined room, clientId:', message.clientId);
 
         if (typeof message.clientId === 'number') {
           this.awareness.setLocalClientId(message.clientId);
         }
 
         if (typeof message.snapshot === 'string' && message.snapshot.length > 0) {
+          console.log('[sqlmodel] Received snapshot of', message.snapshot.length, 'bytes');
           try {
             const decoded = decodeBase64Update(message.snapshot);
+            console.log('[sqlmodel] Decoded snapshot is', decoded.length, 'bytes, applying to ydoc');
             Y.applyUpdate(ydoc, decoded, REMOTE_SYNC_ORIGIN);
+            console.log('[sqlmodel] Snapshot applied successfully');
           } catch (error) {
             console.warn('[sqlmodel] Failed to apply room snapshot:', error);
           }
+        } else {
+          console.log('[sqlmodel] No snapshot data received from server');
         }
 
         this.flushPendingUpdates();
@@ -312,6 +322,7 @@ class ServerCollaborationProvider {
 
   destroy(): void {
     ydoc.off('update', this.onDocUpdate);
+    this.awareness.clearListeners();
     this.sendMessage({ type: 'leave' });
     if (this.ws) {
       this.ws.close();

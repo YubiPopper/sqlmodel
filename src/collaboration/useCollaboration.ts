@@ -108,6 +108,7 @@ export function useCollaboration() {
   const setCollaboratorSelections = useModelStore((s) => s.setCollaboratorSelections);
   const selectedId = useModelStore((s) => s.selectedId);
   const selectedIdRef = useRef(selectedId);
+  const awarenessHandlerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -151,10 +152,17 @@ export function useCollaboration() {
     });
   }, [selectedId, session.isActive, session.userId, session.userName, session.userColor]);
 
-  const startSession = useCallback(async (roomId: string, roomKey: string, isJoining = false) => {
+  const startSession = useCallback(async (roomId: string, roomKey: string, isJoining = false, shouldRefresh = false) => {
     const userIdForSession = getOrCreateUserId();
     const userNameForSession = getOrCreateUserName();
     const userColorForSession = getUserColor(userIdForSession);
+
+    // Clean up previous awareness handler if it exists
+    const oldProvider = getCollaborationProvider();
+    if (oldProvider && awarenessHandlerRef.current) {
+      oldProvider.awareness.off('change', awarenessHandlerRef.current);
+      awarenessHandlerRef.current = null;
+    }
 
     await joinCollaborationRoom(roomId, roomKey, userIdForSession);
 
@@ -191,6 +199,8 @@ export function useCollaboration() {
       setSession((prev) => ({ ...prev, connectedUsers: users }));
     };
 
+    // Store the handler for cleanup on next session or stop
+    awarenessHandlerRef.current = handleAwareness;
     provider.awareness.on('change', handleAwareness);
     handleAwareness();
 
@@ -206,9 +216,22 @@ export function useCollaboration() {
     });
 
     await refreshRooms();
+
+    // Refresh page after a brief delay for manual joins/reopens
+    // This ensures clean state and consistent data
+    if (shouldRefresh) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
   }, [refreshRooms, setCollaboratorSelections]);
 
   const stopSession = useCallback(() => {
+    const provider = getCollaborationProvider();
+    if (provider && awarenessHandlerRef.current) {
+      provider.awareness.off('change', awarenessHandlerRef.current);
+      awarenessHandlerRef.current = null;
+    }
     teardownSync();
     teardownProviders();
     removeRoomFromUrl();
@@ -226,11 +249,11 @@ export function useCollaboration() {
   const startCollaboration = useCallback(async () => {
     const userIdForSession = getOrCreateUserId();
     const room = await createCollaborationRoom(userIdForSession);
-    await startSession(room.roomId, room.roomKey, false);
+    await startSession(room.roomId, room.roomKey, false, true);
   }, [startSession]);
 
   const reopenRoom = useCallback(async (roomId: string, roomKey: string) => {
-    await startSession(roomId, roomKey, true);
+    await startSession(roomId, roomKey, true, true);
   }, [startSession]);
 
   const inviteLink = session.isActive
@@ -244,9 +267,14 @@ export function useCollaboration() {
 
   useEffect(() => {
     if (initialRoomRef.current) {
-      void startSession(initialRoomRef.current.roomId, initialRoomRef.current.roomKey, true);
+      void startSession(initialRoomRef.current.roomId, initialRoomRef.current.roomKey, true, false);
     }
     return () => {
+      const provider = getCollaborationProvider();
+      if (provider && awarenessHandlerRef.current) {
+        provider.awareness.off('change', awarenessHandlerRef.current);
+        awarenessHandlerRef.current = null;
+      }
       teardownSync();
       teardownProviders();
     };

@@ -18,6 +18,9 @@ import {
 let isSyncingFromYjs = false;
 let isSyncingToYjs = false;
 
+// Tracks if we're waiting for a snapshot on rejoin
+let isWaitingForSnapshot = false;
+
 // Debounce timer for layout updates
 let layoutDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -125,19 +128,27 @@ function applyYjsToStore(): void {
   if (isSyncingToYjs) return;
   isSyncingFromYjs = true;
   try {
-    useModelStore.setState({
-      dataModels: mapToArray(yDataModels),
-      entities: mapToArray(yEntities),
-      relationships: mapToArray(yRelationships),
-      entityGroups: mapToArray(yEntityGroups),
-      tables: mapToArray(yTables),
-      foreignKeys: mapToArray(yForeignKeys),
-      tableGroups: mapToArray(yTableGroups),
+    const newState = {
+      dataModels: mapToArray(yDataModels) as any,
+      entities: mapToArray(yEntities) as any,
+      relationships: mapToArray(yRelationships) as any,
+      entityGroups: mapToArray(yEntityGroups) as any,
+      tables: mapToArray(yTables) as any,
+      foreignKeys: mapToArray(yForeignKeys) as any,
+      tableGroups: mapToArray(yTableGroups) as any,
       nodeLayouts: recordFromMap(yNodeLayouts) as Record<string, { x: number; y: number; width?: number; height?: number }>,
       tableLayouts: recordFromMap(yTableLayouts) as Record<string, { x: number; y: number; width?: number; height?: number }>,
       databaseDescriptions: recordFromMap(yDatabaseDescriptions) as Record<string, string>,
       schemaDescriptions: recordFromMap(ySchemaDescriptions) as Record<string, string>,
-    });
+    };
+    
+    useModelStore.setState(newState);
+    
+    // Track that we received snapshot data on rejoin
+    if (isWaitingForSnapshot) {
+      console.log('[sqlmodel] Snapshot received and applied to store');
+      isWaitingForSnapshot = false;
+    }
   } finally {
     isSyncingFromYjs = false;
   }
@@ -147,16 +158,20 @@ function applyYjsToStore(): void {
 
 let unsubscribeStore: (() => void) | null = null;
 let ymapHandler: ((_evt: unknown) => void) | null = null;
+let snapshotTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 /** Wire up bidirectional sync between Zustand and Yjs.
  * @param isJoining - true when joining an existing room from a link.
- *   Skips the initial local→Yjs push (which would pollute the shared doc with
- *   the joiner's unrelated local model) and clears the local store so the
- *   host's data flows in cleanly once WebRTC syncs.
+ *   Sets up observers to receive the host's Yjs state. Doesn't sync local
+ *   state back to Yjs until the snapshot is confirmed to have arrived.
  */
 export function initSync(isJoining = false): void {
   if (isJoining) {
-    // Clear local store so the host's Yjs state will replace it, not merge with it
+    console.log('[sqlmodel] Joining room - setting up snapshot reception');
+    isWaitingForSnapshot = true;
+    
+    // Clear the store to prepare for snapshot, but do so gently
+    // This prevents merging old local data with new shared data
     isSyncingFromYjs = true;
     try {
       useModelStore.setState({
@@ -175,6 +190,16 @@ export function initSync(isJoining = false): void {
     } finally {
       isSyncingFromYjs = false;
     }
+    
+    // Set a timeout to detect if snapshot doesn't arrive
+    if (snapshotTimeoutId) clearTimeout(snapshotTimeoutId);
+    snapshotTimeoutId = setTimeout(() => {
+      if (isWaitingForSnapshot) {
+        console.warn('[sqlmodel] Snapshot did not arrive within 5s - store may be empty');
+        isWaitingForSnapshot = false;
+      }
+      snapshotTimeoutId = null;
+    }, 5000);
   } else {
     // Host: push local model into the shared doc immediately
     pushStoreToYjs();
@@ -198,9 +223,13 @@ export function initSync(isJoining = false): void {
   ymapHandler = () => applyYjsToStore();
   ymaps.forEach((m) => m.observe(ymapHandler!));
 
+  // Immediately sync any existing Yjs state to the store (in case snapshot
+  // arrived before observers were registered)
+  applyYjsToStore();
+
   // Zustand → Yjs: subscribe to store changes
   unsubscribeStore = useModelStore.subscribe((state, prevState) => {
-    if (isSyncingFromYjs) return;
+    if (isSyncingFromYjs || isWaitingForSnapshot) return;
     // Shallow-check if any synced collection changed
     const layoutChanged =
       state.nodeLayouts !== prevState.nodeLayouts ||
@@ -243,4 +272,9 @@ export function teardownSync(): void {
     clearTimeout(layoutDebounceTimer);
     layoutDebounceTimer = null;
   }
+  if (snapshotTimeoutId) {
+    clearTimeout(snapshotTimeoutId);
+    snapshotTimeoutId = null;
+  }
+  isWaitingForSnapshot = false;
 }
