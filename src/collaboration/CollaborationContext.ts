@@ -1,10 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { CollaborationSession } from './types';
-
-export interface RecentCollaborationRoom {
-  roomId: string;
-  lastVisitedAt: number;
-}
+import type { CollaborationSession, PersistedCollaborationRoom } from './types';
 
 export interface CollaborationContextValue {
   session: CollaborationSession;
@@ -12,28 +7,30 @@ export interface CollaborationContextValue {
   roomId: string;
   connectedUsers: CollaborationSession['connectedUsers'];
   inviteLink: string | null;
-  recentRooms: RecentCollaborationRoom[];
-  startCollaboration: () => void;
-  reopenRoom: (roomId: string) => void;
+  recentRooms: PersistedCollaborationRoom[];
+  startCollaboration: () => Promise<void>;
+  reopenRoom: (roomId: string, roomKey: string) => Promise<void>;
   stopSession: () => void;
 }
 
 export const CollaborationContext = createContext<CollaborationContextValue>({
   session: {
     roomId: '',
+    roomKey: '',
     userId: '',
     userName: '',
     userColor: '',
     isActive: false,
     connectedUsers: [],
+    isServerBacked: false,
   },
   isActive: false,
   roomId: '',
   connectedUsers: [],
   inviteLink: null,
   recentRooms: [],
-  startCollaboration: () => {},
-  reopenRoom: () => {},
+  startCollaboration: async () => {},
+  reopenRoom: async () => {},
   stopSession: () => {},
 });
 

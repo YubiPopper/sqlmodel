@@ -91,6 +91,16 @@ npm run build
 npm run preview
 ```
 
+### Server-backed Collaboration
+
+The app server (`npm run start`) now includes collaboration room APIs and a websocket endpoint at `/collaboration`.
+Room documents are persisted on the server so users can disconnect and rejoin without losing shared state.
+Room retention is controlled with optional env vars:
+
+- `COLLAB_ROOM_ARCHIVE_MS` (default 7 days)
+- `COLLAB_ROOM_TTL_MS` (default 30 days)
+- `COLLAB_ROOM_CLEANUP_MS` (default 10 minutes)
+
 ---
 
 ## 📖 How to Use

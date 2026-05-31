@@ -283,10 +283,10 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
         inviteLink={inviteLink}
         recentRooms={recentRooms}
         onStart={() => {
-          startCollaboration();
+          void startCollaboration();
         }}
-        onReopenRoom={(roomId) => {
-          reopenRoom(roomId);
+        onReopenRoom={(roomId, roomKey) => {
+          void reopenRoom(roomId, roomKey);
         }}
         onStop={() => {
           stopSession();
