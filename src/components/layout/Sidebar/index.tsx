@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { FolderOpen, Layers, Database, Box, Settings } from 'lucide-react';
+import { Layers, Database, Box, Settings } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { SearchBox } from './SearchBox';
 import { ModelTree } from './ModelTree';
 import { QuickActions } from './QuickActions';
 import { ConceptualSettingsDialog } from '../../ui/ConceptualSettingsDialog';
 import { Tooltip } from '../../shared/Tooltip';
-import { DropdownButton } from '../../shared/Dropdown';
-import { useCollaborationContext } from '../../../collaboration/CollaborationContext';
 
 interface LeftSidebarProps {
   onOpenCommandPalette?: () => void;
@@ -22,48 +20,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenCommandPalette }
   const setPhysicalHierarchyMode = useModelStore(state => state.setPhysicalHierarchyMode);
   const focusMode = useModelStore(state => state.focusMode);
   const setFocusMode = useModelStore(state => state.setFocusMode);
-  const {
-    session,
-    personalModels,
-    activePersonalModelId,
-    renameCurrentModel,
-    createPersonalModel,
-    startCollaboration,
-  } = useCollaborationContext();
 
   const isDark = colorMode === 'dark';
   const isPhysical = viewMode === 'physical';
-  const activePersonalModel = personalModels.find((model) => model.id === activePersonalModelId) ?? null;
-  const currentModelName = session.isActive
-    ? (session.modelName || 'Shared Model')
-    : (activePersonalModel?.name || 'My Model');
-
-  const modelMenuItems = [
-    {
-      label: 'Rename current model',
-      icon: <Settings size={14} />,
-      onClick: () => {
-        const nextName = window.prompt('Rename current model', currentModelName);
-        if (nextName === null) return;
-        void renameCurrentModel(nextName);
-      },
-    },
-    { label: '', divider: true, onClick: () => {} },
-    {
-      label: 'New personal model',
-      icon: <FolderOpen size={14} />,
-      onClick: () => {
-        createPersonalModel(`Personal Model ${personalModels.length + 1}`);
-      },
-    },
-    {
-      label: 'Start shared model',
-      icon: <Database size={14} />,
-      onClick: () => {
-        void startCollaboration('Shared Model');
-      },
-    },
-  ];
 
   return (
     <aside
@@ -206,22 +165,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({ onOpenCommandPalette }
             </div>
           </Tooltip>
         )}
-      </div>
-
-      <div style={{
-        padding: '8px 12px 10px',
-        borderBottom: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-      }}>
-        <DropdownButton
-          label="Models"
-          items={modelMenuItems}
-          icon={<FolderOpen size={14} />}
-          title={`Manage models: ${currentModelName}`}
-          variant="ghost"
-          fullWidth={true}
-          compact={true}
-          align="left"
-        />
       </div>
 
       {/* Search */}

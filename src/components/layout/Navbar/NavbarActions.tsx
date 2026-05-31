@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { 
   FilePlus,
+  FolderOpen,
   Layers,
   Plus,
   Group,
@@ -16,6 +17,7 @@ import { DropdownButton } from '../../shared/Dropdown';
 import { Tooltip } from '../../shared/Tooltip';
 import type { DropdownItem } from '../../shared/Dropdown';
 import type { ConceptualData, PhysicalData } from '../../../model/schemas';
+import { useCollaborationContext } from '../../../collaboration/CollaborationContext';
 import { SchemaDialog } from '../../ui/SchemaDialog';
 import { ImportDialog } from '../../ui/ImportDialog';
 import { ExportDialog } from '../../ui/ExportDialog';
@@ -124,8 +126,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const [importDialogState, setImportDialogState] = useState<{ isOpen: boolean; initialFormat?: string }>({ isOpen: false });
   const [importUrlDialogOpen, setImportUrlDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [importDropdownOpen, setImportDropdownOpen] = useState(false);
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [modelsDropdownOpen, setModelsDropdownOpen] = useState(false);
   const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
   
   // Dialog states from store (persisted across component unmounts)
@@ -141,8 +142,20 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const viewMode = useModelStore(state => state.viewMode);
   const colorMode = useModelStore(state => state.colorMode);
+  const {
+    session,
+    personalModels,
+    activePersonalModelId,
+    renameCurrentModel,
+    createPersonalModel,
+    startCollaboration,
+  } = useCollaborationContext();
 
   const isDark = colorMode === 'dark';
+  const activePersonalModel = personalModels.find((model) => model.id === activePersonalModelId) ?? null;
+  const currentModelName = session.isActive
+    ? (session.modelName || 'Shared Model')
+    : (activePersonalModel?.name || 'My Model');
 
   const handleSave = () => {
     const state = useModelStore.getState();
@@ -303,9 +316,35 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     });
   };
 
-  const importItems: DropdownItem[] = [
-    { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
+  const modelItems: DropdownItem[] = [
+    {
+      label: 'Rename current model',
+      icon: <FolderOpen size={14} />,
+      onClick: () => {
+        const nextName = window.prompt('Rename current model', currentModelName);
+        if (nextName === null) return;
+        void renameCurrentModel(nextName);
+        onActionComplete?.();
+      },
+    },
+    {
+      label: 'New personal model',
+      icon: <FolderOpen size={14} />,
+      onClick: () => {
+        createPersonalModel(`Personal Model ${personalModels.length + 1}`);
+        onActionComplete?.();
+      },
+    },
+    {
+      label: 'Start shared model',
+      icon: <Database size={14} />,
+      onClick: () => {
+        void startCollaboration('Shared Model');
+        onActionComplete?.();
+      },
+    },
     { label: '', divider: true, onClick: () => {} },
+    { label: 'New Model', icon: <FilePlus size={14} />, onClick: () => { clearModel(); onActionComplete?.(); }, shortcut: '⌘N' },
     { label: 'Import Model', icon: <Upload size={14} />, onClick: () => { handleLoadClick(); onActionComplete?.(); }, shortcut: '⌘O' },
     { label: 'Import Schema', icon: <Upload size={14} />, onClick: () => { handleImportSchema(); onActionComplete?.(); } },
     { label: 'Import from URL', icon: <Link2 size={14} />, onClick: () => { setImportUrlDialogOpen(true); onActionComplete?.(); } },
@@ -318,9 +357,6 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     { label: 'From Prisma', icon: <PrismaIcon size={14} />, onClick: () => { localStorage.setItem('sqlmodel-preferred-format', 'prisma'); setImportDialogState({ isOpen: true, initialFormat: 'prisma' }); onActionComplete?.(); } },
     { label: '', divider: true, onClick: () => {} },
     { label: 'Templates', icon: <Layers size={14} />, onClick: () => { setShowExampleDialog(true); onActionComplete?.(); } },
-  ];
-
-  const exportItems: DropdownItem[] = [
     { label: 'Export Model', icon: <Download size={14} />, onClick: () => { handleSave(); onActionComplete?.(); }, shortcut: '⌘S' },
     { label: 'Export SQL', icon: <DatabaseIcon size={14} />, onClick: () => { handleExportDDL(); onActionComplete?.(); } },
   ];
@@ -365,15 +401,20 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
         isOpen={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
       />
+
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        style={{ display: 'none' }} 
+        accept=".json"
+        onChange={handleFileChange}
+      />
       
       {isMobile ? (
         // Mobile Layout - Buttons render directly into parent grid
         <>
-          {/* Import Menu - Mobile */}
-          <DropdownButton label="Import" items={importItems} icon={<Upload size={16} />} fullWidth={true} compact={true} />
-
-          {/* Export Menu - Mobile */}
-          <DropdownButton label="Export" items={exportItems} icon={<Download size={16} />} fullWidth={true} compact={true} />
+          {/* Models Menu - Mobile */}
+          <DropdownButton label="Models" items={modelItems} icon={<FolderOpen size={16} />} fullWidth={true} compact={true} />
 
           {/* Insert Menu - Mobile */}
           <DropdownButton label="Insert" items={insertItems} icon={<Plus size={16} />} fullWidth={true} compact={true} />
@@ -419,20 +460,9 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
       ) : (
         // Desktop Layout - Original horizontal layout
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
-        <input 
-        type="file" 
-        ref={fileInputRef} 
-        style={{ display: 'none' }} 
-        accept=".json"
-        onChange={handleFileChange}
-      />
-
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <Tooltip content="Import models and templates" disabled={importDropdownOpen}>
-          <DropdownButton label="Import" items={importItems} icon={<Upload size={14} />} onOpenChange={setImportDropdownOpen} />
-        </Tooltip>
-        <Tooltip content="Export model as JSON or SQL DDL" disabled={exportDropdownOpen}>
-          <DropdownButton label="Export" items={exportItems} icon={<Download size={14} />} onOpenChange={setExportDropdownOpen} />
+        <Tooltip content={`Manage models: ${currentModelName}`} disabled={modelsDropdownOpen}>
+          <DropdownButton label="Models" items={modelItems} icon={<FolderOpen size={14} />} onOpenChange={setModelsDropdownOpen} />
         </Tooltip>
         <Tooltip content="Add entities, tables, or groups to your model" disabled={insertDropdownOpen}>
           <DropdownButton label="Insert" items={insertItems} icon={<Plus size={14} />} onOpenChange={setInsertDropdownOpen} />
