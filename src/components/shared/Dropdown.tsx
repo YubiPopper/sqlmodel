@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useModelStore } from '../../store/useModelStore';
 
@@ -25,6 +26,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
   onOpenChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left?: number; right?: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   
   const handleOpenChange = (newState: boolean) => {
     setIsOpen(newState);
@@ -34,29 +38,23 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition(
+        align === 'right'
+          ? { top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) }
+          : { top: rect.bottom + 4, left: rect.left }
+      );
+    }
     handleOpenChange(!isOpen);
   };
-  
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const colorMode = useModelStore(state => state.colorMode);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        handleOpenChange(false);
-      }
-    };
-
-    // Use a small delay to prevent the click that opened the dropdown from immediately closing it
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 0);
-
     return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handleClickOutside);
+      setMenuPosition(null);
     };
   }, [isOpen]);
 
@@ -77,117 +75,123 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const isDark = colorMode === 'dark';
 
   return (
-    <div ref={dropdownRef} style={{ position: 'relative', display: 'inline-block' }}>
-      <div onClick={handleToggle}>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <div ref={triggerRef} onClick={handleToggle}>
         {trigger}
       </div>
       
       {isOpen && (
-        <>
-          {/* Invisible overlay to catch clicks anywhere including canvas */}
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenChange(false);
-            }}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 999,
-            }}
-          />
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-              [align]: 0,
-              width: 'max-content',
-              maxWidth: '180px',
-              background: isDark ? '#21262d' : '#ffffff',
-              border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              boxShadow: isDark 
-                ? '0 8px 24px rgba(0, 0, 0, 0.4)' 
-                : '0 8px 24px rgba(0, 0, 0, 0.12)',
-              zIndex: 1000,
-              overflow: 'hidden',
-              padding: '4px',
-              pointerEvents: 'auto',
-            }}
-          >
-          {items.map((item, index) => (
-            <React.Fragment key={index}>
-              {item.divider && (
-                <div style={{
-                  height: '1px',
-                  background: isDark ? '#30363d' : '#e5e7eb',
-                  margin: '4px 0',
-                }} />
-              )}
-              {!item.divider && (
-                <button
-                  onClick={() => {
-                    if (!item.disabled) {
-                      item.onClick();
-                      handleOpenChange(false);
-                    }
-                  }}
-                  disabled={item.disabled}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderRadius: '4px',
-                    outline: 'none',
-                    cursor: item.disabled ? 'not-allowed' : 'pointer',
-                    opacity: item.disabled ? 0.5 : 1,
-                    color: isDark ? '#e6edf3' : '#374151',
-                    fontSize: '13px',
-                    textAlign: 'left',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!item.disabled) {
-                      e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  {item.icon && (
-                    <span style={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      color: isDark ? '#8b949e' : '#6b7280',
-                    }}>
-                      {item.icon}
-                    </span>
+        createPortal(
+          <>
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenChange(false);
+              }}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 999,
+              }}
+            />
+            <div
+              ref={menuRef}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                top: menuPosition?.top ?? 0,
+                left: align === 'left' ? (menuPosition?.left ?? 0) : undefined,
+                right: align === 'right' ? (menuPosition?.right ?? 0) : undefined,
+                width: 'max-content',
+                minWidth: '240px',
+                maxWidth: '320px',
+                background: isDark ? '#21262d' : '#ffffff',
+                border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+                borderRadius: '8px',
+                boxShadow: isDark
+                  ? '0 8px 24px rgba(0, 0, 0, 0.4)'
+                  : '0 8px 24px rgba(0, 0, 0, 0.12)',
+                zIndex: 1000,
+                overflow: 'hidden',
+                padding: '4px',
+                pointerEvents: 'auto',
+              }}
+            >
+              {items.map((item, index) => (
+                <React.Fragment key={index}>
+                  {item.divider && (
+                    <div style={{
+                      height: '1px',
+                      background: isDark ? '#30363d' : '#e5e7eb',
+                      margin: '4px 0',
+                    }} />
                   )}
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.shortcut && (
-                    <span style={{ 
-                      fontSize: '11px', 
-                      color: isDark ? '#8b949e' : '#9ca3af',
-                      fontFamily: 'monospace',
-                    }}>
-                      {item.shortcut}
-                    </span>
+                  {!item.divider && (
+                    <button
+                      onClick={() => {
+                        if (!item.disabled) {
+                          item.onClick();
+                          handleOpenChange(false);
+                        }
+                      }}
+                      disabled={item.disabled}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '4px',
+                        outline: 'none',
+                        cursor: item.disabled ? 'not-allowed' : 'pointer',
+                        opacity: item.disabled ? 0.5 : 1,
+                        color: isDark ? '#e6edf3' : '#374151',
+                        fontSize: '13px',
+                        textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!item.disabled) {
+                          e.currentTarget.style.background = isDark ? '#30363d' : '#f3f4f6';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      {item.icon && (
+                        <span style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexShrink: 0,
+                          color: isDark ? '#8b949e' : '#6b7280',
+                        }}>
+                          {item.icon}
+                        </span>
+                      )}
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.shortcut && (
+                        <span style={{
+                          fontSize: '11px',
+                          color: isDark ? '#8b949e' : '#9ca3af',
+                          fontFamily: 'monospace',
+                        }}>
+                          {item.shortcut}
+                        </span>
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
-            </React.Fragment>
-          ))}
-          </div>
-        </>
+                </React.Fragment>
+              ))}
+            </div>
+          </>,
+          document.body,
+        )
       )}
     </div>
   );

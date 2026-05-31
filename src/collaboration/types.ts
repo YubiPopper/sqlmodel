@@ -6,17 +6,25 @@ export interface CollaborationUser {
 }
 
 export interface PersistedCollaborationRoom {
-  roomId: string;
-  roomKey: string;
+  modelId: string;
+  modelKey: string;
+  modelName: string;
   createdAt: number;
   lastActiveAt: number;
   archivedAt: number | null;
   expiresAt: number;
 }
 
+export interface PersonalModelSummary {
+  id: string;
+  name: string;
+  updatedAt: number;
+}
+
 export interface CollaborationSession {
-  roomId: string;
-  roomKey: string;
+  modelId: string;
+  modelKey: string;
+  modelName: string;
   userId: string;
   userName: string;
   userColor: string;

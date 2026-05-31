@@ -22,8 +22,8 @@ type PresencePayload = {
 
 type JoinMessage = {
   type: 'join';
-  roomId: string;
-  roomKey: string;
+  modelId: string;
+  modelKey: string;
   userId: string;
   userName: string;
   userColor: string;
@@ -205,15 +205,15 @@ class ServerCollaborationProvider {
   private pendingUpdates: string[] = [];
   private isJoined = false;
   private readonly onDocUpdate: (update: Uint8Array, origin: unknown) => void;
-  private readonly roomId: string;
-  private readonly roomKey: string;
+  private readonly modelId: string;
+  private readonly modelKey: string;
   private readonly user: { id: string; name: string; color: string };
 
   readonly awareness: ProviderAwareness;
 
-  constructor(roomId: string, roomKey: string, user: { id: string; name: string; color: string }) {
-    this.roomId = roomId;
-    this.roomKey = roomKey;
+  constructor(modelId: string, modelKey: string, user: { id: string; name: string; color: string }) {
+    this.modelId = modelId;
+    this.modelKey = modelKey;
     this.user = user;
     this.awareness = new ProviderAwareness(this);
     this.onDocUpdate = (update, origin) => {
@@ -240,8 +240,8 @@ class ServerCollaborationProvider {
     this.ws.onopen = () => {
       this.sendMessage({
         type: 'join',
-        roomId: this.roomId,
-        roomKey: this.roomKey,
+        modelId: this.modelId,
+        modelKey: this.modelKey,
         userId: this.user.id,
         userName: this.user.name,
         userColor: this.user.color,
@@ -254,7 +254,7 @@ class ServerCollaborationProvider {
 
       if (message.type === 'joined') {
         this.isJoined = true;
-        console.log('[sqlmodel] Joined room, clientId:', message.clientId);
+        console.log('[sqlmodel] Joined model, clientId:', message.clientId);
 
         if (typeof message.clientId === 'number') {
           this.awareness.setLocalClientId(message.clientId);
@@ -268,7 +268,7 @@ class ServerCollaborationProvider {
             Y.applyUpdate(ydoc, decoded, REMOTE_SYNC_ORIGIN);
             console.log('[sqlmodel] Snapshot applied successfully');
           } catch (error) {
-            console.warn('[sqlmodel] Failed to apply room snapshot:', error);
+            console.warn('[sqlmodel] Failed to apply model snapshot:', error);
           }
         } else {
           console.log('[sqlmodel] No snapshot data received from server');
@@ -357,7 +357,7 @@ export function getCollaborationProvider(): ServerCollaborationProvider | null {
 }
 
 /** Clear all shared Y.Maps. Must be called before creating providers for a new
- *  room so stale data from the previous session doesn't bleed into the new room. */
+ *  model so stale data from the previous session doesn't bleed into the new model. */
 export function clearYDoc(): void {
   ydoc.transact(() => {
     yDataModels.clear();
@@ -375,8 +375,8 @@ export function clearYDoc(): void {
 }
 
 export function initProviders(
-  roomId: string,
-  roomKey: string,
+  modelId: string,
+  modelKey: string,
   user: { id: string; name: string; color: string },
 ): ServerCollaborationProvider {
   if (provider) {
@@ -386,7 +386,7 @@ export function initProviders(
 
   clearYDoc();
 
-  provider = new ServerCollaborationProvider(roomId, roomKey, user);
+  provider = new ServerCollaborationProvider(modelId, modelKey, user);
   return provider;
 }
 

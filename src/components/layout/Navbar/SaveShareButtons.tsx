@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { Share2, Users } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { IconButton } from '../../shared/IconButton';
 import { Tooltip } from '../../shared/Tooltip';
 import { Toast } from '../../ui/Toast';
-import { CollaborationDialog } from '../../ui/CollaborationDialog';
-import { useCollaborationContext } from '../../../collaboration/CollaborationContext';
 
 interface SaveShareButtonsProps {
   isMobile?: boolean;
@@ -13,14 +11,11 @@ interface SaveShareButtonsProps {
 
 export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) => {
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [showCollabDialog, setShowCollabDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showToast, setShowToast] = useState(false);
   
   const colorMode = useModelStore(state => state.colorMode);
   const isDark = colorMode === 'dark';
-
-  const { session, isActive, inviteLink, recentRooms, startCollaboration, reopenRoom, stopSession } = useCollaborationContext();
 
   const handleShare = () => {
     setShowShareDialog(true);
@@ -69,35 +64,6 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
             <Share2 size={18} style={{ flexShrink: 0 }} />
             <span>Share</span>
           </button>
-          <button
-            onClick={() => setShowCollabDialog(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              padding: '12px 14px',
-              minHeight: '48px',
-              height: '48px',
-              boxSizing: 'border-box',
-              background: isActive
-                ? isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
-                : isDark ? '#21262d' : '#f3f4f6',
-              border: `1px solid ${isActive
-                ? isDark ? 'rgba(16, 185, 129, 0.4)' : 'rgba(16, 185, 129, 0.4)'
-                : isDark ? '#30363d' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              color: isActive ? '#10b981' : isDark ? '#e6edf3' : '#374151',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              width: '100%',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Users size={18} style={{ flexShrink: 0 }} />
-            <span>{isActive ? 'Live session' : 'Collaborate'}</span>
-          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -108,17 +74,6 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
                 onClick={handleShare}
                 variant="ghost"
                 size="md"
-              />
-            </div>
-          </Tooltip>
-          <Tooltip content={isActive ? 'Live collaboration session' : 'Start collaboration'}>
-            <div>
-              <IconButton
-                icon={<Users size={18} />}
-                onClick={() => setShowCollabDialog(true)}
-                variant="ghost"
-                size="md"
-                active={isActive}
               />
             </div>
           </Tooltip>
@@ -275,24 +230,6 @@ export const SaveShareButtons = ({ isMobile = false }: SaveShareButtonsProps) =>
         </div>
       )}
 
-      {/* Collaboration Dialog */}
-      <CollaborationDialog
-        isOpen={showCollabDialog}
-        onClose={() => setShowCollabDialog(false)}
-        session={session}
-        inviteLink={inviteLink}
-        recentRooms={recentRooms}
-        onStart={() => {
-          void startCollaboration();
-        }}
-        onReopenRoom={(roomId, roomKey) => {
-          void reopenRoom(roomId, roomKey);
-        }}
-        onStop={() => {
-          stopSession();
-          setShowCollabDialog(false);
-        }}
-      />
     </>
   );
 };

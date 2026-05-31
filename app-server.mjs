@@ -12,7 +12,8 @@ const __dirname = path.dirname(__filename);
 const port = Number(process.env.PORT || 4173);
 const distDir = path.join(__dirname, 'dist');
 const collabDataDir = path.join(__dirname, '.collaboration');
-const collabStoreFile = path.join(collabDataDir, 'rooms.json');
+const collabStoreFile = path.join(collabDataDir, 'models.json');
+const legacyCollabStoreFile = path.join(collabDataDir, 'rooms.json');
 const pingTimeoutMs = 30000;
 const roomArchiveMs = Number(process.env.COLLAB_ROOM_ARCHIVE_MS || 1000 * 60 * 60 * 24 * 7);
 const roomTtlMs = Number(process.env.COLLAB_ROOM_TTL_MS || 1000 * 60 * 60 * 24 * 30);
@@ -22,6 +23,7 @@ const roomCompactThreshold = Number(process.env.COLLAB_ROOM_COMPACT_THRESHOLD ||
 /** @type {Map<string, {
  *   roomId: string,
  *   roomKey: string,
+ *   modelName: string,
  *   createdBy: string,
  *   memberIds: string[],
  *   createdAt: number,
@@ -66,7 +68,7 @@ const send = (conn, message) => {
 };
 
 const writeStore = () => {
-  const payload = JSON.stringify({ rooms: Array.from(rooms.values()) });
+  const payload = JSON.stringify({ models: Array.from(rooms.values()) });
   const tempPath = `${collabStoreFile}.tmp`;
   fs.writeFileSync(tempPath, payload, 'utf8');
   fs.renameSync(tempPath, collabStoreFile);
@@ -81,10 +83,15 @@ const schedulePersist = () => {
 };
 
 const loadStore = () => {
-  if (!fs.existsSync(collabStoreFile)) return;
+  const storeFile = fs.existsSync(collabStoreFile)
+    ? collabStoreFile
+    : (fs.existsSync(legacyCollabStoreFile) ? legacyCollabStoreFile : null);
+  if (!storeFile) return;
   try {
-    const parsed = JSON.parse(fs.readFileSync(collabStoreFile, 'utf8'));
-    const storedRooms = Array.isArray(parsed?.rooms) ? parsed.rooms : [];
+    const parsed = JSON.parse(fs.readFileSync(storeFile, 'utf8'));
+    const storedRooms = Array.isArray(parsed?.models)
+      ? parsed.models
+      : (Array.isArray(parsed?.rooms) ? parsed.rooms : []);
     storedRooms.forEach((room) => {
       if (
         !room ||
@@ -97,6 +104,9 @@ const loadStore = () => {
       rooms.set(room.roomId, {
         roomId: room.roomId,
         roomKey: room.roomKey,
+        modelName: typeof room.modelName === 'string' && room.modelName.trim()
+          ? room.modelName.trim()
+          : 'Untitled Shared Model',
         createdBy: room.createdBy,
         memberIds: Array.isArray(room.memberIds) ? room.memberIds.filter((id) => typeof id === 'string') : [],
         createdAt: typeof room.createdAt === 'number' ? room.createdAt : Date.now(),
@@ -181,8 +191,9 @@ const createRoomDoc = (roomId) => {
 };
 
 const getRoomSummary = (room) => ({
-  roomId: room.roomId,
-  roomKey: room.roomKey,
+  modelId: room.roomId,
+  modelKey: room.roomKey,
+  modelName: room.modelName,
   createdAt: room.createdAt,
   lastActiveAt: room.lastActiveAt,
   archivedAt: room.archivedAt,
@@ -239,7 +250,7 @@ const cleanupRooms = () => {
       const subscribers = roomConnections.get(roomId);
       if (subscribers) {
         subscribers.forEach((conn) => {
-          send(conn, { type: 'error', message: 'Room expired due to inactivity.' });
+          send(conn, { type: 'error', message: 'Model expired due to inactivity.' });
           conn.close();
         });
       }
@@ -359,8 +370,8 @@ const onCollaborationConnection = (conn) => {
     if (!message || typeof message.type !== 'string') return;
 
     if (message.type === 'join') {
-      const roomId = message.roomId;
-      const roomKey = message.roomKey;
+      const roomId = message.modelId ?? message.roomId;
+      const roomKey = message.modelKey ?? message.roomKey;
       const userId = message.userId;
       const userName = message.userName;
       const userColor = message.userColor;
@@ -378,7 +389,7 @@ const onCollaborationConnection = (conn) => {
 
       const room = rooms.get(roomId);
       if (!room || room.roomKey !== roomKey) {
-        send(conn, { type: 'error', message: 'Room not found or access denied.' });
+        send(conn, { type: 'error', message: 'Model not found or access denied.' });
         return;
       }
 
@@ -391,7 +402,7 @@ const onCollaborationConnection = (conn) => {
 
       const doc = getRoomDoc(roomId);
       if (!doc) {
-        send(conn, { type: 'error', message: 'Failed to initialize room.' });
+        send(conn, { type: 'error', message: 'Failed to initialize model.' });
         return;
       }
 
@@ -411,10 +422,10 @@ const onCollaborationConnection = (conn) => {
 
       send(conn, {
         type: 'joined',
-        roomId,
+        modelId: roomId,
         clientId,
         snapshot: toBase64(Y.encodeStateAsUpdate(doc)),
-        room: getRoomSummary(room),
+        model: getRoomSummary(room),
       });
 
       refreshPresence(roomId);
@@ -423,13 +434,13 @@ const onCollaborationConnection = (conn) => {
 
     const session = connectionSessions.get(conn);
     if (!session) {
-      send(conn, { type: 'error', message: 'Join a room first.' });
+      send(conn, { type: 'error', message: 'Join a model first.' });
       return;
     }
 
     const room = rooms.get(session.roomId);
     if (!room) {
-      send(conn, { type: 'error', message: 'Room not found.' });
+      send(conn, { type: 'error', message: 'Model not found.' });
       return;
     }
 
@@ -508,7 +519,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (urlPath === '/api/collaboration/rooms' && method === 'POST') {
+  if ((urlPath === '/api/collaboration/models' || urlPath === '/api/collaboration/rooms') && method === 'POST') {
     if (!isJsonRequest(req)) {
       sendJson(res, 415, { error: 'Content-Type must be application/json.' });
       return;
@@ -516,8 +527,9 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = await parseJsonBody(req);
       const userId = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : null;
-      if (!userId) {
-        sendJson(res, 400, { error: 'userId is required.' });
+      const modelName = typeof body.modelName === 'string' && body.modelName.trim() ? body.modelName.trim() : null;
+      if (!userId || !modelName) {
+        sendJson(res, 400, { error: 'userId and modelName are required.' });
         return;
       }
 
@@ -529,6 +541,7 @@ const server = http.createServer(async (req, res) => {
       const room = {
         roomId,
         roomKey,
+        modelName,
         createdBy: userId,
         memberIds: [userId],
         createdAt: now,
@@ -548,7 +561,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  if (urlPath === '/api/collaboration/rooms' && method === 'GET') {
+  if ((urlPath === '/api/collaboration/models' || urlPath === '/api/collaboration/rooms') && method === 'GET') {
     const userId = requestUrl.searchParams.get('userId');
     if (!userId) {
       sendJson(res, 400, { error: 'userId query param is required.' });
@@ -560,30 +573,68 @@ const server = http.createServer(async (req, res) => {
       .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
       .map(getRoomSummary);
 
-    sendJson(res, 200, { rooms: userRooms });
+    sendJson(res, 200, { models: userRooms });
     return;
   }
 
-  const joinMatch = urlPath.match(/^\/api\/collaboration\/rooms\/([^/]+)\/join$/);
+  const renameMatch = urlPath.match(/^\/api\/collaboration\/(models|rooms)\/([^/]+)$/);
+  if (renameMatch && method === 'PUT') {
+    if (!isJsonRequest(req)) {
+      sendJson(res, 415, { error: 'Content-Type must be application/json.' });
+      return;
+    }
+    try {
+      const roomId = renameMatch[2];
+      const body = await parseJsonBody(req);
+      const userId = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : null;
+      const roomKey = typeof body.modelKey === 'string' && body.modelKey.trim() ? body.modelKey.trim() : null;
+      const modelName = typeof body.modelName === 'string' && body.modelName.trim() ? body.modelName.trim() : null;
+
+      if (!userId || !roomKey || !modelName) {
+        sendJson(res, 400, { error: 'userId, modelKey, and modelName are required.' });
+        return;
+      }
+
+      const room = rooms.get(roomId);
+      if (!room || room.roomKey !== roomKey || !room.memberIds.includes(userId)) {
+        sendJson(res, 403, { error: 'Model not found or access denied.' });
+        return;
+      }
+
+      room.modelName = modelName;
+      room.lastActiveAt = Date.now();
+      schedulePersist();
+
+      sendJson(res, 200, getRoomSummary(room));
+      return;
+    } catch (error) {
+      sendJson(res, 400, { error: error instanceof Error ? error.message : 'Invalid request.' });
+      return;
+    }
+  }
+
+  const joinMatch = urlPath.match(/^\/api\/collaboration\/(models|rooms)\/([^/]+)\/join$/);
   if (joinMatch && method === 'POST') {
     if (!isJsonRequest(req)) {
       sendJson(res, 415, { error: 'Content-Type must be application/json.' });
       return;
     }
     try {
-      const roomId = joinMatch[1];
+      const roomId = joinMatch[2];
       const body = await parseJsonBody(req);
       const userId = typeof body.userId === 'string' && body.userId.trim() ? body.userId.trim() : null;
-      const roomKey = typeof body.roomKey === 'string' && body.roomKey.trim() ? body.roomKey.trim() : null;
+      const roomKey = typeof body.modelKey === 'string' && body.modelKey.trim()
+        ? body.modelKey.trim()
+        : (typeof body.roomKey === 'string' && body.roomKey.trim() ? body.roomKey.trim() : null);
 
       if (!userId || !roomKey) {
-        sendJson(res, 400, { error: 'userId and roomKey are required.' });
+        sendJson(res, 400, { error: 'userId and modelKey are required.' });
         return;
       }
 
       const room = rooms.get(roomId);
       if (!room || room.roomKey !== roomKey) {
-        sendJson(res, 403, { error: 'Room not found or access denied.' });
+        sendJson(res, 403, { error: 'Model not found or access denied.' });
         return;
       }
 

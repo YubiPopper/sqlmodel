@@ -5,12 +5,12 @@
 <h1 align="center">SQLModel Enhanced</h1>
 
 <p align="center">
-  <strong>Visual data modeling for modern teams</strong>
+  <strong>An enhanced version of SQLModel which is a visual data modeling for modern teams</strong>
 </p>
 
 <p align="center">
   Design data models, conceptual ERDs, and physical schemas with an intuitive canvas-based interface.<br/>
-  Open source. Local-first by default. Optional cloud save and sharing when you want it.
+  Make personal models or create a shared model the whole team can work on!
 </p>
 
 <p align="center">
@@ -25,14 +25,14 @@
 
 ## ✨ What is SQLModel Enhanced?
 
-**SQLModel Enhanced** is an advanced fork of the open-source SQLModel data modeling tool, extended with real-time team collaboration, multi-database import support, and architectural enhancements for enterprise use.
+**SQLModel Enhanced** is an advanced fork of the open-source SQLModel data modeling tool, extended with real-time team collaboration, improved model metadata and architectural enhancements for enterprise use.
 
 Build and visualize complex database schemas with an intuitive canvas-based interface. Choose between three modeling approaches:
 - **Data Model View** — Organize entities and relationships at the conceptual level
 - **Conceptual ERD** — Design high-level entity relationships with descriptions
 - **Physical Schema** — Define tables, columns, data types, keys, and constraints
 
-SQLModel Enhanced enables teams to collaborate in real-time, import schemas from PostgreSQL, MySQL, Oracle, Snowflake, Prisma, and Rails, and automatically layout complex diagrams. Whether architecting new databases, documenting existing ones, or collaborating with your team, SQLModel Enhanced provides a unified workspace for all your data modeling needs.
+SQLModel enables teams to collaborate in real-time, import schemas from PostgreSQL, MySQL, Oracle, Snowflake, Prisma, and Rails, and automatically layout complex diagrams. Whether architecting new databases, documenting existing ones, or collaborating with your team, SQLModel provides a unified workspace for all your data modeling needs. With SQLModel Enhanced, you can do all those things but with real-time collaboration. 
 
 **Try it now**: [sql.calvreid.co.uk](https://sql.calvreid.co.uk)
 
@@ -47,12 +47,8 @@ This fork extends the original SQLModel with powerful collaboration and import c
 | Feature | Capability |
 |---------|-----------|
 | **Real-time Collaboration** | Multiple users can edit the same model simultaneously with WebSocket-based synchronization. Room-based persistence allows users to disconnect and rejoin without losing work. |
-| **Advanced Import Formats** | Import database schemas from PostgreSQL, MySQL, Oracle, Snowflake, Rails, and Prisma—with automatic table, column, and relationship detection. |
-| **Auto-layout Engine** | Automatically arrange complex ER diagrams with intelligent spacing using the dagre algorithm. One-click layout organization accessible from the floating control panel. |
-| **Model Grouping** | Organize entities and tables into logical groups for better visualization of large, complex models. |
 | **Multi-model Support** | Manage multiple databases and schemas within a single workspace with hierarchical sidebar navigation. |
 | **Database Inspector** | Inspect and validate model integrity directly from the canvas with detailed data model analysis. |
-| **Entity/Attribute-Level FK Relationships** | Create precise foreign key connections between specific columns, with rendering optimizations for large schemas. |
 | **Server-backed Persistence** | Optional app server with collaboration room APIs for enterprise team deployments. |
 
 ---

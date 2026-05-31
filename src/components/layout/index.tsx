@@ -136,7 +136,7 @@ export const AppLayout: React.FC = () => {
             style={{
               position: 'absolute',
               top: '12px',
-              left: leftSidebarCollapsed ? '12px' : '292px',
+              left: leftSidebarCollapsed ? '12px' : '260px',
               zIndex: 10,
               padding: '7px',
               background: 'transparent',

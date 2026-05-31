@@ -48,7 +48,7 @@ export const QuickActions: React.FC = () => {
   return (
     <div style={{
       borderTop: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
-      padding: '14px 12px 12px',
+      padding: '12px 10px 10px',
       background: isDark ? '#0d1117' : '#fafafa',
       display: 'flex',
       flexDirection: 'column',

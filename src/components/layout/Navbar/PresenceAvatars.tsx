@@ -20,7 +20,7 @@ export const PresenceAvatars = ({ users, selfColor, selfName, onClick }: Presenc
   return (
     <button
       onClick={onClick}
-      title="Collaboration — click to manage"
+      title="Open collaboration panel"
       style={{
         display: 'flex',
         alignItems: 'center',

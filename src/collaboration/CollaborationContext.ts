@@ -1,22 +1,29 @@
 import { createContext, useContext } from 'react';
-import type { CollaborationSession, PersistedCollaborationRoom } from './types';
+import type { CollaborationSession, PersistedCollaborationRoom, PersonalModelSummary } from './types';
 
 export interface CollaborationContextValue {
   session: CollaborationSession;
   isActive: boolean;
-  roomId: string;
+  modelId: string;
   connectedUsers: CollaborationSession['connectedUsers'];
   inviteLink: string | null;
   recentRooms: PersistedCollaborationRoom[];
-  startCollaboration: () => Promise<void>;
+  personalModels: PersonalModelSummary[];
+  activePersonalModelId: string | null;
+  startCollaboration: (modelName: string) => Promise<void>;
   reopenRoom: (roomId: string, roomKey: string) => Promise<void>;
+  createPersonalModel: (name: string) => void;
+  renameCurrentModel: (name: string) => Promise<void>;
+  openPersonalModel: (modelId: string) => void;
+  saveActivePersonalModel: () => void;
   stopSession: () => void;
 }
 
 export const CollaborationContext = createContext<CollaborationContextValue>({
   session: {
-    roomId: '',
-    roomKey: '',
+    modelId: '',
+    modelKey: '',
+    modelName: '',
     userId: '',
     userName: '',
     userColor: '',
@@ -25,12 +32,18 @@ export const CollaborationContext = createContext<CollaborationContextValue>({
     isServerBacked: false,
   },
   isActive: false,
-  roomId: '',
+  modelId: '',
   connectedUsers: [],
   inviteLink: null,
   recentRooms: [],
+  personalModels: [],
+  activePersonalModelId: null,
   startCollaboration: async () => {},
   reopenRoom: async () => {},
+  createPersonalModel: () => {},
+  renameCurrentModel: async () => {},
+  openPersonalModel: () => {},
+  saveActivePersonalModel: () => {},
   stopSession: () => {},
 });
 

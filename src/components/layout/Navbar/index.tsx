@@ -16,7 +16,20 @@ export const Navbar: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isDark = colorMode === 'dark';
-  const { isActive, session, inviteLink, recentRooms, startCollaboration, reopenRoom, stopSession } = useCollaborationContext();
+  const {
+    isActive,
+    session,
+    inviteLink,
+    recentRooms,
+    personalModels,
+    activePersonalModelId,
+    startCollaboration,
+    reopenRoom,
+    createPersonalModel,
+    openPersonalModel,
+    saveActivePersonalModel,
+    stopSession,
+  } = useCollaborationContext();
   const [showCollabDialog, setShowCollabDialog] = useState(false);
 
   useEffect(() => {
@@ -206,8 +219,13 @@ export const Navbar: React.FC = () => {
         session={session}
         inviteLink={inviteLink}
         recentRooms={recentRooms}
+        personalModels={personalModels}
+        activePersonalModelId={activePersonalModelId}
         onStart={startCollaboration}
         onReopenRoom={reopenRoom}
+        onCreatePersonalModel={createPersonalModel}
+        onOpenPersonalModel={openPersonalModel}
+        onSavePersonalModel={saveActivePersonalModel}
         onStop={() => { stopSession(); setShowCollabDialog(false); }}
       />
     </>

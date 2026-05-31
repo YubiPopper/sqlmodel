@@ -33,6 +33,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
         background: isDark ? '#0d1117' : '#f3f4f6',
         borderRadius: '8px',
         border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
+        minWidth: 0,
       }}>
         <Search size={14} style={{ color: isDark ? '#8b949e' : '#9ca3af', flexShrink: 0 }} />
         <input
@@ -42,6 +43,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
           placeholder={placeholder}
           style={{
             flex: 1,
+            minWidth: 0,
             background: 'transparent',
             border: 'none',
             outline: 'none',
@@ -55,7 +57,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
             onClick={onShortcutClick}
             style={{
               flexShrink: 0,
-              padding: '4px 6px',
+              padding: '4px 8px',
               borderRadius: '6px',
               border: `1px solid ${isDark ? '#30363d' : '#d1d5db'}`,
               background: isDark ? '#161b22' : '#ffffff',
@@ -63,6 +65,7 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
               fontSize: '10px',
               fontWeight: 600,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
             title="Open jump search"
           >
