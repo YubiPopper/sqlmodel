@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { CollaborationSession, PersistedCollaborationRoom } from './types';
+import type { CollaborationSession, CollaborationUser, PersistedCollaborationRoom } from './types';
 import { initProviders, teardownProviders, getCollaborationProvider } from './ydoc';
 import { initSync, teardownSync } from './sync';
 import { useModelStore } from '../store/useModelStore';
@@ -123,7 +123,10 @@ export function useCollaboration() {
   }, [userId]);
 
   useEffect(() => {
-    void refreshRooms();
+    const timer = window.setTimeout(() => {
+      void refreshRooms();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [refreshRooms]);
 
   useEffect(() => {
@@ -165,7 +168,7 @@ export function useCollaboration() {
 
     const handleAwareness = () => {
       const states = provider.awareness.getStates();
-      const users = [];
+      const users: CollaborationUser[] = [];
       const selections: Record<number, { id: string; name: string; color: string; selectedId: string | null }> = {};
 
       states.forEach((state, clientId) => {

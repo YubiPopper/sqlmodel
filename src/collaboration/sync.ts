@@ -195,7 +195,7 @@ export function initSync(isJoining = false): void {
     ymapHandler = null;
   }
 
-  ymapHandler = (_evt: unknown) => applyYjsToStore();
+  ymapHandler = () => applyYjsToStore();
   ymaps.forEach((m) => m.observe(ymapHandler!));
 
   // Zustand → Yjs: subscribe to store changes

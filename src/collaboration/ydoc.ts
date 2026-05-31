@@ -41,13 +41,94 @@ type PresenceMessage = {
 
 type CollaborationMessage = JoinMessage | UpdateMessage | PresenceMessage | { type: 'leave' };
 
+type JoinedServerMessage = {
+  type: 'joined';
+  clientId: number;
+  snapshot: string;
+};
+
+type UpdateServerMessage = {
+  type: 'update';
+  update: string;
+};
+
+type PresenceServerMessage = {
+  type: 'presence';
+  users: PresencePayload[];
+};
+
+type ErrorServerMessage = {
+  type: 'error';
+  message: string;
+};
+
+type ServerMessage = JoinedServerMessage | UpdateServerMessage | PresenceServerMessage | ErrorServerMessage;
+
+const encodeBase64Update = (update: Uint8Array): string => {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < update.length; i += chunkSize) {
+    binary += String.fromCharCode(...update.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+};
+
+const decodeBase64Update = (encoded: string): Uint8Array => {
+  const binary = atob(encoded);
+  const decoded = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    decoded[i] = binary.charCodeAt(i);
+  }
+  return decoded;
+};
+
+const isAwarenessUser = (value: unknown): value is AwarenessUser => {
+  if (!value || typeof value !== 'object') return false;
+  const user = value as Record<string, unknown>;
+  return (
+    typeof user.id === 'string' &&
+    typeof user.name === 'string' &&
+    typeof user.color === 'string' &&
+    (typeof user.selectedId === 'string' || user.selectedId === null)
+  );
+};
+
+const parseServerMessage = (raw: string): ServerMessage | null => {
+  try {
+    const parsed = JSON.parse(raw) as { type?: unknown; [key: string]: unknown };
+    if (parsed.type === 'joined' && typeof parsed.clientId === 'number' && typeof parsed.snapshot === 'string') {
+      return { type: 'joined', clientId: parsed.clientId, snapshot: parsed.snapshot };
+    }
+    if (parsed.type === 'update' && typeof parsed.update === 'string') {
+      return { type: 'update', update: parsed.update };
+    }
+    if (parsed.type === 'presence' && Array.isArray(parsed.users)) {
+      const users = parsed.users.filter((entry): entry is PresencePayload => {
+        if (!entry || typeof entry !== 'object') return false;
+        const payload = entry as { clientId?: unknown; user?: unknown };
+        return typeof payload.clientId === 'number' && isAwarenessUser(payload.user);
+      });
+      return { type: 'presence', users };
+    }
+    if (parsed.type === 'error' && typeof parsed.message === 'string') {
+      return { type: 'error', message: parsed.message };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 class ProviderAwareness {
   private localState: AwarenessState = {};
   private readonly states = new Map<number, AwarenessState>();
   private readonly listeners = new Set<AwarenessChangeHandler>();
   private localClientId: number | null = null;
+  private readonly provider: ServerCollaborationProvider;
 
-  constructor(private readonly provider: ServerCollaborationProvider) {}
+  constructor(provider: ServerCollaborationProvider) {
+    this.provider = provider;
+  }
 
   setLocalClientId(clientId: number): void {
     this.localClientId = clientId;
@@ -117,18 +198,20 @@ class ServerCollaborationProvider {
   private pendingUpdates: string[] = [];
   private isJoined = false;
   private readonly onDocUpdate: (update: Uint8Array, origin: unknown) => void;
+  private readonly roomId: string;
+  private readonly roomKey: string;
+  private readonly user: { id: string; name: string; color: string };
 
   readonly awareness: ProviderAwareness;
 
-  constructor(
-    private readonly roomId: string,
-    private readonly roomKey: string,
-    private readonly user: { id: string; name: string; color: string },
-  ) {
+  constructor(roomId: string, roomKey: string, user: { id: string; name: string; color: string }) {
+    this.roomId = roomId;
+    this.roomKey = roomKey;
+    this.user = user;
     this.awareness = new ProviderAwareness(this);
     this.onDocUpdate = (update, origin) => {
       if (origin === REMOTE_SYNC_ORIGIN) return;
-      const encodedUpdate = btoa(String.fromCharCode(...update));
+      const encodedUpdate = encodeBase64Update(update);
       if (!this.isJoined || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
         this.pendingUpdates.push(encodedUpdate);
         return;
@@ -161,14 +244,8 @@ class ServerCollaborationProvider {
     };
 
     this.ws.onmessage = (event) => {
-      let message: any;
-      try {
-        message = JSON.parse(String(event.data));
-      } catch {
-        return;
-      }
-
-      if (!message || typeof message.type !== 'string') return;
+      const message = parseServerMessage(String(event.data));
+      if (!message) return;
 
       if (message.type === 'joined') {
         this.isJoined = true;
@@ -179,7 +256,7 @@ class ServerCollaborationProvider {
 
         if (typeof message.snapshot === 'string' && message.snapshot.length > 0) {
           try {
-            const decoded = Uint8Array.from(atob(message.snapshot), (c) => c.charCodeAt(0));
+            const decoded = decodeBase64Update(message.snapshot);
             Y.applyUpdate(ydoc, decoded, REMOTE_SYNC_ORIGIN);
           } catch (error) {
             console.warn('[sqlmodel] Failed to apply room snapshot:', error);
@@ -198,7 +275,7 @@ class ServerCollaborationProvider {
 
       if (message.type === 'update' && typeof message.update === 'string') {
         try {
-          const decoded = Uint8Array.from(atob(message.update), (c) => c.charCodeAt(0));
+          const decoded = decodeBase64Update(message.update);
           Y.applyUpdate(ydoc, decoded, REMOTE_SYNC_ORIGIN);
         } catch (error) {
           console.warn('[sqlmodel] Failed to apply collaboration update:', error);
@@ -206,10 +283,8 @@ class ServerCollaborationProvider {
         return;
       }
 
-      if (message.type === 'presence' && Array.isArray(message.users)) {
-        this.awareness.applyRemoteUsers(
-          message.users.filter((entry: any) => typeof entry?.clientId === 'number' && entry?.user),
-        );
+      if (message.type === 'presence') {
+        this.awareness.applyRemoteUsers(message.users);
         return;
       }
 
