@@ -10,10 +10,12 @@ import { GroupInspector } from './GroupInspector';
 import { DatabaseInspector } from './DatabaseInspector';
 import { SchemaInspector } from './SchemaInspector';
 import { DataModelInspector } from './DataModelInspector';
+import { ProjectInspector } from './ProjectInspector';
 
 export const RightPanel: React.FC = () => {
   const selectedId = useModelStore(state => state.selectedId);
   const entities = useModelStore(state => state.entities);
+  const projects = useModelStore(state => state.projects);
   const dataModels = useModelStore(state => state.dataModels);
   const tables = useModelStore(state => state.tables);
   const relationships = useModelStore(state => state.relationships);
@@ -75,6 +77,7 @@ export const RightPanel: React.FC = () => {
   }, [isMobile, rightPanelMobileOpen, setRightPanelMobileOpen]);
 
   // Determine what's selected
+  const selectedProject = useMemo(() => projects.find(project => project.id === selectedId), [projects, selectedId]);
   const selectedEntity = useMemo(() => entities.find(e => e.id === selectedId), [entities, selectedId]);
   const selectedDataModel = useMemo(() => dataModels.find(model => model.id === selectedId), [dataModels, selectedId]);
   const selectedTable = useMemo(() => tables.find(t => t.id === selectedId), [tables, selectedId]);
@@ -117,7 +120,7 @@ export const RightPanel: React.FC = () => {
   }, [tables, multiSelectedTableIds]);
 
   // Hide panel if nothing is selected
-  const hasSelection = selectedDataModel || selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || selectedDatabase || selectedSchema || firstMultiSelectedEntity || firstMultiSelectedTable;
+  const hasSelection = selectedProject || selectedDataModel || selectedEntity || selectedTable || selectedRelationship || selectedForeignKey || selectedGroup || selectedDatabase || selectedSchema || firstMultiSelectedEntity || firstMultiSelectedTable;
   if (!hasSelection) {
     return null;
   }
@@ -343,6 +346,7 @@ export const RightPanel: React.FC = () => {
           </div>
         )}
         
+        {selectedProject && <ProjectInspector project={selectedProject} />}
         {selectedDataModel && <DataModelInspector dataModel={selectedDataModel} />}
         {selectedGroup && <GroupInspector group={selectedGroup} />}
         {selectedEntity && <EntityInspector entity={selectedEntity} />}
@@ -353,7 +357,7 @@ export const RightPanel: React.FC = () => {
         {!selectedEntity && !selectedTable && firstMultiSelectedTable && <TableInspector table={firstMultiSelectedTable} />}
         {selectedRelationship && <RelationshipInspector relationship={selectedRelationship} />}
         {selectedForeignKey && <ForeignKeyInspector foreignKey={selectedForeignKey} />}
-        {!selectedDataModel && !selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
+        {!selectedProject && !selectedDataModel && !selectedEntity && !selectedTable && !selectedRelationship && !selectedForeignKey && !selectedGroup && !selectedDatabase && !selectedSchema && !firstMultiSelectedEntity && !firstMultiSelectedTable && <EmptyState />}
       </aside>
     </>
   );
@@ -367,5 +371,6 @@ export { GroupInspector } from './GroupInspector';
 export { DatabaseInspector } from './DatabaseInspector';
 export { SchemaInspector } from './SchemaInspector';
 export { DataModelInspector } from './DataModelInspector';
+export { ProjectInspector } from './ProjectInspector';
 export { InspectorHeader } from './InspectorHeader';
 export { FormField, TextInput, SelectInput } from './FormComponents';

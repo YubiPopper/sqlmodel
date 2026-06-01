@@ -5,6 +5,7 @@ import dagre from 'dagre';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
 import type { 
+  Project,
   DataModel,
   Entity, 
   Relationship, 
@@ -20,6 +21,56 @@ import type {
 } from '../model/schemas';
 import { clearSchemaUrl } from '../hooks/schemaUrlState';
 
+const createDefaultProject = (name: string = 'Default Project'): Project => {
+  const now = new Date().toISOString();
+  return {
+    id: uuidv4(),
+    name,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+const ensureProjectHierarchy = (
+  projects: Project[] | undefined,
+  dataModels: DataModel[] | undefined
+): { projects: Project[]; dataModels: DataModel[]; currentProjectId: string | null } => {
+  const safeProjects = projects || [];
+  const safeDataModels = dataModels || [];
+
+  if (safeProjects.length > 0) {
+    const firstProjectId = safeProjects[0]?.id ?? null;
+    const mappedModels = safeDataModels.map((model) => ({
+      ...model,
+      projectId: model.projectId || firstProjectId || undefined,
+    }));
+
+    return {
+      projects: safeProjects,
+      dataModels: mappedModels,
+      currentProjectId: firstProjectId,
+    };
+  }
+
+  if (safeDataModels.length > 0) {
+    const defaultProject = createDefaultProject();
+    return {
+      projects: [defaultProject],
+      dataModels: safeDataModels.map((model) => ({
+        ...model,
+        projectId: model.projectId || defaultProject.id,
+      })),
+      currentProjectId: defaultProject.id,
+    };
+  }
+
+  return {
+    projects: [],
+    dataModels: safeDataModels,
+    currentProjectId: null,
+  };
+};
+
 interface ModelState {
   // Authentication
   user: User | null;
@@ -28,6 +79,9 @@ interface ModelState {
   setSession: (session: Session | null) => void;
   signOut: () => Promise<void>;
   
+  projects: Project[];
+  currentProjectId: string | null;
+
   // Conceptual layer
   dataModels: DataModel[];
   entities: Entity[];
@@ -69,8 +123,14 @@ interface ModelState {
   relationshipLabelSize: 'small' | 'normal' | 'large'; // Relationship label font size
   
   // Entity Actions
+  // Project actions
+  addProject: () => string;
+  updateProject: (id: string, data: Partial<Project>) => void;
+  deleteProject: (id: string) => void;
+  setCurrentProject: (id: string | null) => void;
+
   // Data model actions
-  addDataModel: () => string;
+  addDataModel: (projectId?: string) => string;
   updateDataModel: (id: string, data: Partial<DataModel>) => void;
   deleteDataModel: (id: string) => void;
 
@@ -170,12 +230,14 @@ interface ModelState {
   clearModel: () => void;
   
   // Diagram Management (Supabase)
+  syncWorkspaceToCloud: () => Promise<void>;
   saveDiagramToCloud: (name: string, description?: string, isPublic?: boolean) => Promise<string | null>;
   loadDiagramFromCloud: (id: string) => Promise<void>;
   getUserDiagrams: () => Promise<any[]>;
   getPublicDiagrams: () => Promise<any[]>;
   deleteDiagramFromCloud: (id: string) => Promise<void>;
   currentDiagramId: string | null;
+  workspaceDiagramId: string | null;
   setCurrentDiagramId: (id: string | null) => void;
   
   // Helper methods
@@ -195,12 +257,106 @@ export const useModelStore = create<ModelState>()(
       // Authentication
       user: null,
       session: null,
-      setUser: (user) => set({ user }),
+      setUser: (user) => {
+        set({ user });
+
+        if (!user) {
+          return;
+        }
+
+        void (async () => {
+          try {
+            const { data, error } = await supabase
+              .from('diagrams')
+              .select('id, data')
+              .eq('user_id', user.id)
+              .eq('name', '__project_workspace__')
+              .limit(1)
+              .maybeSingle();
+
+            if (error) throw error;
+
+            if (data?.data) {
+              const diagramData = data.data;
+              const hierarchy = ensureProjectHierarchy(diagramData.projects, diagramData.conceptual?.dataModels || []);
+
+              set({
+                projects: hierarchy.projects,
+                currentProjectId: diagramData.currentProjectId || hierarchy.currentProjectId,
+                dataModels: hierarchy.dataModels,
+                entities: diagramData.conceptual?.entities || [],
+                relationships: diagramData.conceptual?.relationships || [],
+                entityGroups: diagramData.conceptual?.groups || [],
+                tables: diagramData.physical?.tables || [],
+                foreignKeys: diagramData.physical?.foreignKeys || [],
+                tableGroups: diagramData.physical?.tableGroups || [],
+                databaseDescriptions: diagramData.databaseDescriptions || {},
+                schemaDescriptions: diagramData.schemaDescriptions || {},
+                nodeLayouts: diagramData.nodeLayouts || {},
+                tableLayouts: diagramData.tableLayouts || {},
+                viewport: diagramData.viewport || { x: 0, y: 0, zoom: 1 },
+                viewMode: diagramData.viewMode || 'conceptual',
+                workspaceDiagramId: data.id,
+              });
+              return;
+            }
+
+            const state = get();
+            const hierarchy = ensureProjectHierarchy(state.projects, state.dataModels);
+            const seedData = {
+              projects: hierarchy.projects,
+              currentProjectId: hierarchy.currentProjectId,
+              conceptual: {
+                dataModels: hierarchy.dataModels,
+                entities: state.entities,
+                relationships: state.relationships,
+                groups: state.entityGroups,
+              },
+              physical: {
+                tables: state.tables,
+                foreignKeys: state.foreignKeys,
+                tableGroups: state.tableGroups,
+              },
+              databaseDescriptions: state.databaseDescriptions,
+              schemaDescriptions: state.schemaDescriptions,
+              nodeLayouts: state.nodeLayouts,
+              tableLayouts: state.tableLayouts,
+              viewport: state.viewport,
+              viewMode: state.viewMode,
+            };
+
+            const { data: inserted, error: insertError } = await supabase
+              .from('diagrams')
+              .insert({
+                user_id: user.id,
+                name: '__project_workspace__',
+                description: 'System workspace for project hierarchy',
+                data: seedData,
+                is_public: false,
+              })
+              .select('id')
+              .single();
+
+            if (insertError) throw insertError;
+            set({
+              workspaceDiagramId: inserted.id,
+              projects: hierarchy.projects,
+              currentProjectId: hierarchy.currentProjectId,
+              dataModels: hierarchy.dataModels,
+            });
+          } catch (e) {
+            console.error('Failed to initialize project workspace:', e);
+          }
+        })();
+      },
       setSession: (session) => set({ session }),
       signOut: async () => {
         await supabase.auth.signOut();
-        set({ user: null, session: null });
+        set({ user: null, session: null, workspaceDiagramId: null });
       },
+
+      projects: [],
+      currentProjectId: null,
       
       entities: [],
       dataModels: [],
@@ -239,6 +395,7 @@ export const useModelStore = create<ModelState>()(
       leftSidebarCollapsed: true,
       rightPanelMobileOpen: false,
       currentDiagramId: null,
+      workspaceDiagramId: null,
       setCurrentDiagramId: (id) => set({ currentDiagramId: id }),
       
       // Dialog visibility states
@@ -251,11 +408,139 @@ export const useModelStore = create<ModelState>()(
       showAISettingsDialog: false,
       setShowAISettingsDialog: (show) => set({ showAISettingsDialog: show }),
 
+      // === Project Actions ===
+      addProject: () => {
+        const id = uuidv4();
+        const now = new Date().toISOString();
+        const projectName = `Project ${get().projects.length + 1}`;
+        const newProject: Project = {
+          id,
+          name: projectName,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          projects: [...state.projects, newProject],
+          currentProjectId: id,
+          selectedId: id,
+        }));
+
+        return id;
+      },
+
+      updateProject: (id, data) => {
+        set((state) => ({
+          projects: state.projects.map((project) =>
+            project.id === id
+              ? {
+                  ...project,
+                  ...data,
+                  updatedAt: new Date().toISOString(),
+                }
+              : project
+          ),
+        }));
+      },
+
+      deleteProject: (id) => {
+        set((state) => {
+          const dataModelIdsToDelete = new Set(
+            state.dataModels
+              .filter((model) => model.projectId === id)
+              .map((model) => model.id)
+          );
+
+          const entityIdsToDelete = new Set(
+            state.entities
+              .filter((entity) => entity.dataModelId && dataModelIdsToDelete.has(entity.dataModelId))
+              .map((entity) => entity.id)
+          );
+
+          const tablesToDelete = new Set(
+            state.tables
+              .filter((table) => table.entityId && entityIdsToDelete.has(table.entityId))
+              .map((table) => table.id)
+          );
+
+          const tableLayouts = { ...state.tableLayouts };
+          tablesToDelete.forEach((tableId) => delete tableLayouts[tableId]);
+
+          const nodeLayouts = { ...state.nodeLayouts };
+          dataModelIdsToDelete.forEach((modelId) => delete nodeLayouts[modelId]);
+          entityIdsToDelete.forEach((entityId) => delete nodeLayouts[entityId]);
+
+          const nextProjects = state.projects.filter((project) => project.id !== id);
+          const nextCurrentProjectId = state.currentProjectId === id
+            ? (nextProjects[0]?.id ?? null)
+            : state.currentProjectId;
+
+          return {
+            projects: nextProjects,
+            currentProjectId: nextCurrentProjectId,
+            dataModels: state.dataModels.filter((model) => model.projectId !== id),
+            entities: state.entities.filter((entity) => !entity.dataModelId || !dataModelIdsToDelete.has(entity.dataModelId)),
+            relationships: state.relationships.filter((relationship) => {
+              const isEntityRelationship = relationship.relationshipType === 'entity' || relationship.relationshipType === undefined;
+              if (isEntityRelationship) {
+                return !entityIdsToDelete.has(relationship.fromEntityId || '') && !entityIdsToDelete.has(relationship.toEntityId || '');
+              }
+              return !dataModelIdsToDelete.has(relationship.fromDataModelId || '') && !dataModelIdsToDelete.has(relationship.toDataModelId || '');
+            }),
+            entityGroups: state.entityGroups
+              .map((group) => ({
+                ...group,
+                entityIds: group.entityIds.filter((entityId) => !entityIdsToDelete.has(entityId)),
+              }))
+              .filter((group) => group.entityIds.length > 0),
+            tables: state.tables.filter((table) => !table.entityId || !entityIdsToDelete.has(table.entityId)),
+            foreignKeys: state.foreignKeys.filter(
+              (fk) => !tablesToDelete.has(fk.fromTableId) && !tablesToDelete.has(fk.toTableId)
+            ),
+            tableGroups: state.tableGroups
+              .map((group) => ({
+                ...group,
+                tableIds: group.tableIds.filter((tableId) => !tablesToDelete.has(tableId)),
+              }))
+              .filter((group) => group.tableIds.length > 0),
+            nodeLayouts,
+            tableLayouts,
+            selectedId: state.selectedId === id ? nextCurrentProjectId : state.selectedId,
+          };
+        });
+      },
+
+      setCurrentProject: (id) => {
+        set((state) => {
+          if (id === null) {
+            return { currentProjectId: null };
+          }
+
+          const exists = state.projects.some((project) => project.id === id);
+          if (!exists) {
+            return {};
+          }
+
+          return {
+            currentProjectId: id,
+            selectedId: id,
+          };
+        });
+      },
+
       // === Data Model Actions ===
-      addDataModel: () => {
+      addDataModel: (projectId) => {
+        const resolvedProjectId = projectId || get().currentProjectId || get().projects[0]?.id;
+
+        if (!resolvedProjectId) {
+          const newProjectId = get().addProject();
+          return get().addDataModel(newProjectId);
+        }
+
         const id = uuidv4();
         const newDataModel: DataModel = {
           id,
+          projectId: resolvedProjectId,
           name: `Data Model ${get().dataModels.length + 1}`,
           description: '',
         };
@@ -267,6 +552,12 @@ export const useModelStore = create<ModelState>()(
 
         set((state) => ({
           dataModels: [...state.dataModels, newDataModel],
+          projects: state.projects.map((project) =>
+            project.id === resolvedProjectId
+              ? { ...project, updatedAt: new Date().toISOString() }
+              : project
+          ),
+          currentProjectId: resolvedProjectId,
           nodeLayouts: {
             ...state.nodeLayouts,
             [id]: { x, y, width: 320, height: 180 },
@@ -278,26 +569,44 @@ export const useModelStore = create<ModelState>()(
       },
 
       updateDataModel: (id, data) => {
-        set((state) => ({
-          dataModels: state.dataModels.map((model) =>
-            model.id === id ? { ...model, ...data } : model
-          ),
-        }));
+        set((state) => {
+          const existingModel = state.dataModels.find((model) => model.id === id);
+          const nextProjectId = data.projectId ?? existingModel?.projectId;
+
+          return {
+            dataModels: state.dataModels.map((model) =>
+              model.id === id ? { ...model, ...data } : model
+            ),
+            projects: state.projects.map((project) =>
+              project.id === nextProjectId
+                ? { ...project, updatedAt: new Date().toISOString() }
+                : project
+            ),
+          };
+        });
       },
 
       deleteDataModel: (id) => {
-        set((state) => ({
-          dataModels: state.dataModels.filter((model) => model.id !== id),
-          entities: state.entities.map((entity) =>
-            entity.dataModelId === id ? { ...entity, dataModelId: undefined } : entity
-          ),
-          relationships: state.relationships.filter((rel) =>
-            rel.relationshipType === 'entity' || rel.relationshipType === undefined
-              ? true
-              : rel.fromDataModelId !== id && rel.toDataModelId !== id
-          ),
-          selectedId: state.selectedId === id ? null : state.selectedId,
-        }));
+        set((state) => {
+          const deletedModel = state.dataModels.find((model) => model.id === id);
+          return {
+            dataModels: state.dataModels.filter((model) => model.id !== id),
+            entities: state.entities.map((entity) =>
+              entity.dataModelId === id ? { ...entity, dataModelId: undefined } : entity
+            ),
+            relationships: state.relationships.filter((rel) =>
+              rel.relationshipType === 'entity' || rel.relationshipType === undefined
+                ? true
+                : rel.fromDataModelId !== id && rel.toDataModelId !== id
+            ),
+            projects: state.projects.map((project) =>
+              project.id === deletedModel?.projectId
+                ? { ...project, updatedAt: new Date().toISOString() }
+                : project
+            ),
+            selectedId: state.selectedId === id ? state.currentProjectId : state.selectedId,
+          };
+        });
       },
 
       // === Entity Actions ===
@@ -1472,8 +1781,12 @@ export const useModelStore = create<ModelState>()(
           }
         });
 
+        const hierarchy = ensureProjectHierarchy(undefined, conceptual.dataModels || []);
+
         set({
-          dataModels: conceptual.dataModels || [],
+          projects: hierarchy.projects,
+          currentProjectId: hierarchy.currentProjectId,
+          dataModels: hierarchy.dataModels,
           entities: conceptual.entities,
           relationships: conceptual.relationships,
           entityGroups: conceptual.groups || [],
@@ -1493,9 +1806,12 @@ export const useModelStore = create<ModelState>()(
         
         // Load model from JSON file format (conceptual + physical structure)
         const hasLayouts = data.nodeLayouts || data.tableLayouts;
+        const hierarchy = ensureProjectHierarchy(data.projects, data.conceptual?.dataModels || []);
         
         set({
-          dataModels: data.conceptual?.dataModels || [],
+          projects: hierarchy.projects,
+          currentProjectId: data.currentProjectId || hierarchy.currentProjectId,
+          dataModels: hierarchy.dataModels,
           entities: data.conceptual?.entities || [],
           relationships: data.conceptual?.relationships || [],
           entityGroups: data.conceptual?.groups || [],
@@ -1534,6 +1850,8 @@ export const useModelStore = create<ModelState>()(
         clearSchemaUrl();
         
         set({
+          projects: [],
+          currentProjectId: null,
           dataModels: [],
           entities: [],
           relationships: [],
@@ -1678,6 +1996,8 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          projects: [],
+          currentProjectId: null,
           dataModels: [],
           entities: [entityBorrower, entityLoans, entityBooks],
           relationships,
@@ -1812,6 +2132,8 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          projects: [],
+          currentProjectId: null,
           dataModels: [],
           entities: [entityCustomer, entityProduct, entityOrder, entityOrderItem, entityPayment],
           relationships,
@@ -1926,6 +2248,8 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          projects: [],
+          currentProjectId: null,
           dataModels: [],
           entities: [entityAuthor, entityPost, entityComment, entityCategory],
           relationships,
@@ -2043,6 +2367,8 @@ export const useModelStore = create<ModelState>()(
         ];
 
         set({
+          projects: [],
+          currentProjectId: null,
           dataModels: [],
           entities: [entityProject, entityTask, entityMember, entityMilestone],
           relationships,
@@ -2067,6 +2393,51 @@ export const useModelStore = create<ModelState>()(
       },
       
       // Diagram Cloud Management
+      syncWorkspaceToCloud: async () => {
+        const state = get();
+        if (!state.user || !state.workspaceDiagramId) {
+          return;
+        }
+
+        const hierarchy = ensureProjectHierarchy(state.projects, state.dataModels);
+        const diagramData = {
+          projects: hierarchy.projects,
+          currentProjectId: state.currentProjectId || hierarchy.currentProjectId,
+          conceptual: {
+            dataModels: hierarchy.dataModels,
+            entities: state.entities,
+            relationships: state.relationships,
+            groups: state.entityGroups,
+          },
+          physical: {
+            tables: state.tables,
+            foreignKeys: state.foreignKeys,
+            tableGroups: state.tableGroups,
+          },
+          databaseDescriptions: state.databaseDescriptions,
+          schemaDescriptions: state.schemaDescriptions,
+          nodeLayouts: state.nodeLayouts,
+          tableLayouts: state.tableLayouts,
+          viewport: state.viewport,
+          viewMode: state.viewMode,
+        };
+
+        try {
+          const { error } = await supabase
+            .from('diagrams')
+            .update({
+              data: diagramData,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', state.workspaceDiagramId)
+            .eq('user_id', state.user.id);
+
+          if (error) throw error;
+        } catch (error) {
+          console.error('Error syncing workspace:', error);
+        }
+      },
+
       saveDiagramToCloud: async (name: string, description?: string, isPublic: boolean = false) => {
         const state = get();
         if (!state.user) {
@@ -2075,6 +2446,8 @@ export const useModelStore = create<ModelState>()(
         }
         
         const diagramData = {
+          projects: state.projects,
+          currentProjectId: state.currentProjectId,
           conceptual: {
             dataModels: state.dataModels,
             entities: state.entities,
@@ -2096,16 +2469,23 @@ export const useModelStore = create<ModelState>()(
         
         try {
           if (state.currentDiagramId) {
+            const updatePayload: Record<string, any> = {
+              data: diagramData,
+              is_public: isPublic,
+              updated_at: new Date().toISOString(),
+            };
+
+            if (name && name.trim().length > 0) {
+              updatePayload.name = name;
+            }
+            if (description !== undefined && description !== null && description.trim().length > 0) {
+              updatePayload.description = description;
+            }
+
             // Update existing diagram
             const { error } = await supabase
               .from('diagrams')
-              .update({
-                name,
-                description,
-                data: diagramData,
-                is_public: isPublic,
-                updated_at: new Date().toISOString(),
-              })
+              .update(updatePayload)
               .eq('id', state.currentDiagramId);
             
             if (error) throw error;
@@ -2146,8 +2526,11 @@ export const useModelStore = create<ModelState>()(
           if (!data) throw new Error('Diagram not found');
           
           const diagramData = data.data;
+          const hierarchy = ensureProjectHierarchy(diagramData.projects, diagramData.conceptual?.dataModels || []);
           set({
-            dataModels: diagramData.conceptual?.dataModels || [],
+            projects: hierarchy.projects,
+            currentProjectId: diagramData.currentProjectId || hierarchy.currentProjectId,
+            dataModels: hierarchy.dataModels,
             entities: diagramData.conceptual?.entities || [],
             relationships: diagramData.conceptual?.relationships || [],
             entityGroups: diagramData.conceptual?.groups || [],
@@ -2177,6 +2560,7 @@ export const useModelStore = create<ModelState>()(
             .from('diagrams')
             .select('id, name, description, is_public, created_at, updated_at')
             .eq('user_id', state.user.id)
+            .neq('name', '__project_workspace__')
             .order('updated_at', { ascending: false });
           
           if (error) throw error;
@@ -2261,6 +2645,13 @@ export const useModelStore = create<ModelState>()(
           // This ensures users with old localStorage get the new default (false)
           if (state.showEntityDescriptions === undefined || state.showEntityDescriptions === true) {
             state.showEntityDescriptions = false;
+          }
+
+          const hierarchy = ensureProjectHierarchy(state.projects as any, state.dataModels as any);
+          state.projects = hierarchy.projects as any;
+          state.dataModels = hierarchy.dataModels as any;
+          if (!state.currentProjectId) {
+            state.currentProjectId = hierarchy.currentProjectId as any;
           }
         }
       },

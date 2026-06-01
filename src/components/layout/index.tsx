@@ -18,9 +18,25 @@ export const AppLayout: React.FC = () => {
   const leftSidebarCollapsed = useModelStore(state => state.leftSidebarCollapsed);
   const toggleLeftSidebar = useModelStore(state => state.toggleLeftSidebar);
   const entities = useModelStore(state => state.entities);
+  const projects = useModelStore(state => state.projects);
+  const currentProjectId = useModelStore(state => state.currentProjectId);
+  const dataModels = useModelStore(state => state.dataModels);
+  const relationships = useModelStore(state => state.relationships);
+  const entityGroups = useModelStore(state => state.entityGroups);
+  const foreignKeys = useModelStore(state => state.foreignKeys);
+  const tableGroups = useModelStore(state => state.tableGroups);
+  const nodeLayouts = useModelStore(state => state.nodeLayouts);
+  const tableLayouts = useModelStore(state => state.tableLayouts);
+  const databaseDescriptions = useModelStore(state => state.databaseDescriptions);
+  const schemaDescriptions = useModelStore(state => state.schemaDescriptions);
+  const viewMode = useModelStore(state => state.viewMode);
+  const viewport = useModelStore(state => state.viewport);
+  const user = useModelStore(state => state.user);
+  const workspaceDiagramId = useModelStore(state => state.workspaceDiagramId);
   const tables = useModelStore(state => state.tables);
   const loadModelFromJSON = useModelStore(state => state.loadModelFromJSON);
   const loadDiagramFromCloud = useModelStore(state => state.loadDiagramFromCloud);
+  const syncWorkspaceToCloud = useModelStore(state => state.syncWorkspaceToCloud);
   
   // Dialog states from store
   const showExampleDialog = useModelStore(state => state.showExampleDialog);
@@ -86,6 +102,35 @@ export const AppLayout: React.FC = () => {
     
     loadInitialData();
   }, [urlImport.status]); // Re-run when URL import status changes
+
+  useEffect(() => {
+    if (!user || !workspaceDiagramId) return;
+
+    const timer = setTimeout(() => {
+      void syncWorkspaceToCloud();
+    }, 750);
+
+    return () => clearTimeout(timer);
+  }, [
+    user,
+    workspaceDiagramId,
+    projects,
+    currentProjectId,
+    dataModels,
+    entities,
+    relationships,
+    entityGroups,
+    tables,
+    foreignKeys,
+    tableGroups,
+    nodeLayouts,
+    tableLayouts,
+    databaseDescriptions,
+    schemaDescriptions,
+    viewMode,
+    viewport,
+    syncWorkspaceToCloud,
+  ]);
 
   // Sidebar is hidden by default (leftSidebarCollapsed: true in store)
   // User toggles it manually via the navbar sidebar icon

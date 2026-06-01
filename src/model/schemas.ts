@@ -7,9 +7,19 @@ export type Cardinality = z.infer<typeof CardinalitySchema>;
 export const ColorSchema = z.string().optional();
 export type Color = z.infer<typeof ColorSchema>;
 
-// Data Model - top-level grouping above conceptual entities
+// Project - top-level grouping above data models
+export const ProjectSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Project = z.infer<typeof ProjectSchema>;
+
+// Data Model - grouping above conceptual entities
 export const DataModelSchema = z.object({
   id: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   name: z.string(),
   description: z.string().optional(),
   color: ColorSchema,

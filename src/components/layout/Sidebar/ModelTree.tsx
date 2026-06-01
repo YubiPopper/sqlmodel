@@ -26,6 +26,8 @@ interface ModelTreeProps {
 
 export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   const {
+    projects,
+    currentProjectId,
     dataModels,
     entities,
     tables,
@@ -45,10 +47,12 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     schemaDescriptions,
     toggleEntityVisibility,
     toggleTableVisibility,
+    setCurrentProject,
     navigateToNodeCallback,
     centerDataModelCallback,
   } = useModelStore();
 
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [expandedDataModels, setExpandedDataModels] = useState<Set<string>>(new Set());
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
@@ -94,14 +98,22 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     const query = searchQuery.toLowerCase().trim();
     
     if (!query) {
-      return { dataModels, entities, entityGroups, relationships };
+      return { projects, dataModels, entities, entityGroups, relationships };
     }
+
+    const matchingProjects = projects.filter(project =>
+      project.name.toLowerCase().includes(query)
+    );
+    const matchingProjectIds = new Set(matchingProjects.map(project => project.id));
 
     const matchingDataModels = dataModels.filter(model =>
       model.name.toLowerCase().includes(query) ||
       (model.description && model.description.toLowerCase().includes(query))
     );
     const matchingDataModelIds = new Set(matchingDataModels.map(model => model.id));
+    matchingDataModels.forEach(model => {
+      if (model.projectId) matchingProjectIds.add(model.projectId);
+    });
     
     // Filter entities by name or description
     const matchingEntities = entities.filter(e => 
@@ -114,6 +126,10 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     });
 
     const allMatchingDataModels = dataModels.filter(model => matchingDataModelIds.has(model.id));
+    allMatchingDataModels.forEach(model => {
+      if (model.projectId) matchingProjectIds.add(model.projectId);
+    });
+    const allMatchingProjects = projects.filter(project => matchingProjectIds.has(project.id));
     
     // Filter groups - include if group name matches OR if any entity in group matches
     const matchingGroups = entityGroups.filter(g => {
@@ -129,12 +145,13 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     });
     
     return { 
+      projects: allMatchingProjects,
       dataModels: allMatchingDataModels,
       entities: matchingEntities, 
       entityGroups: matchingGroups,
       relationships: matchingRelationships 
     };
-  }, [dataModels, entities, entityGroups, relationships, searchQuery]);
+  }, [projects, dataModels, entities, entityGroups, relationships, searchQuery]);
 
   const activeDataModelId = useMemo(() => {
     if (dataModels.length === 0) return undefined;
@@ -330,8 +347,41 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     }
   }, [selectedId, viewMode, physicalHierarchyMode, tables]);
 
+  React.useEffect(() => {
+    if (viewMode === 'physical') return;
+
+    if (currentProjectId) {
+      setExpandedProjects(prev => new Set(prev).add(currentProjectId));
+    }
+
+    const selectedDataModel = dataModels.find(model => model.id === selectedId);
+    if (selectedDataModel?.projectId) {
+      setExpandedProjects(prev => new Set(prev).add(selectedDataModel.projectId!));
+      setExpandedDataModels(prev => new Set(prev).add(selectedDataModel.id));
+      return;
+    }
+
+    const selectedEntity = entities.find(entity => entity.id === selectedId);
+    if (selectedEntity?.dataModelId) {
+      const model = dataModels.find(item => item.id === selectedEntity.dataModelId);
+      if (model?.projectId) {
+        setExpandedProjects(prev => new Set(prev).add(model.projectId!));
+      }
+      setExpandedDataModels(prev => new Set(prev).add(selectedEntity.dataModelId!));
+    }
+  }, [viewMode, currentProjectId, selectedId, dataModels, entities]);
+
   const toggleGroupExpand = (id: string) => {
     setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleProjectExpand = (id: string) => {
+    setExpandedProjects(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -1233,29 +1283,31 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   };
 
   if (viewMode !== 'physical') {
+    const unassignedDataModels = filteredConceptualData.dataModels.filter(model => !model.projectId);
     const unassignedEntities = filteredConceptualData.entities.filter(e => !e.dataModelId);
 
     return (
       <div style={{ flex: 1, overflowY: 'auto', paddingTop: '8px', paddingBottom: '80px' }}>
-        {dataModels.length === 0 && entities.length === 0 && entityGroups.length === 0 && (
+        {projects.length === 0 && dataModels.length === 0 && entities.length === 0 && entityGroups.length === 0 && (
           <div style={{ 
             padding: '32px 16px', 
             textAlign: 'center', 
             color: isDark ? '#8b949e' : '#9ca3af' 
           }}>
             <Layers size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-            <div style={{ fontSize: '13px' }}>No models yet</div>
+            <div style={{ fontSize: '13px' }}>No projects yet</div>
             <div style={{ fontSize: '11px', marginTop: '4px' }}>
-              Click "Insert" to add a data model
+              Click "Insert" to add a project
             </div>
           </div>
         )}
 
-        {searchQuery && filteredConceptualData.dataModels.length === 0 &&
+        {searchQuery && filteredConceptualData.projects.length === 0 &&
+         filteredConceptualData.dataModels.length === 0 &&
          filteredConceptualData.entities.length === 0 && 
          filteredConceptualData.entityGroups.length === 0 && 
          filteredConceptualData.relationships.length === 0 && 
-         (dataModels.length > 0 || entities.length > 0 || entityGroups.length > 0 || relationships.length > 0) && (
+         (projects.length > 0 || dataModels.length > 0 || entities.length > 0 || entityGroups.length > 0 || relationships.length > 0) && (
           <div style={{ 
             padding: '32px 16px', 
             textAlign: 'center', 
@@ -1265,61 +1317,129 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           </div>
         )}
 
-        {filteredConceptualData.dataModels.map(model => {
-          const modelEntities = filteredConceptualData.entities.filter(e => e.dataModelId === model.id);
-          const modelEntityIds = new Set(modelEntities.map(e => e.id));
-          const modelGroups = filteredConceptualData.entityGroups.filter(g =>
-            g.entityIds.some(entityId => modelEntityIds.has(entityId))
-          );
-          const groupedEntityIds = new Set(modelGroups.flatMap(g => g.entityIds));
-          const ungroupedModelEntities = modelEntities.filter(e => !groupedEntityIds.has(e.id));
-          const isModelExpanded = expandedDataModels.has(model.id);
+        {filteredConceptualData.projects.map(project => {
+          const projectDataModels = filteredConceptualData.dataModels.filter(model => model.projectId === project.id);
+          const isProjectExpanded = expandedProjects.has(project.id);
 
           return (
-            <div key={model.id}>
+            <div key={project.id}>
               <TreeItem
-                icon={<Layers size={12} />}
-                label={model.name}
-                secondaryLabel={model.description}
-                selected={selectedId === model.id}
+                icon={<FolderOpen size={12} />}
+                label={project.name}
+                selected={selectedId === project.id || currentProjectId === project.id}
                 onClick={() => {
                   setRenamingItem(null);
-                  setSelected(model.id);
-                  if (!isModelExpanded) toggleDataModelExpand(model.id);
-                  focusModelOnCanvas(model.id);
+                  setCurrentProject(project.id);
+                  if (!isProjectExpanded) toggleProjectExpand(project.id);
                 }}
-                onExpand={() => toggleDataModelExpand(model.id)}
-                expanded={isModelExpanded}
-                hasChildren={modelEntities.length > 0}
-                badge={modelEntities.length}
+                onExpand={() => toggleProjectExpand(project.id)}
+                expanded={isProjectExpanded}
+                hasChildren={projectDataModels.length > 0}
+                badge={projectDataModels.length}
               />
 
-              {isModelExpanded && modelGroups.map(group => {
-                const isExpanded = expandedGroups.has(group.id);
-                const groupEntities = group.entityIds
-                  .map(id => modelEntities.find(e => e.id === id))
-                  .filter(Boolean) as typeof entities;
+              {isProjectExpanded && projectDataModels.map(model => {
+                const modelEntities = filteredConceptualData.entities.filter(e => e.dataModelId === model.id);
+                const modelEntityIds = new Set(modelEntities.map(e => e.id));
+                const modelGroups = filteredConceptualData.entityGroups.filter(g =>
+                  g.entityIds.some(entityId => modelEntityIds.has(entityId))
+                );
+                const groupedEntityIds = new Set(modelGroups.flatMap(g => g.entityIds));
+                const ungroupedModelEntities = modelEntities.filter(e => !groupedEntityIds.has(e.id));
+                const isModelExpanded = expandedDataModels.has(model.id);
 
                 return (
-                  <div key={group.id}>
+                  <div key={model.id}>
                     <TreeItem
-                      icon={<FolderOpen size={12} />}
-                      label={group.name}
-                      selected={selectedId === group.id}
+                      icon={<Layers size={12} />}
+                      label={model.name}
+                      secondaryLabel={model.description}
+                      selected={selectedId === model.id}
                       onClick={() => {
                         setRenamingItem(null);
-                        setSelected(group.id);
-                        if (!isExpanded) toggleGroupExpand(group.id);
-                        focusGroupOnCanvas(group.id);
+                        setCurrentProject(project.id);
+                        setSelected(model.id);
+                        if (!isModelExpanded) toggleDataModelExpand(model.id);
+                        focusModelOnCanvas(model.id);
                       }}
-                      onExpand={() => toggleGroupExpand(group.id)}
-                      expanded={isExpanded}
-                      hasChildren={groupEntities.length > 0}
+                      onExpand={() => toggleDataModelExpand(model.id)}
+                      expanded={isModelExpanded}
+                      hasChildren={modelEntities.length > 0}
                       level={1}
-                      badge={groupEntities.length}
+                      badge={modelEntities.length}
                     />
 
-                    {isExpanded && groupEntities.map(entity => {
+                    {isModelExpanded && modelGroups.map(group => {
+                      const isExpanded = expandedGroups.has(group.id);
+                      const groupEntities = group.entityIds
+                        .map(id => modelEntities.find(e => e.id === id))
+                        .filter(Boolean) as typeof entities;
+
+                      return (
+                        <div key={group.id}>
+                          <TreeItem
+                            icon={<FolderOpen size={12} />}
+                            label={group.name}
+                            selected={selectedId === group.id}
+                            onClick={() => {
+                              setRenamingItem(null);
+                              setSelected(group.id);
+                              if (!isExpanded) toggleGroupExpand(group.id);
+                              focusGroupOnCanvas(group.id);
+                            }}
+                            onExpand={() => toggleGroupExpand(group.id)}
+                            expanded={isExpanded}
+                            hasChildren={groupEntities.length > 0}
+                            level={2}
+                            badge={groupEntities.length}
+                          />
+
+                          {isExpanded && groupEntities.map(entity => {
+                            const entityTables = getTablesForEntity(entity.id);
+                            const isEntityExpanded = expandedEntities.has(entity.id);
+
+                            return (
+                              <div key={entity.id}>
+                                <TreeItem
+                                  icon={<Box size={12} />}
+                                  label={entity.name}
+                                  secondaryLabel={entity.description}
+                                  selected={selectedId === entity.id}
+                                  onClick={() => {
+                                    setRenamingItem(null);
+                                    setSelected(entity.id);
+                                    if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                                    focusEntityOnCanvas(entity.id);
+                                  }}
+                                  onExpand={() => toggleEntityExpand(entity.id)}
+                                  onShowInDiagram={() => toggleEntityVisibility(entity.id)}
+                                  isHidden={hiddenEntityIds.has(entity.id)}
+                                  expanded={isEntityExpanded}
+                                  hasChildren={entityTables.length > 0}
+                                  level={3}
+                                  badge={entityTables.length > 0 ? entityTables.length : undefined}
+                                />
+
+                                {isEntityExpanded && entityTables.map(table => (
+                                  <TreeItem
+                                    key={table.id}
+                                    icon={<Table size={12} />}
+                                    label={table.name}
+                                    selected={selectedId === table.id}
+                                    onClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
+                                    onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
+                                    onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
+                                    level={4}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+
+                    {isModelExpanded && ungroupedModelEntities.map(entity => {
                       const entityTables = getTablesForEntity(entity.id);
                       const isEntityExpanded = expandedEntities.has(entity.id);
 
@@ -1352,8 +1472,8 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                               label={table.name}
                               selected={selectedId === table.id}
                               onClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
-                              onDoubleClick={() => { setViewMode('physical'); setSelected(table.id); }}
-                              onNavigate={() => { setViewMode('physical'); setSelected(table.id); }}
+                              onDoubleClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
+                              onNavigate={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
                               level={3}
                             />
                           ))}
@@ -1363,51 +1483,49 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
                   </div>
                 );
               })}
-
-              {isModelExpanded && ungroupedModelEntities.map(entity => {
-                const entityTables = getTablesForEntity(entity.id);
-                const isEntityExpanded = expandedEntities.has(entity.id);
-
-                return (
-                  <div key={entity.id}>
-                    <TreeItem
-                      icon={<Box size={12} />}
-                      label={entity.name}
-                      secondaryLabel={entity.description}
-                      selected={selectedId === entity.id}
-                      onClick={() => {
-                        setRenamingItem(null);
-                        setSelected(entity.id);
-                        if (!isEntityExpanded) toggleEntityExpand(entity.id);
-                        focusEntityOnCanvas(entity.id);
-                      }}
-                      onExpand={() => toggleEntityExpand(entity.id)}
-                      onShowInDiagram={() => toggleEntityVisibility(entity.id)}
-                      isHidden={hiddenEntityIds.has(entity.id)}
-                      expanded={isEntityExpanded}
-                      hasChildren={entityTables.length > 0}
-                      level={1}
-                      badge={entityTables.length > 0 ? entityTables.length : undefined}
-                    />
-
-                    {isEntityExpanded && entityTables.map(table => (
-                      <TreeItem
-                        key={table.id}
-                        icon={<Table size={12} />}
-                        label={table.name}
-                        selected={selectedId === table.id}
-                        onClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
-                        onDoubleClick={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
-                        onNavigate={() => { setRenamingItem(null); setViewMode('physical'); setSelected(table.id); }}
-                        level={2}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
             </div>
           );
         })}
+
+        {unassignedDataModels.length > 0 && (
+          <>
+            <div style={{
+              padding: '8px 20px 4px',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: isDark ? '#8b949e' : '#9ca3af',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}>
+              Unassigned Data Models
+            </div>
+            {unassignedDataModels.map(model => {
+              const modelEntities = filteredConceptualData.entities.filter(e => e.dataModelId === model.id);
+              const isModelExpanded = expandedDataModels.has(model.id);
+
+              return (
+                <div key={model.id}>
+                  <TreeItem
+                    icon={<Layers size={12} />}
+                    label={model.name}
+                    secondaryLabel={model.description}
+                    selected={selectedId === model.id}
+                    onClick={() => {
+                      setRenamingItem(null);
+                      setSelected(model.id);
+                      if (!isModelExpanded) toggleDataModelExpand(model.id);
+                      focusModelOnCanvas(model.id);
+                    }}
+                    onExpand={() => toggleDataModelExpand(model.id)}
+                    expanded={isModelExpanded}
+                    hasChildren={modelEntities.length > 0}
+                    badge={modelEntities.length}
+                  />
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {unassignedEntities.length > 0 && (
           <>

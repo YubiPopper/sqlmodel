@@ -134,6 +134,7 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
   const setShowAddTableDialog = useModelStore(state => state.setShowAddTableDialog);
   
   const addEntity = useModelStore(state => state.addEntity);
+  const addProject = useModelStore(state => state.addProject);
   const addDataModel = useModelStore(state => state.addDataModel);
   const addEntityGroup = useModelStore(state => state.addEntityGroup);
   const clearModel = useModelStore(state => state.clearModel);
@@ -162,6 +163,8 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
     
     // Save complete layout state
     const data = { 
+      projects: state.projects,
+      currentProjectId: state.currentProjectId,
       conceptual, 
       physical, 
       databaseDescriptions: state.databaseDescriptions,
@@ -327,7 +330,8 @@ export const NavbarActions: React.FC<NavbarActionsProps> = ({ onActionComplete, 
 
   const insertItems: DropdownItem[] = viewMode !== 'physical'
     ? [
-        { label: 'Add Data Model', icon: <FolderPlus size={14} />, onClick: () => { addDataModel(); onActionComplete?.(); } },
+        { label: 'Add Project', icon: <FolderPlus size={14} />, onClick: () => { addProject(); onActionComplete?.(); } },
+        { label: 'Add Data Model', icon: <Layers size={14} />, onClick: () => { const state = useModelStore.getState(); addDataModel(state.currentProjectId || state.projects[0]?.id); onActionComplete?.(); } },
         { label: 'Add Entity', icon: <Plus size={14} />, onClick: () => { addEntity(); onActionComplete?.(); } },
         { label: 'Add Group', icon: <Group size={14} />, onClick: () => { addEntityGroup([], 'New Group'); onActionComplete?.(); } },
       ]

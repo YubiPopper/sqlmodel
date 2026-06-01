@@ -1,21 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { Layers, MoreVertical, Trash2, Plus, Box, Table } from 'lucide-react';
+import { FolderOpen, MoreVertical, Trash2, Plus, Layers } from 'lucide-react';
 import { useModelStore } from '../../../store/useModelStore';
 import { InspectorHeader } from './InspectorHeader';
-import { FormField, TextInput, SelectInput } from './FormComponents';
-import type { DataModel } from '../../../model/schemas';
+import { FormField, TextInput } from './FormComponents';
+import type { Project } from '../../../model/schemas';
 
-interface DataModelInspectorProps {
-  dataModel: DataModel;
+interface ProjectInspectorProps {
+  project: Project;
 }
 
-export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataModel }) => {
+export const ProjectInspector: React.FC<ProjectInspectorProps> = ({ project }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const updateDataModel = useModelStore(state => state.updateDataModel);
-  const deleteDataModel = useModelStore(state => state.deleteDataModel);
-  const addEntity = useModelStore(state => state.addEntity);
+  const updateProject = useModelStore(state => state.updateProject);
+  const deleteProject = useModelStore(state => state.deleteProject);
+  const addDataModel = useModelStore(state => state.addDataModel);
   const setCurrentProject = useModelStore(state => state.setCurrentProject);
-  const projects = useModelStore(state => state.projects);
+  const dataModels = useModelStore(state => state.dataModels);
   const entities = useModelStore(state => state.entities);
   const tables = useModelStore(state => state.tables);
   const colorMode = useModelStore(state => state.colorMode);
@@ -23,19 +23,23 @@ export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataMode
   const isDark = colorMode === 'dark';
 
   const stats = useMemo(() => {
-    const modelEntities = entities.filter(entity => entity.dataModelId === dataModel.id);
+    const projectModels = dataModels.filter(model => model.projectId === project.id);
+    const modelIds = new Set(projectModels.map(model => model.id));
+    const modelEntities = entities.filter(entity => entity.dataModelId && modelIds.has(entity.dataModelId));
     const entityIds = new Set(modelEntities.map(entity => entity.id));
     const modelTables = tables.filter(table => table.entityId && entityIds.has(table.entityId));
+
     return {
+      modelCount: projectModels.length,
       entityCount: modelEntities.length,
       tableCount: modelTables.length,
     };
-  }, [dataModel.id, entities, tables]);
+  }, [project.id, dataModels, entities, tables]);
 
   const handleDelete = () => {
     setShowMenu(false);
-    if (confirm(`Delete data model "${dataModel.name}"? Entities and tables will be kept and moved to Unassigned.`)) {
-      deleteDataModel(dataModel.id);
+    if (confirm(`Delete project "${project.name}" and all of its data models? This cannot be undone.`)) {
+      deleteProject(project.id);
     }
   };
 
@@ -102,7 +106,7 @@ export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataMode
               }}
             >
               <Trash2 size={14} />
-              Delete Data Model
+              Delete Project
             </button>
           </div>
         </>
@@ -113,44 +117,18 @@ export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataMode
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <InspectorHeader
-        icon={<Layers size={18} />}
-        title="Data Model"
-        subtitle={dataModel.name}
+        icon={<FolderOpen size={18} />}
+        title="Project"
+        subtitle={project.name}
         actions={<ActionsMenu />}
       />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px' }}>
         <FormField label="Name">
           <TextInput
-            value={dataModel.name}
-            onChange={(value) => updateDataModel(dataModel.id, { name: value })}
-            placeholder="Data model name"
-          />
-        </FormField>
-
-        <FormField label="Project">
-          <SelectInput
-            value={dataModel.projectId || ''}
-            onChange={(value) => {
-              const nextProjectId = value || undefined;
-              updateDataModel(dataModel.id, { projectId: nextProjectId });
-              if (nextProjectId) {
-                setCurrentProject(nextProjectId);
-              }
-            }}
-            options={[
-              { value: '', label: 'Unassigned' },
-              ...projects.map((project) => ({ value: project.id, label: project.name })),
-            ]}
-          />
-        </FormField>
-
-        <FormField label="Description">
-          <TextInput
-            value={dataModel.description || ''}
-            onChange={(value) => updateDataModel(dataModel.id, { description: value })}
-            placeholder="Describe this data model..."
-            multiline
+            value={project.name}
+            onChange={(value) => updateProject(project.id, { name: value })}
+            placeholder="Project name"
           />
         </FormField>
 
@@ -162,27 +140,29 @@ export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataMode
             border: `1px solid ${isDark ? '#30363d' : '#e5e7eb'}`,
             background: isDark ? '#0d1117' : '#f9fafb',
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: '1fr',
             gap: '8px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: isDark ? '#c9d1d9' : '#374151' }}>
-            <Box size={13} />
-            {stats.entityCount} entities
+            <Layers size={13} />
+            {stats.modelCount} data models
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: isDark ? '#c9d1d9' : '#374151' }}>
-            <Table size={13} />
-            {stats.tableCount} tables
+          <div style={{ fontSize: '12px', color: isDark ? '#8b949e' : '#6b7280' }}>
+            {stats.entityCount} entities, {stats.tableCount} tables
           </div>
         </div>
 
         <button
-          onClick={() => addEntity(dataModel.id)}
+          onClick={() => {
+            setCurrentProject(project.id);
+            addDataModel(project.id);
+          }}
           style={{
             marginTop: '14px',
             width: '100%',
             padding: '10px 12px',
-            background: '#6366f1',
+            background: '#0ea5e9',
             color: '#ffffff',
             border: 'none',
             borderRadius: '8px',
@@ -196,7 +176,7 @@ export const DataModelInspector: React.FC<DataModelInspectorProps> = ({ dataMode
           }}
         >
           <Plus size={14} />
-          Add Entity To This Model
+          Add Data Model To Project
         </button>
       </div>
     </div>
