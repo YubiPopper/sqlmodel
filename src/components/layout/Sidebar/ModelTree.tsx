@@ -199,6 +199,25 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
     if (!query) {
       return { tables, entities };
     }
+
+    const matchingProjects = projects.filter(project =>
+      project.name.toLowerCase().includes(query)
+    );
+    const matchingProjectIds = new Set(matchingProjects.map(project => project.id));
+
+    const matchingDataModelsByName = dataModels.filter(model =>
+      model.name.toLowerCase().includes(query) ||
+      (model.description && model.description.toLowerCase().includes(query))
+    );
+
+    const matchingDataModelsByProject = dataModels.filter(model =>
+      !!model.projectId && matchingProjectIds.has(model.projectId)
+    );
+
+    const matchingDataModelIds = new Set<string>([
+      ...matchingDataModelsByName.map(model => model.id),
+      ...matchingDataModelsByProject.map(model => model.id),
+    ]);
     
     // Filter tables by table name plus namespace name/description.
     const matchingTables = tables.filter(t => 
@@ -218,15 +237,25 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       if (e.name.toLowerCase().includes(query)) {
         matchingEntityIds.add(e.id);
       }
+      if (e.dataModelId && matchingDataModelIds.has(e.dataModelId)) {
+        matchingEntityIds.add(e.id);
+      }
     });
     
     const matchingEntities = entities.filter(e => matchingEntityIds.has(e.id));
+
+    // If a model/project matched, include that model's entity tables in physical results.
+    const matchingEntitySet = new Set(matchingEntities.map(entity => entity.id));
+    const allMatchingTables = tables.filter(table =>
+      matchingTables.some(match => match.id === table.id) ||
+      (table.entityId ? matchingEntitySet.has(table.entityId) : false)
+    );
     
     return { 
-      tables: matchingTables, 
+      tables: allMatchingTables,
       entities: matchingEntities 
     };
-  }, [tables, entities, searchQuery, databaseDescriptions, schemaDescriptions]);
+  }, [tables, entities, projects, dataModels, searchQuery, databaseDescriptions, schemaDescriptions]);
 
   // Group tables by entity
   const entitiesWithTables = useMemo(() => {
@@ -311,6 +340,65 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
   // Auto-expand parent items when a table is selected
   React.useEffect(() => {
     if (!selectedId || viewMode !== 'physical') return;
+
+    const selectedProject = projects.find(project => project.id === selectedId);
+    if (selectedProject) {
+      setExpandedProjects(prev => {
+        if (prev.has(selectedProject.id)) return prev;
+        const next = new Set(prev);
+        next.add(selectedProject.id);
+        return next;
+      });
+      return;
+    }
+
+    const selectedDataModel = dataModels.find(model => model.id === selectedId);
+    if (selectedDataModel) {
+      if (selectedDataModel.projectId) {
+        setExpandedProjects(prev => {
+          if (prev.has(selectedDataModel.projectId!)) return prev;
+          const next = new Set(prev);
+          next.add(selectedDataModel.projectId!);
+          return next;
+        });
+      }
+      setExpandedDataModels(prev => {
+        if (prev.has(selectedDataModel.id)) return prev;
+        const next = new Set(prev);
+        next.add(selectedDataModel.id);
+        return next;
+      });
+      return;
+    }
+
+    const selectedEntity = entities.find(entity => entity.id === selectedId);
+    if (selectedEntity) {
+      setExpandedEntities(prev => {
+        if (prev.has(selectedEntity.id)) return prev;
+        const next = new Set(prev);
+        next.add(selectedEntity.id);
+        return next;
+      });
+
+      if (selectedEntity.dataModelId) {
+        const parentModel = dataModels.find(model => model.id === selectedEntity.dataModelId);
+        if (parentModel?.projectId) {
+          setExpandedProjects(prev => {
+            if (prev.has(parentModel.projectId!)) return prev;
+            const next = new Set(prev);
+            next.add(parentModel.projectId!);
+            return next;
+          });
+        }
+        setExpandedDataModels(prev => {
+          if (prev.has(selectedEntity.dataModelId!)) return prev;
+          const next = new Set(prev);
+          next.add(selectedEntity.dataModelId!);
+          return next;
+        });
+      }
+      return;
+    }
     
     const selectedTable = tables.find(t => t.id === selectedId);
     if (!selectedTable) return;
@@ -324,6 +412,26 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
           next.add(selectedTable.entityId!);
           return next;
         });
+
+        const parentEntity = entities.find(entity => entity.id === selectedTable.entityId);
+        if (parentEntity?.dataModelId) {
+          const parentModel = dataModels.find(model => model.id === parentEntity.dataModelId);
+          if (parentModel?.projectId) {
+            setExpandedProjects(prev => {
+              if (prev.has(parentModel.projectId!)) return prev;
+              const next = new Set(prev);
+              next.add(parentModel.projectId!);
+              return next;
+            });
+          }
+
+          setExpandedDataModels(prev => {
+            if (prev.has(parentEntity.dataModelId!)) return prev;
+            const next = new Set(prev);
+            next.add(parentEntity.dataModelId!);
+            return next;
+          });
+        }
       }
     } else if (physicalHierarchyMode === 'database') {
       // Expand parent database and schema if table is selected
@@ -345,7 +453,7 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
         return next;
       });
     }
-  }, [selectedId, viewMode, physicalHierarchyMode, tables]);
+  }, [selectedId, viewMode, physicalHierarchyMode, projects, dataModels, entities, tables]);
 
   React.useEffect(() => {
     if (viewMode === 'physical') return;
@@ -1653,55 +1761,283 @@ export const ModelTree: React.FC<ModelTreeProps> = ({ searchQuery = '' }) => {
       {/* Entity Hierarchy Mode */}
       {physicalHierarchyMode === 'entity' && (
         <>
-          {/* Entities with their tables */}
-          {entitiesWithTables.map(({ entity, tables: entityTables }) => {
-            const isEntityExpanded = expandedEntities.has(entity.id);
-            
+          {projects.map(project => {
+            const projectDataModels = dataModels.filter(model => model.projectId === project.id);
+            const projectDataModelIds = new Set(projectDataModels.map(model => model.id));
+            const projectEntities = entitiesWithTables.filter(({ entity }) =>
+              !!entity.dataModelId && projectDataModelIds.has(entity.dataModelId)
+            );
+
+            if (projectEntities.length === 0 && projectDataModels.length === 0) {
+              return null;
+            }
+
+            const isProjectExpanded = expandedProjects.has(project.id);
+
             return (
-              <div key={entity.id}>
+              <div key={project.id}>
                 <TreeItem
-                  icon={<Box size={12} />}
-                  label={entity.name}
-                  secondaryLabel={entity.description}
-                  selected={selectedId === entity.id}
-                  onClick={() => { 
+                  icon={<FolderOpen size={12} />}
+                  label={project.name}
+                  selected={selectedId === project.id || currentProjectId === project.id}
+                  onClick={() => {
                     setRenamingItem(null);
-                    setSelected(entity.id); 
-                    if (!isEntityExpanded) toggleEntityExpand(entity.id); 
+                    setCurrentProject(project.id);
+                    setSelected(project.id);
+                    if (!isProjectExpanded) toggleProjectExpand(project.id);
                   }}
-                  onExpand={() => toggleEntityExpand(entity.id)}
-                  onShowInDiagram={() => { setViewMode('physical'); setSelected(entity.id); }}
-                  expanded={isEntityExpanded}
-                  hasChildren={entityTables.length > 0}
-                  badge={entityTables.length}
+                  onExpand={() => toggleProjectExpand(project.id)}
+                  expanded={isProjectExpanded}
+                  hasChildren={projectDataModels.length > 0}
+                  badge={projectEntities.length}
                 />
-                
-                {isEntityExpanded && entityTables.map(table => (
-                  <TreeItem
-                    key={table.id}
-                    icon={<Table size={12} />}
-                    label={table.name}
-                    selected={selectedId === table.id}
-                    onClick={() => { 
-                      setRenamingItem(null); 
-                      setSelected(table.id);
-                      if (viewMode === 'physical' && navigateToNodeCallback) {
-                        navigateToNodeCallback(table.id);
-                      }
-                    }}
-                    onDoubleClick={() => handleRenameStart('table', table.id, table.name)}
-                    onShowInDiagram={() => toggleTableVisibility(table.id)}
-                    isHidden={hiddenTableIds.has(table.id)}
-                    level={1}
-                    badge={table.attributes.length}
-                    isRenaming={renamingItem?.type === 'table' && renamingItem.key === table.id}
-                    renamingValue={renamingItem?.type === 'table' && renamingItem.key === table.id ? renamingItem.value : ''}
-                    onRenamingValueChange={(value) => setRenamingItem(prev => prev ? { ...prev, value } : null)}
-                  />
-                ))}
+
+                {isProjectExpanded && projectDataModels.map(model => {
+                  const modelEntities = entitiesWithTables.filter(({ entity }) => entity.dataModelId === model.id);
+                  const isModelExpanded = expandedDataModels.has(model.id);
+                  const modelTableCount = modelEntities.reduce((acc, item) => acc + item.tables.length, 0);
+
+                  return (
+                    <div key={model.id}>
+                      <TreeItem
+                        icon={<Layers size={12} />}
+                        label={model.name}
+                        secondaryLabel={model.description}
+                        selected={selectedId === model.id}
+                        onClick={() => {
+                          setRenamingItem(null);
+                          setCurrentProject(project.id);
+                          setSelected(model.id);
+                          if (!isModelExpanded) toggleDataModelExpand(model.id);
+                        }}
+                        onExpand={() => toggleDataModelExpand(model.id)}
+                        expanded={isModelExpanded}
+                        hasChildren={modelEntities.length > 0}
+                        level={1}
+                        badge={modelTableCount}
+                      />
+
+                      {isModelExpanded && modelEntities.map(({ entity, tables: entityTables }) => {
+                        const isEntityExpanded = expandedEntities.has(entity.id);
+
+                        return (
+                          <div key={entity.id}>
+                            <TreeItem
+                              icon={<Box size={12} />}
+                              label={entity.name}
+                              secondaryLabel={entity.description}
+                              selected={selectedId === entity.id}
+                              onClick={() => {
+                                setRenamingItem(null);
+                                setSelected(entity.id);
+                                if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                              }}
+                              onExpand={() => toggleEntityExpand(entity.id)}
+                              onShowInDiagram={() => { setViewMode('physical'); setSelected(entity.id); }}
+                              expanded={isEntityExpanded}
+                              hasChildren={entityTables.length > 0}
+                              level={2}
+                              badge={entityTables.length}
+                            />
+
+                            {isEntityExpanded && entityTables.map(table => (
+                              <TreeItem
+                                key={table.id}
+                                icon={<Table size={12} />}
+                                label={table.name}
+                                selected={selectedId === table.id}
+                                onClick={() => {
+                                  setRenamingItem(null);
+                                  setSelected(table.id);
+                                  if (viewMode === 'physical' && navigateToNodeCallback) {
+                                    navigateToNodeCallback(table.id);
+                                  }
+                                }}
+                                onDoubleClick={() => handleRenameStart('table', table.id, table.name)}
+                                onShowInDiagram={() => toggleTableVisibility(table.id)}
+                                isHidden={hiddenTableIds.has(table.id)}
+                                level={3}
+                                badge={table.attributes.length}
+                                isRenaming={renamingItem?.type === 'table' && renamingItem.key === table.id}
+                                renamingValue={renamingItem?.type === 'table' && renamingItem.key === table.id ? renamingItem.value : ''}
+                                onRenamingValueChange={(value) => setRenamingItem(prev => prev ? { ...prev, value } : null)}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
+
+          {(() => {
+            const unassignedProjectModels = dataModels.filter(model => !model.projectId);
+            const unassignedProjectEntities = entitiesWithTables.filter(({ entity }) =>
+              !!entity.dataModelId && unassignedProjectModels.some(model => model.id === entity.dataModelId)
+            );
+
+            if (unassignedProjectModels.length === 0 && unassignedProjectEntities.length === 0) {
+              return null;
+            }
+
+            return (
+              <>
+                <div style={{
+                  padding: '8px 20px 4px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: isDark ? '#8b949e' : '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  Unassigned Data Models
+                </div>
+                {unassignedProjectModels.map(model => {
+                  const modelEntities = entitiesWithTables.filter(({ entity }) => entity.dataModelId === model.id);
+                  const isModelExpanded = expandedDataModels.has(model.id);
+                  const modelTableCount = modelEntities.reduce((acc, item) => acc + item.tables.length, 0);
+
+                  return (
+                    <div key={model.id}>
+                      <TreeItem
+                        icon={<Layers size={12} />}
+                        label={model.name}
+                        secondaryLabel={model.description}
+                        selected={selectedId === model.id}
+                        onClick={() => {
+                          setRenamingItem(null);
+                          setSelected(model.id);
+                          if (!isModelExpanded) toggleDataModelExpand(model.id);
+                        }}
+                        onExpand={() => toggleDataModelExpand(model.id)}
+                        expanded={isModelExpanded}
+                        hasChildren={modelEntities.length > 0}
+                        badge={modelTableCount}
+                      />
+
+                      {isModelExpanded && modelEntities.map(({ entity, tables: entityTables }) => {
+                        const isEntityExpanded = expandedEntities.has(entity.id);
+                        return (
+                          <div key={entity.id}>
+                            <TreeItem
+                              icon={<Box size={12} />}
+                              label={entity.name}
+                              secondaryLabel={entity.description}
+                              selected={selectedId === entity.id}
+                              onClick={() => {
+                                setRenamingItem(null);
+                                setSelected(entity.id);
+                                if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                              }}
+                              onExpand={() => toggleEntityExpand(entity.id)}
+                              expanded={isEntityExpanded}
+                              hasChildren={entityTables.length > 0}
+                              level={1}
+                              badge={entityTables.length}
+                            />
+
+                            {isEntityExpanded && entityTables.map(table => (
+                              <TreeItem
+                                key={table.id}
+                                icon={<Table size={12} />}
+                                label={table.name}
+                                selected={selectedId === table.id}
+                                onClick={() => {
+                                  setRenamingItem(null);
+                                  setSelected(table.id);
+                                  if (viewMode === 'physical' && navigateToNodeCallback) {
+                                    navigateToNodeCallback(table.id);
+                                  }
+                                }}
+                                onDoubleClick={() => handleRenameStart('table', table.id, table.name)}
+                                onShowInDiagram={() => toggleTableVisibility(table.id)}
+                                isHidden={hiddenTableIds.has(table.id)}
+                                level={2}
+                                badge={table.attributes.length}
+                                isRenaming={renamingItem?.type === 'table' && renamingItem.key === table.id}
+                                renamingValue={renamingItem?.type === 'table' && renamingItem.key === table.id ? renamingItem.value : ''}
+                                onRenamingValueChange={(value) => setRenamingItem(prev => prev ? { ...prev, value } : null)}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
+
+          {(() => {
+            const rootEntities = entitiesWithTables.filter(({ entity }) => !entity.dataModelId);
+            if (rootEntities.length === 0) return null;
+
+            return (
+              <>
+                <div style={{
+                  padding: '8px 20px 4px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: isDark ? '#8b949e' : '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  Unassigned Entities
+                </div>
+                {rootEntities.map(({ entity, tables: entityTables }) => {
+                  const isEntityExpanded = expandedEntities.has(entity.id);
+
+                  return (
+                    <div key={entity.id}>
+                      <TreeItem
+                        icon={<Box size={12} />}
+                        label={entity.name}
+                        secondaryLabel={entity.description}
+                        selected={selectedId === entity.id}
+                        onClick={() => {
+                          setRenamingItem(null);
+                          setSelected(entity.id);
+                          if (!isEntityExpanded) toggleEntityExpand(entity.id);
+                        }}
+                        onExpand={() => toggleEntityExpand(entity.id)}
+                        expanded={isEntityExpanded}
+                        hasChildren={entityTables.length > 0}
+                        badge={entityTables.length}
+                      />
+
+                      {isEntityExpanded && entityTables.map(table => (
+                        <TreeItem
+                          key={table.id}
+                          icon={<Table size={12} />}
+                          label={table.name}
+                          selected={selectedId === table.id}
+                          onClick={() => {
+                            setRenamingItem(null);
+                            setSelected(table.id);
+                            if (viewMode === 'physical' && navigateToNodeCallback) {
+                              navigateToNodeCallback(table.id);
+                            }
+                          }}
+                          onDoubleClick={() => handleRenameStart('table', table.id, table.name)}
+                          onShowInDiagram={() => toggleTableVisibility(table.id)}
+                          isHidden={hiddenTableIds.has(table.id)}
+                          level={1}
+                          badge={table.attributes.length}
+                          isRenaming={renamingItem?.type === 'table' && renamingItem.key === table.id}
+                          renamingValue={renamingItem?.type === 'table' && renamingItem.key === table.id ? renamingItem.value : ''}
+                          onRenamingValueChange={(value) => setRenamingItem(prev => prev ? { ...prev, value } : null)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
 
           {/* Orphan tables (no entity) */}
           {orphanTables.length > 0 && (
